@@ -1,5 +1,5 @@
 {
-  "generation": 1,
+  "generation": 2,
   "stack": [
     {
       "id": "BG-001",
@@ -12,23 +12,24 @@
     {
       "id": "BG-002",
       "branch": "bg-002",
-      "state": "NEXT",
-      "dependsOn": ["BG-001"],
-      "notes": "Domain model: Money/Quantity/IDs/trips/sales/payments/returns/adjustments/counts/closes/audit events, scenario builders, two-peddlers tool. Brief drafted at queue/bg-002-brief.md."
+      "state": "MERGED",
+      "mergeCommit": "1e827599af70d4e7af5de78ee4c13dabb8937f2e",
+      "mergedAt": "2026-08-29T02:44:07+08:00",
+      "notes": "Domain model + in-memory ledger + two-peddlers scenario + tools command. Two audit rounds: 4 majors + 6 minors fixed (clone-atomic append, VerifyCrossChecks, signed variance, trip cash per fund), 43/43, foundation PASS on merged main."
     },
     {
       "id": "BG-004",
       "branch": "bg-004",
-      "state": "AFTER-BG-002",
+      "state": "NEXT",
       "dependsOn": ["BG-001"],
-      "notes": "WPF design system + shell navigation; interaction-changing, stop at merge-ready for operator review."
+      "notes": "WPF design system + shell navigation; interaction-changing, stop at merge-ready for operator review. Brief at queue/bg-004-brief.md. Architect phase in flight."
     },
     {
       "id": "BG-003",
       "branch": "bg-003",
-      "state": "AFTER-BG-002",
+      "state": "NEXT",
       "dependsOn": ["BG-002"],
-      "notes": "Inventory service + movement ledger append path."
+      "notes": "Persist the ledger and atomic operations (SQLite behind ILedgerStore, idempotency, 10 live lanes, perf P95 500ms). NOT review-gated. Brief at queue/bg-003-brief.md. Architect phase in flight."
     },
     {
       "id": "BG-005",
@@ -38,5 +39,5 @@
       "notes": "Auth + audit; carries deferred audit-logging findings from BG-001 audit."
     }
   ],
-  "note": "Frontier recomputed after BG-001 operator merge. Remote: light691/bentaGo, main = 716c95f."
+  "note": "Frontier recomputed after BG-002 operator-delegated merge. Remote: light691/bentaGo, main = 1e82759."
 }
