@@ -19,5 +19,16 @@ public sealed class ScreenRegistry
         new ScreenRegistration(ScreenKeys.Reconciliation, typeof(BentaGo.App.Features.Reconciliation.ReconciliationViewModel), Ui.AutomationIds.ReconciliationActualCashBox),
     ];
 
-    public IReadOnlyList<ScreenRegistration> Registrations { get; } = All;
+    public ScreenRegistry()
+        : this(All)
+    {
+    }
+
+    /// <summary>Test seam: an extended registry for eviction-policy machinery tests.</summary>
+    public ScreenRegistry(IReadOnlyList<ScreenRegistration> registrations)
+    {
+        Registrations = registrations;
+    }
+
+    public IReadOnlyList<ScreenRegistration> Registrations { get; }
 }

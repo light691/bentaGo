@@ -38,7 +38,7 @@ public sealed class DialogService : IDialogService
             string? focusedName = FocusCoordinator.CurrentFocusedElementName();
 
             var window = new DialogHost { DataContext = viewModel };
-            if (System.Windows.Application.Current?.MainWindow is { } owner)
+            if (System.Windows.Application.Current?.MainWindow is { } owner && owner != window && owner.IsVisible)
             {
                 window.Owner = owner;
             }
