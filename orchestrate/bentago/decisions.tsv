@@ -5,3 +5,4 @@ ts	what	why	evidence	result
 2026-08-29T00:00Z	Default branch renamed master to main	Plan requires main	git branch -m main	Done
 2026-08-29T00:00Z	Remote deferred until operator names destination	Plan: configure remote only after operator names it	No remote configured	Open gate
 2026-08-29T00:00Z	Orchestrate store moved to plan layout (gates.md, frontier.json)	Plan defines the store	Files present	Done
+2026-08-29T00:50Z	pilot	BG-001 first worker stood down as silent (45 min, no output)	unknown failure mode; fresh respawn with consolidated scope is cheaper than waiting	agent 6837cd4e, only side effect branch bg-001	replaced
