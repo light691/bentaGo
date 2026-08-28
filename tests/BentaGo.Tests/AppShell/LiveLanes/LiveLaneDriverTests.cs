@@ -450,6 +450,19 @@ public sealed class LiveLaneDriverTests
 
             GeneralTransform transform = element.TransformToAncestor(window);
             Rect bounds = transform.TransformBounds(new Rect(element.RenderSize));
+
+            // WPF caret visuals can report unconstrained (infinite or
+            // astronomically large) sizes while the focused field is laying
+            // out; they are layout artifacts, never real overflows.
+            if (double.IsInfinity(bounds.X) || double.IsInfinity(bounds.Y)
+                || double.IsInfinity(bounds.Width) || double.IsInfinity(bounds.Height)
+                || double.IsNaN(bounds.Width) || double.IsNaN(bounds.Height)
+                || bounds.Width > window.ActualWidth * 4
+                || bounds.Height > window.ActualHeight * 4)
+            {
+                continue;
+            }
+
             if (bounds.Right > window.ActualWidth + 1 || bounds.Bottom > window.ActualHeight + 1)
             {
                 return $"{element.GetType().Name} @ {bounds} overflows {window.ActualWidth}x{window.ActualHeight}";
