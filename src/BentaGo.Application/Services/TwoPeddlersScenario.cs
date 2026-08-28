@@ -56,7 +56,7 @@ public static class TwoPeddlersScenario
         var tripAlice = new TripId(ids.Next("trip-alice"));
         var tripBob = new TripId(ids.Next("trip-bob"));
 
-        var memory = (InMemoryLedgerStore)store;
+        var memory = store;
 
         // Trips.
         memory.RegisterTrip(new Trip(tripAlice, peddlerAlice, routeAlice, FixedUtc, userId));
@@ -169,7 +169,12 @@ public static class TwoPeddlersScenario
         return Render(memory);
     }
 
-    private static ScenarioReport Render(InMemoryLedgerStore store)
+    /// <summary>
+    /// Renders whatever the store currently holds: the ordered movement
+    /// stream, audits, and balances. Used by the persisted mode to render a
+    /// reopened/rebuild store WITHOUT re-running the day (BG-003 lanes 6/10).
+    /// </summary>
+    public static ScenarioReport Render(ILedgerStore store)
     {
         // Money columns are formatted invariant (comma-decimal hosts print the
         // same golden), and the clock is shown in Asia/Manila per the display
@@ -209,7 +214,7 @@ public static class TwoPeddlersScenario
     private static string Fmt(Money money) =>
         money.ToPesos().ToString("0.00", CultureInfo.InvariantCulture);
 
-    private static void OpenStock(InMemoryLedgerStore store, ScenarioIdSource ids, string number, ProductId product, string name, int qty, LocationId storeLoc, UserId actor, DateTimeOffset when)
+    private static void OpenStock(ILedgerStore store, ScenarioIdSource ids, string number, ProductId product, string name, int qty, LocationId storeLoc, UserId actor, DateTimeOffset when)
     {
         var loadId = new LoadId(ids.Next($"opening-{number}"));
         store.RegisterLoad(new StockLoad(loadId, number, default, Array.Empty<StockLoadLine>(), actor, when));
@@ -217,7 +222,7 @@ public static class TwoPeddlersScenario
         store.Append(new[] { Moves.OpeningStock(0, when, actor, new LoadRef(loadId), product, storeLoc, Quantity.Of(qty)) });
     }
 
-    private static void LoadOut(InMemoryLedgerStore store, ScenarioIdSource ids, string number, TripId trip, LocationId from, LocationId to, ProductId product, string name, int qty, UserId actor, DateTimeOffset when)
+    private static void LoadOut(ILedgerStore store, ScenarioIdSource ids, string number, TripId trip, LocationId from, LocationId to, ProductId product, string name, int qty, UserId actor, DateTimeOffset when)
     {
         var loadId = new LoadId(ids.Next($"load-{number}"));
         var draft = LoadBuilder.Build(store.Context, new LoadCommand(
@@ -228,7 +233,7 @@ public static class TwoPeddlersScenario
         store.Append(draft.Value.Movements);
     }
 
-    private static Sale SaleOf(InMemoryLedgerStore store, ScenarioIdSource ids, string receipt, TripId trip, PeddlerId peddler, LocationId location, UserId actor, DateTimeOffset when, NewSaleLine[] lines, NewPaymentLine[] payments)
+    private static Sale SaleOf(ILedgerStore store, ScenarioIdSource ids, string receipt, TripId trip, PeddlerId peddler, LocationId location, UserId actor, DateTimeOffset when, NewSaleLine[] lines, NewPaymentLine[] payments)
     {
         var saleId = new SaleId(ids.Next($"sale-{receipt}"));
         var draft = SaleBuilder.Build(store.Context, new NewSaleCommand(saleId, trip, receipt, actor, when, lines, payments));
@@ -246,7 +251,7 @@ public static class TwoPeddlersScenario
             ? new NewPaymentLine(new PaymentLineId(ids.Next($"pay-{method}-{amount.Centavos}")), method, reference, amount, amount, Money.Zero)
             : new NewPaymentLine(new PaymentLineId(ids.Next($"pay-{method}-{amount.Centavos}")), method, reference, amount, Money.Zero, Money.Zero);
 
-    private static IEnumerable<(ProductId, LocationId)> StoreCells(InMemoryLedgerStore store)
+    private static IEnumerable<(ProductId, LocationId)> StoreCells(ILedgerStore store)
     {
         var seen = new HashSet<string>();
         foreach (Movement m in store.Movements)

@@ -19,3 +19,11 @@ public readonly record struct CountId(Guid Value);
 public readonly record struct CloseId(Guid Value);
 public readonly record struct TransferId(Guid Value);
 public readonly record struct PaymentLineId(Guid Value);
+
+/// <summary>
+/// Client-supplied idempotency key for a checkout (BG-003 D1): the same key
+/// re-submitted returns the SAME receipt reference and creates ONE sale. A
+/// branded Guid so a checkout key can never be passed where a SaleId or
+/// PaymentLineId is expected.
+/// </summary>
+public readonly record struct CheckoutKey(Guid Value);

@@ -15,11 +15,16 @@ public sealed class RestoreService : IRestoreService
 {
     private readonly IDataPathProvider _paths;
     private readonly IDbContextFactory<BentaGoDbContext> _factory;
+    private readonly Func<Task>? _onPreRestore;
 
-    public RestoreService(IDataPathProvider paths, IDbContextFactory<BentaGoDbContext> factory)
+    public RestoreService(
+        IDataPathProvider paths,
+        IDbContextFactory<BentaGoDbContext> factory,
+        Func<Task>? onPreRestore = null)
     {
         _paths = paths;
         _factory = factory;
+        _onPreRestore = onPreRestore;
     }
 
     public async Task<RestoreReceipt> RestoreAsync(string backupPath, CancellationToken cancellationToken = default)
@@ -48,10 +53,16 @@ public sealed class RestoreService : IRestoreService
                 $"does not match active database migration '{currentVersion}'; active database left unchanged");
         }
 
-        // (b) Move the active database (and any stale journal companions)
-        // aside, then put the backup in place. The whole window is inside
-        // the rollback try: a hard failure at any point restores the
-        // pre-restore files.
+        // (b) Close the long-lived ledger connection so the -wal/-shm
+        // companions can be moved (BG-003 R1), then move the active database
+        // (and any stale journal companions) aside, then put the backup in
+        // place. The whole window is inside the rollback try: a hard failure
+        // at any point restores the pre-restore files.
+        if (_onPreRestore is not null)
+        {
+            await _onPreRestore();
+        }
+
         string walPath = dbPath + "-wal";
         string shmPath = dbPath + "-shm";
         string preRestoreWalPath = preRestorePath + "-wal";

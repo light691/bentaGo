@@ -8,8 +8,15 @@ namespace BentaGo.Application.Services;
 
 /// <summary>
 /// The BG-002 in-memory ledger store: the test/scenario double that the
-/// SQLite store will replace behind <see cref="ILedgerStore"/>. Single
-/// writer, monotonic sequences in batch order, fold advanced incrementally.
+/// SQLite store replaces behind <see cref="ILedgerStore"/>. Single writer,
+/// monotonic sequences in batch order, fold advanced incrementally.
+///
+/// Document registry model (BG-003): <see cref="RegisterSale"/> etc. stage
+/// into an open-attempt set, <see cref="Bind"/> snapshots committed + staged
+/// into the fold, and <see cref="Append(AppendBatch)"/> either commits the
+/// staged documents (success) or clears them (failure) — a failed attempt's
+/// documents never leak into a later bound snapshot (D4/R6). Trips are
+/// movement-less and commit immediately (D5 asymmetry).
 /// </summary>
 public sealed class InMemoryLedgerStore : ILedgerStore
 {
@@ -20,6 +27,16 @@ public sealed class InMemoryLedgerStore : ILedgerStore
     private readonly List<StockLoad> _loads = new();
     private readonly List<SaleVoid> _voids = new();
     private readonly List<AuditEvent> _audits = new();
+    private readonly Dictionary<string, string> _idempotency = new();
+
+    // Open-attempt staging: documents registered since the last Bind/Append.
+    private readonly List<Sale> _stagedSales = new();
+    private readonly List<Return> _stagedReturns = new();
+    private readonly List<StockLoad> _stagedLoads = new();
+    private readonly List<SaleVoid> _stagedVoids = new();
+    private readonly List<Adjustment> _stagedAdjustments = new();
+    private readonly List<PhysicalCount> _stagedCounts = new();
+    private readonly List<DailyClose> _stagedCloses = new();
 
     public InMemoryLedgerStore()
     {
@@ -37,44 +54,64 @@ public sealed class InMemoryLedgerStore : ILedgerStore
 
     public void RegisterTrip(Trip trip) => _trips.Add(trip);
 
-    public void RegisterSale(Sale sale) => _sales.Add(sale);
+    public void RegisterSale(Sale sale) => _stagedSales.Add(sale);
 
-    public void RegisterReturn(Return @return) => _returns.Add(@return);
+    public void RegisterReturn(Return @return) => _stagedReturns.Add(@return);
 
-    public void RegisterLoad(StockLoad load) => _loads.Add(load);
+    public void RegisterLoad(StockLoad load) => _stagedLoads.Add(load);
 
-    public void RegisterVoid(SaleVoid @void) => _voids.Add(@void);
+    public void RegisterVoid(SaleVoid @void) => _stagedVoids.Add(@void);
+
+    public void RegisterAdjustment(Adjustment adjustment) => _stagedAdjustments.Add(adjustment);
+
+    public void RegisterCount(PhysicalCount count) => _stagedCounts.Add(count);
+
+    public void RegisterClose(DailyClose @close) => _stagedCloses.Add(@close);
 
     public void Bind()
     {
-        State.BindDocuments(_trips, _sales, _returns, _loads, _voids);
-        Context = NewContext();
+        IReadOnlyList<Sale> sales = Bound(_sales, _stagedSales);
+        IReadOnlyList<Return> returns = Bound(_returns, _stagedReturns);
+        IReadOnlyList<StockLoad> loads = Bound(_loads, _stagedLoads);
+        IReadOnlyList<SaleVoid> voids = Bound(_voids, _stagedVoids);
+
+        State.BindDocuments(_trips, sales, returns, loads, voids);
+        Context = new LedgerContext(State, _trips.ToList(), sales, returns, loads, voids);
     }
 
-    public Result<AppendReceipt> Append(IReadOnlyList<Movement> movements)
+    public Result<AppendOutcome> Append(AppendBatch batch)
     {
-        if (movements.Count == 0)
+        // Duplicate idempotency key: roll back (commit nothing this call) and
+        // replay the first commit's payload — never an error (D1).
+        if (batch.Idempotency is { } mapping && _idempotency.TryGetValue(mapping.Key, out string? storedPayload))
         {
-            return Result<AppendReceipt>.Fail(new DomainError("EMPTY_APPEND", "nothing to append"));
+            return Result<AppendOutcome>.Ok(new AppendOutcome(null, Replayed: true, ReplayedPayload: storedPayload));
+        }
+
+        if (batch.Movements.Count == 0)
+        {
+            return Result<AppendOutcome>.Fail(new DomainError("EMPTY_APPEND", "nothing to append"));
         }
 
         long first = State.LastSequence + 1;
         long sequence = first;
-        var staged = new List<Movement>(movements.Count);
+        var staged = new List<Movement>(batch.Movements.Count);
 
         // Validate-and-apply off to the side, sequentially: movements that
         // are individually legal against the pre-batch state can still
         // interact (two lines consuming the same stock cell), so each one is
         // validated against the state the batch has already produced. On any
-        // failure the clone is discarded and nothing is committed.
+        // failure the clone is discarded, the open attempt is cleared, and
+        // nothing is committed.
         LedgerState next = State.Clone();
-        foreach (Movement movement in movements)
+        foreach (Movement movement in batch.Movements)
         {
             Movement sequenced = movement with { Sequence = sequence };
             DomainError? violation = next.ApplyCommitted(sequenced);
             if (violation is not null)
             {
-                return Result<AppendReceipt>.Fail(violation);
+                ClearOpenAttempt();
+                return Result<AppendOutcome>.Fail(violation);
             }
 
             staged.Add(sequenced);
@@ -85,21 +122,91 @@ public sealed class InMemoryLedgerStore : ILedgerStore
         // documents (duplicated receipt, mutated amount) must never commit.
         try
         {
-            next.VerifyCrossChecks(_sales);
+            next.VerifyCrossChecks(_sales.Concat(_stagedSales).ToList());
         }
         catch (LedgerIntegrityException ex)
         {
-            return Result<AppendReceipt>.Fail(new DomainError("INTEGRITY", ex.Message));
+            ClearOpenAttempt();
+            return Result<AppendOutcome>.Fail(new DomainError("INTEGRITY", ex.Message));
         }
 
+        // Commit: the fold, the movements, the audits, the idempotency
+        // mapping, and the bound documents — all-or-nothing.
         State = next;
         _movements.AddRange(staged);
+        if (batch.Audits is { Count: > 0 } audits)
+        {
+            _audits.AddRange(audits);
+        }
+
+        if (batch.Idempotency is { } idem)
+        {
+            _idempotency[idem.Key] = idem.Payload;
+        }
+
+        CommitStaged();
         Context = NewContext();
-        return Result<AppendReceipt>.Ok(new AppendReceipt(first, sequence - 1));
+        return Result<AppendOutcome>.Ok(new AppendOutcome(new AppendReceipt(first, sequence - 1), Replayed: false, ReplayedPayload: null));
     }
+
+    public Result<AppendReceipt> Append(IReadOnlyList<Movement> movements) =>
+        Append(new AppendBatch(movements)).Map(outcome => outcome.Receipt!);
 
     public void RecordAudit(AuditEvent audit) => _audits.Add(audit);
 
+    public Result<CheckoutReference?> FindCheckout(string idempotencyKey)
+    {
+        if (!_idempotency.TryGetValue(idempotencyKey, out string? payload))
+        {
+            return Result<CheckoutReference?>.Ok(null);
+        }
+
+        try
+        {
+            return Result<CheckoutReference?>.Ok(CheckoutReference.FromPayload(payload));
+        }
+        catch (InvalidOperationException)
+        {
+            return Result<CheckoutReference?>.Fail(new DomainError(
+                "LEDGER_CORRUPT", $"stored idempotency payload for key '{idempotencyKey}' is not a checkout reference"));
+        }
+    }
+
+    public Task<RebuildReceipt> RebuildAsync(CancellationToken ct = default)
+    {
+        LedgerState rebuilt = LedgerState.Fold(
+            _movements, _trips, _sales, _returns, _loads, _voids);
+        State = rebuilt;
+        Context = NewContext();
+        return Task.FromResult(new RebuildReceipt(
+            rebuilt.LastSequence,
+            _movements.Count,
+            _trips.Count + _sales.Count + _returns.Count + _loads.Count + _voids.Count));
+    }
+
     private LedgerContext NewContext() =>
-        new(State, _trips, _sales, _returns, _loads, _voids);
+        new(State, _trips.ToList(), _sales.ToList(), _returns.ToList(), _loads.ToList(), _voids.ToList());
+
+    private static IReadOnlyList<T> Bound<T>(List<T> committed, List<T> staged) =>
+        committed.Concat(staged).ToList();
+
+    private void CommitStaged()
+    {
+        _sales.AddRange(_stagedSales);
+        _returns.AddRange(_stagedReturns);
+        _loads.AddRange(_stagedLoads);
+        _voids.AddRange(_stagedVoids);
+        ClearOpenAttempt();
+    }
+
+    private void ClearOpenAttempt()
+    {
+        _stagedSales.Clear();
+        _stagedReturns.Clear();
+        _stagedLoads.Clear();
+        _stagedVoids.Clear();
+        _stagedAdjustments.Clear();
+        _stagedCounts.Clear();
+        _stagedCloses.Clear();
+    }
 }
