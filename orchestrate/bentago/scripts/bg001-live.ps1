@@ -11,6 +11,7 @@ param(
   [string]$DataRoot = "",
   [int]$Width = 0,
   [int]$Height = 0,
+  [string]$DotnetRoot = "C:\Users\nicky\.dotnet",
   [switch]$NoLaunch
 )
 $ErrorActionPreference = "Stop"
@@ -35,6 +36,7 @@ $psi.FileName = $Exe
 $psi.UseShellExecute = $false
 $psi.WorkingDirectory = Split-Path $Exe
 if ($DataRoot) { $psi.EnvironmentVariables["BENTAGO_DATA_ROOT"] = $DataRoot }
+if ($DotnetRoot -and (Test-Path $DotnetRoot)) { $psi.EnvironmentVariables["DOTNET_ROOT"] = $DotnetRoot; $psi.EnvironmentVariables["DOTNET_ROOT_X64"] = $DotnetRoot }
 $p = [System.Diagnostics.Process]::Start($psi)
 
 $ready = $false

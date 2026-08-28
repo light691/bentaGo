@@ -4,7 +4,8 @@
 param(
   [Parameter(Mandatory = $true)][string]$Exe,
   [string]$DataRoot = "",
-  [int]$Runs = 10
+  [int]$Runs = 10,
+  [string]$DotnetRoot = "C:\Users\nicky\.dotnet"
 )
 $ErrorActionPreference = "Stop"
 New-Item -ItemType Directory -Force -Path $DataRoot | Out-Null
@@ -14,6 +15,7 @@ function ProbeOnce([int]$n, [string]$label) {
   $psi.UseShellExecute = $false
   $psi.WorkingDirectory = Split-Path $Exe
   if ($DataRoot) { $psi.EnvironmentVariables["BENTAGO_DATA_ROOT"] = $DataRoot }
+  if ($DotnetRoot -and (Test-Path $DotnetRoot)) { $psi.EnvironmentVariables["DOTNET_ROOT"] = $DotnetRoot; $psi.EnvironmentVariables["DOTNET_ROOT_X64"] = $DotnetRoot }
   $sw = [System.Diagnostics.Stopwatch]::StartNew()
   $p = [System.Diagnostics.Process]::Start($psi)
   $deadline = (Get-Date).AddSeconds(30)
