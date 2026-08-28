@@ -1,6 +1,13 @@
+using System.Globalization;
 using System.IO;
+using System.Text;
+using BentaGo.Application.Contracts;
 using BentaGo.Application.Scenario;
+using BentaGo.Application.Services;
 using BentaGo.Core.Domain;
+using BentaGo.Core.Domain.Documents;
+using BentaGo.Core.Domain.Ledger;
+using BentaGo.Core.Domain.Payments;
 using BentaGo.Infrastructure.Configuration;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
@@ -41,6 +48,111 @@ public static class LedgerSchemaFixture
         Seed(dbPath);
         return dbPath;
     }
+
+    /// <summary>
+    /// Deterministic render of whatever the store holds (movements, audits,
+    /// balances) — lane 10 compares the pre-upgrade fixture render with the
+    /// render after restore, so the reports must match byte-for-byte.
+    /// </summary>
+    public static ScenarioReport Render(ILedgerStore store)
+    {
+        var text = new StringBuilder();
+        text.AppendLine("BentaGo fixture: migration-01 mini-day");
+        text.AppendLine("=======================================");
+        foreach (Movement movement in store.Movements)
+        {
+            text.AppendLine($"{movement.Sequence,4} {movement.Kind,-18} {Describe(movement)}");
+        }
+
+        foreach (AuditEvent audit in store.Audits)
+        {
+            text.AppendLine($"  [audit] {audit.Message}");
+        }
+
+        text.AppendLine();
+        text.AppendLine("BALANCES");
+        text.AppendLine("--------");
+        foreach (Fund fund in Enum.GetValues<Fund>())
+        {
+            text.AppendLine($"  {fund,-14} {Fmt(store.State.FundsOnHand(fund))}");
+        }
+
+        var cells = new HashSet<string>();
+        foreach (Movement movement in store.Movements)
+        {
+            switch (movement)
+            {
+                case OpeningStock s:
+                    cells.Add($"{s.ProductId.Value:N}|{s.LocationId.Value:N}");
+                    break;
+                case TransferOut t:
+                    cells.Add($"{t.ProductId.Value:N}|{t.LocationId.Value:N}");
+                    break;
+                case TransferIn t:
+                    cells.Add($"{t.ProductId.Value:N}|{t.LocationId.Value:N}");
+                    break;
+                case SaleIssue s:
+                    cells.Add($"{s.ProductId.Value:N}|{s.LocationId.Value:N}");
+                    break;
+                case SaleIssueRevoke s:
+                    cells.Add($"{s.ProductId.Value:N}|{s.LocationId.Value:N}");
+                    break;
+                case ReturnToStock r:
+                    cells.Add($"{r.ProductId.Value:N}|{r.LocationId.Value:N}");
+                    break;
+                case Damage d:
+                    cells.Add($"{d.ProductId.Value:N}|{d.LocationId.Value:N}");
+                    break;
+                case Loss l:
+                    cells.Add($"{l.ProductId.Value:N}|{l.LocationId.Value:N}");
+                    break;
+                case AdjustmentIncrease a:
+                    cells.Add($"{a.ProductId.Value:N}|{a.LocationId.Value:N}");
+                    break;
+                case AdjustmentDecrease a:
+                    cells.Add($"{a.ProductId.Value:N}|{a.LocationId.Value:N}");
+                    break;
+                case CountObserved c:
+                    cells.Add($"{c.ProductId.Value:N}|{c.LocationId.Value:N}");
+                    break;
+            }
+        }
+
+        foreach (string cell in cells.OrderBy(c => c, StringComparer.Ordinal))
+        {
+            string[] parts = cell.Split('|');
+            var product = new ProductId(Guid.Parse(parts[0]));
+            var location = new LocationId(Guid.Parse(parts[1]));
+            text.AppendLine($"  {parts[0]} @ {parts[1]} = {store.State.StockOnHand(product, location).Units}");
+        }
+
+        return new ScenarioReport(text.ToString());
+    }
+
+    private static string Fmt(Money money) =>
+        money.ToPesos().ToString("0.00", CultureInfo.InvariantCulture);
+
+    private static string Describe(Movement m) =>
+        m switch
+        {
+            OpeningStock s => $"{s.ProductId.Value:N} @ {s.LocationId.Value:N} +{s.Quantity.Units}",
+            TransferOut t => $"{t.ProductId.Value:N} @ {t.LocationId.Value:N} -{t.Quantity.Units}",
+            TransferIn t => $"{t.ProductId.Value:N} @ {t.LocationId.Value:N} +{t.Quantity.Units}",
+            SaleIssue s => $"{s.ProductId.Value:N} @ {s.LocationId.Value:N} -{s.Quantity.Units}",
+            SaleIssueRevoke s => $"{s.ProductId.Value:N} @ {s.LocationId.Value:N} +{s.Quantity.Units} (reverses {s.Reverses})",
+            ReturnToStock r => $"{r.ProductId.Value:N} @ {r.LocationId.Value:N} +{r.Quantity.Units} (reverses {r.Reverses})",
+            Receipt r => $"{r.Method} +{Fmt(r.Amount)}",
+            ReceiptRefund r => $"{r.Method} -{Fmt(r.Amount)} (reverses {r.Reverses})",
+            ReceiptRevoke r => $"{r.Method} -{Fmt(r.Amount)} (reverses {r.Reverses})",
+            CountObserved c => $"{c.ProductId.Value:N} @ {c.LocationId.Value:N} observed {c.ObservedQuantity.Units}",
+            Damage d => $"{d.ProductId.Value:N} @ {d.LocationId.Value:N} -{d.Quantity.Units} ({d.Reason})",
+            Loss l => $"{l.ProductId.Value:N} @ {l.LocationId.Value:N} -{l.Quantity.Units} ({l.Reason})",
+            AdjustmentIncrease a => $"{a.ProductId.Value:N} @ {a.LocationId.Value:N} +{a.Quantity.Units} ({a.Reason})",
+            AdjustmentDecrease a => $"{a.ProductId.Value:N} @ {a.LocationId.Value:N} -{a.Quantity.Units} ({a.Reason})",
+            TripClose c => $"trip {c.TripId.Value:N}",
+            TripReopen c => $"trip {c.TripId.Value:N} ({c.Reason})",
+            _ => m.Kind.ToString(),
+        };
 
     private static void Seed(string dbPath)
     {

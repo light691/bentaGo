@@ -69,7 +69,7 @@ public sealed class BackupService : IBackupService
         }
     }
 
-    internal static async Task VerifyQuickCheckAsync(string dbPath, CancellationToken cancellationToken)
+    public static async Task VerifyQuickCheckAsync(string dbPath, CancellationToken cancellationToken)
     {
         await using var connection = new SqliteConnection($"Data Source={dbPath};Mode=ReadOnly;Pooling=False");
         await connection.OpenAsync(cancellationToken);

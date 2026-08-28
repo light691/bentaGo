@@ -60,13 +60,28 @@ public static class Lane8Fixture
         var openLoad = new LoadId(Ids.Next("open"));
         store.RegisterLoad(new StockLoad(openLoad, "L8-OPEN", Trip, Array.Empty<StockLoadLine>(), User, When));
         store.Bind();
-        Result<AppendReceipt> receipt = store.Append(new[]
+        Result<AppendReceipt> open = store.Append(new[]
         {
-            Moves.OpeningStock(0, When, User, new LoadRef(openLoad), Sardines, Route, Quantity.Of(1)),
+            Moves.OpeningStock(0, When, User, new LoadRef(openLoad), Sardines, Store, Quantity.Of(1)),
         });
-        if (receipt.IsFailure)
+        if (open.IsFailure)
         {
-            throw new InvalidOperationException($"lane8 fixture seed failed: {receipt.Errors[0].Code}");
+            throw new InvalidOperationException($"lane8 fixture seed failed: {open.Errors[0].Code}");
+        }
+
+        // A load-out of the single unit opens the trip (first activity) and
+        // lands the sellable last unit at the route.
+        var loadId = new LoadId(Ids.Next("load"));
+        store.RegisterLoad(new StockLoad(loadId, "L8-LOAD", Trip, Array.Empty<StockLoadLine>(), User, When));
+        store.Bind();
+        Result<AppendReceipt> load = store.Append(new Movement[]
+        {
+            Moves.TransferOut(0, When, User, new LoadRef(loadId), Sardines, Store, Quantity.Of(1)),
+            Moves.TransferIn(0, When, User, new LoadRef(loadId), Sardines, Route, Quantity.Of(1)),
+        });
+        if (load.IsFailure)
+        {
+            throw new InvalidOperationException($"lane8 fixture load failed: {load.Errors[0].Code}");
         }
 
         store.Close();

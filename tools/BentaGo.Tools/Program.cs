@@ -33,6 +33,8 @@ try
         "scenario" when commandLine.Length > 1 && commandLine[1] == "two-peddlers" => await RunScenarioAsync(commandLine.Skip(2).ToArray()),
         "ledger" when commandLine.Length > 1 => await RunLedgerAsync(commandLine.Skip(1).ToArray()),
         "lane8-crash-worker" => await RunLane8CrashWorkerAsync(commandLine.Skip(1).ToArray()),
+        "lanes" when commandLine.Length > 1 && commandLine[1] == "bg-003" => await RunLanesAsync(commandLine.Skip(2).ToArray()),
+        "perf" when commandLine.Length > 1 && commandLine[1] == "bg-003" => await RunPerfAsync(commandLine.Skip(2).ToArray()),
         "foundation" when commandLine.Length > 1 && commandLine[1] == "migrate" => await RunMigrateAsync(commandLine.Skip(2).ToArray()),
         "foundation" when commandLine.Length > 1 && commandLine[1] == "backup" => await RunBackupAsync(commandLine.Skip(2).ToArray()),
         "foundation" when commandLine.Length > 1 && commandLine[1] == "restore" => await RunRestoreAsync(commandLine.Skip(2).ToArray()),
@@ -64,6 +66,11 @@ static void PrintHelp()
                                            --fail-before-commit (L3 seam) --crash-after-write (L8 seam)
           lane8-crash-worker             Lane-8 crash child: sells the last unit in a transaction delayed
                                          before commit; parent kills it by PID. Options: --data-root <dir>
+          lanes bg-003                   Run all ten BG-003 live lanes on fresh temp roots.
+                                          Options: --head <sha>, --evidence-dir <dir> (writes bg-003-*.png)
+          perf bg-003                    BG-003 perf harness: baselines first, then P95 checkout and
+                                         rebuild over a 10k-product / 100k-movement seeded file.
+                                          Options: --data-root <dir>
           foundation migrate             Migrate the database schema to the latest version.
                                           Options: --data-root <dir> (default: BENTAGO_DATA_ROOT or a fresh temp dir)
           foundation backup              Create a verified backup of the active database.
@@ -512,6 +519,29 @@ static async Task<int> RunLane8CrashWorkerAsync(string[] args)
 
     Console.WriteLine($"WORKER: committed seq {outcome.Value.FirstSequence}-{outcome.Value.LastSequence}");
     return 0;
+}
+
+static async Task<int> RunLanesAsync(string[] args)
+{
+    Dictionary<string, string> opts = ParseOptions(args);
+    string? head = Opt(opts, "head");
+    string? evidenceDir = Opt(opts, "evidence-dir");
+
+    if (evidenceDir is not null)
+    {
+        Directory.CreateDirectory(evidenceDir);
+    }
+
+    return await BentaGo.Tools.LaneRunner.RunAsync(head, evidenceDir);
+}
+
+static async Task<int> RunPerfAsync(string[] args)
+{
+    Dictionary<string, string> opts = ParseOptions(args);
+    string root = Opt(opts, "data-root")
+        ?? Environment.GetEnvironmentVariable("BENTAGO_DATA_ROOT")
+        ?? Path.Combine(Path.GetTempPath(), "bg003-perf-" + Guid.NewGuid().ToString("N"));
+    return await BentaGo.Tools.PerfRunner.RunAsync(root);
 }
 
 static int RunStatus()
