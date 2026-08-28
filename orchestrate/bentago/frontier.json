@@ -1,5 +1,42 @@
 {
-  "generation": 0,
-  "stack": [],
-  "note": "No remote. Local branches only; frontier recomputed after each operator merge."
+  "generation": 1,
+  "stack": [
+    {
+      "id": "BG-001",
+      "branch": "main",
+      "state": "MERGED",
+      "mergeCommit": "716c95fb1226f03436903a254d11ec8ca1f1e7be",
+      "mergedAt": "2026-08-29T01:41:06+08:00",
+      "notes": "Foundation, host, persistence, backup/restore, login shell. Audit fixes + 13/13 + verify PASS re-run on merged main."
+    },
+    {
+      "id": "BG-002",
+      "branch": "bg-002",
+      "state": "NEXT",
+      "dependsOn": ["BG-001"],
+      "notes": "Domain model: Money/Quantity/IDs/trips/sales/payments/returns/adjustments/counts/closes/audit events, scenario builders, two-peddlers tool. Brief drafted at queue/bg-002-brief.md."
+    },
+    {
+      "id": "BG-004",
+      "branch": "bg-004",
+      "state": "AFTER-BG-002",
+      "dependsOn": ["BG-001"],
+      "notes": "WPF design system + shell navigation; interaction-changing, stop at merge-ready for operator review."
+    },
+    {
+      "id": "BG-003",
+      "branch": "bg-003",
+      "state": "AFTER-BG-002",
+      "dependsOn": ["BG-002"],
+      "notes": "Inventory service + movement ledger append path."
+    },
+    {
+      "id": "BG-005",
+      "branch": "bg-005",
+      "state": "AFTER-BG-003+BG-004",
+      "dependsOn": ["BG-003", "BG-004"],
+      "notes": "Auth + audit; carries deferred audit-logging findings from BG-001 audit."
+    }
+  ],
+  "note": "Frontier recomputed after BG-001 operator merge. Remote: light691/bentaGo, main = 716c95f."
 }
