@@ -5,6 +5,7 @@ using BentaGo.Core.Common;
 using BentaGo.Core.Domain;
 using BentaGo.Core.Domain.Builders;
 using BentaGo.Core.Domain.Commands;
+using BentaGo.Core.Domain.Display;
 using BentaGo.Core.Domain.Documents;
 using BentaGo.Core.Domain.Ledger;
 using BentaGo.Core.Domain.Payments;
@@ -350,18 +351,226 @@ public sealed class ScenarioTests
         var store = new InMemoryLedgerStore();
         _ = TwoPeddlersScenario.Run(store);
 
-        List<Trip> trips = store.Context.Trips.ToList();
-        List<Sale> sales = store.Context.Sales.ToList();
-        List<Return> returns = store.Context.Returns.ToList();
-        List<StockLoad> loads = store.Context.Loads.ToList();
-        List<SaleVoid> voids = store.Context.Voids.ToList();
+        LedgerState rebuilt = LedgerState.Fold(
+            store.Movements, store.Context.Trips, store.Context.Sales,
+            store.Context.Returns, store.Context.Loads, store.Context.Voids);
 
-        var rebuilt = LedgerState.Fold(store.Movements, trips, sales, returns, loads, voids);
+        Assert.Equal(store.State.LastSequence, rebuilt.LastSequence);
+        foreach (Fund fund in Enum.GetValues<Fund>())
+        {
+            Assert.Equal(store.State.FundsOnHand(fund), rebuilt.FundsOnHand(fund));
+        }
 
-        Assert.Equal(
-            store.State.FundsOnHand(Fund.PhysicalCash),
-            rebuilt.FundsOnHand(Fund.PhysicalCash));
-        Assert.Equal(store.State.StockOnHand(new ProductId(Guid.Parse("00000000-0000-0000-0000-000000000000")), new LocationId(Guid.Empty)), Quantity.Zero);
+        var cells = new HashSet<(ProductId, LocationId)>();
+        foreach (Movement m in store.Movements)
+        {
+            switch (m)
+            {
+                case OpeningStock s:
+                    cells.Add((s.ProductId, s.LocationId));
+                    break;
+                case TransferOut t:
+                    cells.Add((t.ProductId, t.LocationId));
+                    break;
+                case TransferIn t:
+                    cells.Add((t.ProductId, t.LocationId));
+                    break;
+                case SaleIssue s:
+                    cells.Add((s.ProductId, s.LocationId));
+                    break;
+                case SaleIssueRevoke s:
+                    cells.Add((s.ProductId, s.LocationId));
+                    break;
+                case ReturnToStock r:
+                    cells.Add((r.ProductId, r.LocationId));
+                    break;
+                case Damage d:
+                    cells.Add((d.ProductId, d.LocationId));
+                    break;
+                case Loss l:
+                    cells.Add((l.ProductId, l.LocationId));
+                    break;
+                case AdjustmentIncrease a:
+                    cells.Add((a.ProductId, a.LocationId));
+                    break;
+                case AdjustmentDecrease a:
+                    cells.Add((a.ProductId, a.LocationId));
+                    break;
+                case CountObserved c:
+                    cells.Add((c.ProductId, c.LocationId));
+                    break;
+            }
+        }
+
+        Assert.NotEmpty(cells); // the scenario actually touched cells
+        foreach ((ProductId product, LocationId location) in cells)
+        {
+            Assert.Equal(store.State.StockOnHand(product, location), rebuilt.StockOnHand(product, location));
+        }
+
+        foreach (Trip trip in store.Context.Trips)
+        {
+            Assert.Equal(store.State.Trip(trip.Id), rebuilt.Trip(trip.Id));
+        }
+    }
+}
+
+public sealed class ManilaDisplayTests
+{
+    [Fact]
+    public void UtcAsManila_AddsEightHours()
+    {
+        var utc = new DateTimeOffset(2026, 1, 15, 8, 0, 0, TimeSpan.Zero);
+        Assert.Equal(16, ManilaDisplay.UtcAsManila(utc).Hour);
+        Assert.Equal("2026-01-15 16:00", ManilaDisplay.DateTime(utc));
+    }
+
+    [Fact]
+    public void Money_FormatsEnPhWithTwoDecimals()
+    {
+        Assert.Equal("1,234.50", ManilaDisplay.Money(Money.FromPesos(1234.50m)));
+        Assert.Equal("0.05", ManilaDisplay.Money(Money.FromPesos(0.05m)));
+    }
+}
+
+/// <summary>
+/// Audit-lane regressions: the four majors found in the BG-002 review —
+/// batch atomicity, payment-total replay drift, signed variance, and
+/// double-revoked receipts — plus forged-document handling.
+/// </summary>
+public sealed class IntegrityTests
+{
+    [Fact]
+    public void Store_BatchAtomic_WhenSumExceedsStock()
+    {
+        var h = new LedgerHarness(); // 20 units on the route
+        long before = h.Store.Movements.Count;
+        long seqBefore = h.Store.State.LastSequence;
+
+        // Two lines of the same product: each passes the builder's per-line
+        // check against the pre-sale stock, but the batch sum overdraws.
+        Result<SaleDraft> draft = SaleBuilder.Build(h.Store.Context, new NewSaleCommand(
+            new SaleId(Guid.NewGuid()), h.Trip, "R-OVER", h.User, h.Now,
+            new[] { h.Line(15, Money.FromPesos(45m)), h.Line(10, Money.FromPesos(45m)) },
+            new[] { h.Pay(PaymentMethod.Cash, Money.FromPesos(1125m)) }));
+        Assert.True(draft.IsSuccess, string.Join("; ", draft.Errors.Select(e => e.Code)));
+
+        Result<AppendReceipt> append = h.Store.Append(draft.Value.Movements);
+        Assert.True(append.IsFailure);
+        Assert.Contains(append.Errors, e => e.Code == "STOCK_NEGATIVE");
+
+        Assert.Equal(20, h.Store.State.StockOnHand(h.Sardines, h.RouteLoc).Units); // untouched
+        Assert.Equal(before, h.Store.Movements.Count); // nothing committed
+        Assert.Equal(seqBefore, h.Store.State.LastSequence); // no sequence gap either
+    }
+
+    [Fact]
+    public void Store_StillCommitsAfterABatchRefusal()
+    {
+        var h = new LedgerHarness();
+        var overdraw = SaleBuilder.Build(h.Store.Context, new NewSaleCommand(
+            new SaleId(Guid.NewGuid()), h.Trip, "R-OVER", h.User, h.Now,
+            new[] { h.Line(15, Money.FromPesos(45m)), h.Line(10, Money.FromPesos(45m)) },
+            new[] { h.Pay(PaymentMethod.Cash, Money.FromPesos(1125m)) }));
+        _ = h.Store.Append(overdraw.Value.Movements);
+
+        Sale sale = h.CommitSale(2, Money.FromPesos(45m), PaymentMethod.Cash); // still works
+        Assert.Equal(18, h.Store.State.StockOnHand(h.Sardines, h.RouteLoc).Units);
+        Assert.Equal(Money.FromPesos(90m), h.Store.State.FundsOnHand(Fund.PhysicalCash));
+        Assert.Equal(SaleStatus.Committed, h.Store.State.Sale(sale.Id).Status);
+    }
+
+    [Fact]
+    public void Breakdown_NegativeVariance_IsSigned()
+    {
+        var h = new LedgerHarness();
+        h.CommitSale(5, Money.FromPesos(45m), PaymentMethod.Cash); // 20 -> 15
+
+        var count = CountBuilder.Build(h.Store.Context, new CountCommand(
+            new CountId(Guid.NewGuid()), h.RouteLoc,
+            new[] { new CountLineCommand(h.Sardines, Quantity.Of(3), null) }, h.User, h.Now.AddHours(2)));
+        h.Store.Append(count.Value.Movements);
+
+        InventoryBreakdown b = h.Store.State.Breakdown(h.Sardines, h.RouteLoc);
+        Assert.Equal(3, b.Observed!.Value.Units);
+        Assert.Equal(-12, b.Variance); // shortage is signed, minus sign preserved
+
+        // observed 30 (overage, +15) must work too
+        var countUp = CountBuilder.Build(h.Store.Context, new CountCommand(
+            new CountId(Guid.NewGuid()), h.RouteLoc,
+            new[] { new CountLineCommand(h.Sardines, Quantity.Of(30), null) }, h.User, h.Now.AddHours(3)));
+        h.Store.Append(countUp.Value.Movements);
+        Assert.Equal(15, h.Store.State.Breakdown(h.Sardines, h.RouteLoc).Variance);
+    }
+
+    [Fact]
+    public void Fold_DoubleReceiptRevoke_IsLoud()
+    {
+        var h = new LedgerHarness();
+        Sale sale = h.CommitSale(5, Money.FromPesos(45m), PaymentMethod.Cash);
+        long receiptSeq = h.Store.State.ReceiptSequence(sale.Id, sale.Payments[0].Id)!.Value;
+        long next = h.Store.State.LastSequence;
+
+        Movement revoke1 = Moves.ReceiptRevoke(next + 1, h.Now, h.User, new VoidRef(new VoidId(Guid.NewGuid())), PaymentMethod.Cash, Money.FromPesos(225m), sale.Payments[0].Id, receiptSeq);
+        Movement revoke2 = Moves.ReceiptRevoke(next + 2, h.Now, h.User, new VoidRef(new VoidId(Guid.NewGuid())), PaymentMethod.Cash, Money.FromPesos(225m), sale.Payments[0].Id, receiptSeq);
+
+        List<Movement> stream = h.Store.Movements.Concat(new[] { revoke1, revoke2 }).ToList();
+        LedgerIntegrityException ex = Assert.Throws<LedgerIntegrityException>(() => LedgerState.Fold(
+            stream, h.Store.Context.Trips, h.Store.Context.Sales, h.Store.Context.Returns, h.Store.Context.Loads, h.Store.Context.Voids));
+        Assert.Contains("already revoked", ex.Message);
+    }
+
+    [Fact]
+    public void Store_ForgedDuplicateReceipt_RejectedWithoutStateChange()
+    {
+        var h = new LedgerHarness();
+        Sale sale = h.CommitSale(5, Money.FromPesos(45m), PaymentMethod.Cash);
+        long before = h.Store.Movements.Count;
+
+        Movement forge = Moves.Receipt(0, h.Now.AddMinutes(1), h.User, new SaleRef(sale.Id), PaymentMethod.Cash, Money.FromPesos(225m), sale.Payments[0].Id);
+        Result<AppendReceipt> append = h.Store.Append(new[] { forge });
+
+        Assert.True(append.IsFailure);
+        Assert.Contains(append.Errors, e => e.Code == "INTEGRITY");
+        Assert.Equal(Money.FromPesos(225m), h.Store.State.FundsOnHand(Fund.PhysicalCash)); // unchanged
+        Assert.Equal(before, h.Store.Movements.Count);
+    }
+
+    [Fact]
+    public void Fold_PaymentDrift_IsLoudOnReplay()
+    {
+        var h = new LedgerHarness();
+        Sale sale = h.CommitSale(5, Money.FromPesos(45m), PaymentMethod.Cash);
+
+        Movement forge = Moves.Receipt(h.Store.State.LastSequence + 1, h.Now, h.User, new SaleRef(sale.Id), PaymentMethod.Cash, Money.FromPesos(225m), sale.Payments[0].Id);
+        List<Movement> stream = h.Store.Movements.Append(forge).ToList();
+        Assert.Throws<LedgerIntegrityException>(() => LedgerState.Fold(
+            stream, h.Store.Context.Trips, h.Store.Context.Sales, h.Store.Context.Returns, h.Store.Context.Loads, h.Store.Context.Voids));
+    }
+
+    [Fact]
+    public void Fold_ForgedWrongDocumentKind_IsStructured()
+    {
+        var h = new LedgerHarness();
+        h.CommitSale(5, Money.FromPesos(45m), PaymentMethod.Cash);
+        long seq = h.Store.State.LastSequence + 1;
+
+        Movement forged = new SaleIssue
+        {
+            Sequence = seq,
+            WhenUtc = h.Now,
+            ActorId = h.User,
+            Document = new VoidRef(new VoidId(Guid.NewGuid())), // wrong kind
+            ProductId = h.Sardines,
+            LocationId = h.RouteLoc,
+            Quantity = Quantity.Of(1),
+            SaleLineId = new SaleLineId(Guid.NewGuid()),
+        };
+
+        LedgerIntegrityException ex = Assert.Throws<LedgerIntegrityException>(() => LedgerState.Fold(
+            h.Store.Movements.Append(forged).ToList(),
+            h.Store.Context.Trips, h.Store.Context.Sales, h.Store.Context.Returns, h.Store.Context.Loads, h.Store.Context.Voids));
+        Assert.Contains("cannot carry", ex.Message);
     }
 }
 

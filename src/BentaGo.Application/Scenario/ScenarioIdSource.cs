@@ -31,6 +31,14 @@ public sealed class ScenarioIdSource
         segmentBytes.CopyTo(material, _seed.Length + Separator.Length);
 
         byte[] hash = SHA256.HashData(material);
-        return new Guid(hash.AsSpan(0, 16));
+
+        // RFC-4122 v4 shape: version nibble 4, variant 10xx, so consumers
+        // that check Version/Variant (or that display the Guid) see a
+        // proper-looking id instead of 16 arbitrary bytes.
+        byte[] idBytes = new byte[16];
+        hash.AsSpan(0, 16).CopyTo(idBytes);
+        idBytes[7] = (byte)((idBytes[7] & 0x0F) | 0x40);
+        idBytes[8] = (byte)((idBytes[8] & 0x3F) | 0x80);
+        return new Guid(idBytes);
     }
 }

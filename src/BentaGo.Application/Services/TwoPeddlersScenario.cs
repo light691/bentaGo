@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 using BentaGo.Application.Contracts;
 using BentaGo.Application.Scenario;
@@ -5,6 +6,7 @@ using BentaGo.Core.Common;
 using BentaGo.Core.Domain;
 using BentaGo.Core.Domain.Builders;
 using BentaGo.Core.Domain.Commands;
+using BentaGo.Core.Domain.Display;
 using BentaGo.Core.Domain.Documents;
 using BentaGo.Core.Domain.Ledger;
 using BentaGo.Core.Domain.Payments;
@@ -134,12 +136,13 @@ public static class TwoPeddlersScenario
             memory.Append(draft.Value.Movements);
         }
 
-        // Alice closes the trip at counted cash 280.00 (225 cash sale + 80 cash split
-        // + 1 returned can handed back at close: expected cash = 225 + 80 - 45 refund = 260).
+        // Alice closes the trip at counted cash 180.00: 225 (cash sale 1) + 80
+        // (cash share of the split sale) - 80 (void revoked the cash receipt)
+        // - 45 (refund) = 180. The close reads the trip's own cash, not Bob's.
         {
             var closeId = new CloseId(ids.Next("close-1"));
             var draft = CloseBuilder.Build(memory.Context, new CloseCommand(
-                closeId, tripAlice, Money.FromPesos(260m), null, userId, T6));
+                closeId, tripAlice, Money.FromPesos(180m), null, userId, T6));
             memory.Append(draft.Value.Movements);
         }
 
@@ -168,9 +171,12 @@ public static class TwoPeddlersScenario
 
     private static ScenarioReport Render(InMemoryLedgerStore store)
     {
-        var text = new StringBuilder();
-        text.AppendLine("BentaGo scenario: two peddlers");
-        text.AppendLine("=============================");
+        // Money columns are formatted invariant (comma-decimal hosts print the
+        // same golden), and the clock is shown in Asia/Manila per the display
+        // contract while storage stays UTC.
+        string text0 = new StringBuilder().AppendLine("BentaGo scenario: two peddlers").AppendLine("=============================").ToString();
+        var text = new StringBuilder(text0);
+        text.AppendLine($"scenario clock (Manila): {ManilaDisplay.DateTime(T2)}");
 
         foreach (Movement movement in store.Movements)
         {
@@ -188,7 +194,7 @@ public static class TwoPeddlersScenario
         text.AppendLine("CASH BY FUND:");
         foreach (Fund fund in Enum.GetValues<Fund>())
         {
-            text.AppendLine($"  {fund,-14} {store.State.FundsOnHand(fund).ToPesos():0.00}");
+            text.AppendLine($"  {fund,-14} {Fmt(store.State.FundsOnHand(fund))}");
         }
 
         text.AppendLine("STOCK BY CELL (product @ location):");
@@ -199,6 +205,9 @@ public static class TwoPeddlersScenario
 
         return new ScenarioReport(text.ToString());
     }
+
+    private static string Fmt(Money money) =>
+        money.ToPesos().ToString("0.00", CultureInfo.InvariantCulture);
 
     private static void OpenStock(InMemoryLedgerStore store, ScenarioIdSource ids, string number, ProductId product, string name, int qty, LocationId storeLoc, UserId actor, DateTimeOffset when)
     {
@@ -277,9 +286,9 @@ public static class TwoPeddlersScenario
             SaleIssue s => $"{s.ProductId.Value:N} @ {s.LocationId.Value:N} -{s.Quantity.Units}",
             SaleIssueRevoke s => $"{s.ProductId.Value:N} @ {s.LocationId.Value:N} +{s.Quantity.Units} (reverses {s.Reverses})",
             ReturnToStock r => $"{r.ProductId.Value:N} @ {r.LocationId.Value:N} +{r.Quantity.Units} (reverses {r.Reverses})",
-            Receipt r => $"{r.Method} +{r.Amount.ToPesos():0.00}",
-            ReceiptRefund r => $"{r.Method} -{r.Amount.ToPesos():0.00} (reverses {r.Reverses})",
-            ReceiptRevoke r => $"{r.Method} -{r.Amount.ToPesos():0.00} (reverses {r.Reverses})",
+            Receipt r => $"{r.Method} +{Fmt(r.Amount)}",
+            ReceiptRefund r => $"{r.Method} -{Fmt(r.Amount)} (reverses {r.Reverses})",
+            ReceiptRevoke r => $"{r.Method} -{Fmt(r.Amount)} (reverses {r.Reverses})",
             CountObserved c => $"{c.ProductId.Value:N} @ {c.LocationId.Value:N} observed {c.ObservedQuantity.Units}",
             Damage d => $"{d.ProductId.Value:N} @ {d.LocationId.Value:N} -{d.Quantity.Units} ({d.Reason})",
             Loss l => $"{l.ProductId.Value:N} @ {l.LocationId.Value:N} -{l.Quantity.Units} ({l.Reason})",

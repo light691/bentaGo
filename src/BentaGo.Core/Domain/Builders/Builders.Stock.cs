@@ -26,7 +26,7 @@ public static class TripBuilder
     {
         if (ctx.FindTrip(cmd.Id) is not null)
         {
-            return Result<TripDraft>.Fail(new DomainError("TRIP_UNKNOWN", $"trip {cmd.Id} already exists"));
+            return Result<TripDraft>.Fail(new DomainError("DUP_TRIP", $"trip {cmd.Id} already exists"));
         }
 
         var trip = new Trip(cmd.Id, cmd.Peddler, cmd.Location, cmd.NowUtc, cmd.By);
@@ -192,7 +192,9 @@ public static class CloseBuilder
             return Result<CloseDraft>.Fail(new DomainError("TRIP_NOT_OPEN", $"trip {cmd.Trip} is not open"));
         }
 
-        Money expectedCash = ctx.State.FundsOnHand(Fund.PhysicalCash);
+        // Expected cash is the cash this trip's own sales produced — never the
+        // global till, or closing one peddler would read the cash of another.
+        Money expectedCash = ctx.State.TripCash(cmd.Trip);
         Money variance = expectedCash.Minus(cmd.CountedCash);
 
         var close = new DailyClose(cmd.Id, cmd.Trip, expectedCash, cmd.CountedCash, variance, cmd.Notes, cmd.By, cmd.NowUtc);

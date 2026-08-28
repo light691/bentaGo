@@ -7,7 +7,6 @@ namespace BentaGo.Core.Domain.Ledger;
 /// <summary>
 /// Thrown when a movement stream violates a ledger invariant (negative stock,
 /// payment-total drift, closed-trip mutation, impossible reversal, ...).
-/// }
 /// </summary>
 public sealed class LedgerIntegrityException(string message) : Exception(message);
 
@@ -52,7 +51,7 @@ public sealed record InventoryBreakdown(
     Quantity Adjusted,
     Quantity Ending,
     Quantity? Observed,
-    Quantity? Variance)
+    int? Variance)
 {
     public static InventoryBreakdown None(ProductId product, LocationId location, Quantity ending) =>
         new(product, location, Quantity.Zero, Quantity.Zero, Quantity.Zero, Quantity.Zero, Quantity.Zero,
@@ -62,13 +61,12 @@ public sealed record InventoryBreakdown(
 /// <summary>
 /// The rebuildable projection of the movement stream. Every balance here is a
 /// pure fold of the append-only ledger: the store advances it incrementally,
-/// and any corruption of the stream is caught by <see cref="Fold"/> on replay.
-/// All invariants are checked exactly once, in <see cref="Validate"/>.
+/// and any corruption of the stream is caught by <see cref="Fold"/> on replay
+/// (invariants in <see cref="Validate"/>, document/total drift by
+/// <see cref="VerifyCrossChecks"/>). All invariants are checked exactly once.
 /// </summary>
 public sealed class LedgerState
 {
-    public static LedgerState Empty { get; } = new();
-
     private readonly Dictionary<(ProductId, LocationId), long> _stock = new();
     private readonly Dictionary<Fund, long> _funds = new();
     private readonly Dictionary<(ProductId, LocationId), long> _observed = new();
@@ -81,7 +79,7 @@ public sealed class LedgerState
     private readonly Dictionary<long, ReceiptInfo> _receipts = new();
     private readonly Dictionary<long, long> _refundedByReceipt = new();
     private readonly Dictionary<long, long> _revokedByIssue = new();
-    private readonly Dictionary<long, SaleLineId> _lineOfIssue = new();
+    private readonly Dictionary<long, long> _revokedByReceipt = new();
     private readonly Dictionary<(ProductId, LocationId), CellStats> _cellStats = new();
 
     private IReadOnlyDictionary<TripId, Trip> _tripsById = new Dictionary<TripId, Trip>();
@@ -92,7 +90,7 @@ public sealed class LedgerState
 
     public long LastSequence { get; private set; }
 
-    internal sealed record SaleIssueInfo(SaleLineId LineId, SaleId Sale, ProductId Product, LocationId Location, long Quantity, long LineQuantity);
+    internal sealed record SaleIssueInfo(SaleLineId LineId, SaleId Sale, ProductId Product, LocationId Location, long Quantity);
     internal sealed record ReceiptInfo(PaymentMethod Method, SaleId Sale, long Amount, PaymentLineId PaymentLineId);
 
     private sealed class CellStats
@@ -137,7 +135,7 @@ public sealed class LedgerState
             state.Apply(movement);
         }
 
-        state.FinalizeSaleStates(sales);
+        state.VerifyCrossChecks(sales);
         return state;
     }
 
@@ -234,7 +232,7 @@ public sealed class LedgerState
             Quantity.Of((int)stats.Adjusted),
             Quantity.Of((int)ending),
             observed >= 0 ? Quantity.Of((int)observed) : null,
-            observed >= 0 ? Quantity.Of((int)(observed - ending)) : null);
+            observed >= 0 ? (int)(observed - ending) : null);
     }
 
     /// <summary>
@@ -271,6 +269,12 @@ public sealed class LedgerState
         if (movement.WhenUtc.Offset != TimeSpan.Zero)
         {
             return new DomainError("UTC_REQUIRED", "movement timestamp is not UTC");
+        }
+
+        DomainError? documentError = CheckDocument(movement);
+        if (documentError is not null)
+        {
+            return documentError;
         }
 
         TripId? tripId = TripOf(movement);
@@ -320,6 +324,32 @@ public sealed class LedgerState
         return current + delta >= 0
             ? null
             : new DomainError("STOCK_NEGATIVE", $"stock for {product} @ {location} would go negative ({current} {delta:+0;-0;} -> {current + delta})");
+    }
+
+    /// <summary>
+    /// Each movement kind pins exactly the document kinds that can cause it,
+    /// so a forged movement carrying the wrong document kind never reaches
+    /// the casts in <see cref="TripOf"/>/<see cref="Apply"/>.
+    /// </summary>
+    private DomainError? CheckDocument(Movement movement)
+    {
+        bool legal = movement switch
+        {
+            OpeningStock => movement.Document is LoadRef,
+            TransferOut or TransferIn => movement.Document is LoadRef or TransferRef,
+            SaleIssue or Receipt => movement.Document is SaleRef,
+            SaleIssueRevoke or ReceiptRevoke => movement.Document is VoidRef,
+            ReturnToStock or ReceiptRefund => movement.Document is ReturnRef,
+            Damage or Loss or AdjustmentIncrease or AdjustmentDecrease => movement.Document is AdjustmentRef,
+            CountObserved => movement.Document is CountRef,
+            TripClose => movement.Document is CloseRef,
+            TripReopen => movement.Document is ReopenRef,
+            _ => true,
+        };
+
+        return legal
+            ? null
+            : new DomainError("DOC_KIND", $"{movement.Kind} cannot carry a {movement.Document.GetType().Name}");
     }
 
     private DomainError? CheckReceipt(Receipt m)
@@ -392,6 +422,11 @@ public sealed class LedgerState
             return new DomainError("REVERSES_UNKNOWN", $"no receipt at sequence {m.Reverses}");
         }
 
+        if (_revokedByReceipt.ContainsKey(m.Reverses))
+        {
+            return new DomainError("REFUND_REVOKED", $"receipt {m.Reverses} was revoked and cannot be refunded");
+        }
+
         if (receipt.Method != m.Method)
         {
             return new DomainError("REVERSES_MISMATCH", "refund method does not match the original receipt");
@@ -411,6 +446,16 @@ public sealed class LedgerState
         if (!_receipts.TryGetValue(m.Reverses, out ReceiptInfo? receipt))
         {
             return new DomainError("REVERSES_UNKNOWN", $"no receipt at sequence {m.Reverses}");
+        }
+
+        if (_revokedByReceipt.ContainsKey(m.Reverses))
+        {
+            return new DomainError("REVOKED_ALREADY", $"receipt {m.Reverses} was already revoked");
+        }
+
+        if (_refundedByReceipt.ContainsKey(m.Reverses))
+        {
+            return new DomainError("REVOKE_REFUNDED", $"receipt {m.Reverses} was refunded and cannot be revoked");
         }
 
         if (receipt.Method != m.Method || receipt.Amount != m.Amount.Centavos)
@@ -460,7 +505,7 @@ public sealed class LedgerState
                 Cell(m.ProductId, m.LocationId, -m.Quantity.Units);
                 Stats(m.ProductId, m.LocationId).Sold += m.Quantity.Units;
                 _saleIssues[movement.Sequence] = new SaleIssueInfo(
-                    m.SaleLineId, ((SaleRef)m.Document).Id, m.ProductId, m.LocationId, m.Quantity.Units, m.Quantity.Units);
+                    m.SaleLineId, ((SaleRef)m.Document).Id, m.ProductId, m.LocationId, m.Quantity.Units);
                 break;
             case SaleIssueRevoke m:
                 Cell(m.ProductId, m.LocationId, +m.Quantity.Units);
@@ -519,6 +564,7 @@ public sealed class LedgerState
                 break;
             case ReceiptRevoke m:
                 Fund(m.Method.FundOf()!.Value, -m.Amount.Centavos);
+                _revokedByReceipt[m.Reverses] = m.Amount.Centavos;
                 if (_receipts.TryGetValue(m.Reverses, out ReceiptInfo? revokedReceipt))
                 {
                     _receivedBySale[revokedReceipt.Sale] =
@@ -554,15 +600,6 @@ public sealed class LedgerState
         if (_trips.TryGetValue(trip, out TripState? state) && state.Status == TripStatus.Planned)
         {
             _trips[trip] = new TripState(TripStatus.Open, movement.WhenUtc, null);
-        }
-    }
-
-    private void FinalizeSaleStates(IReadOnlyList<Sale> sales)
-    {
-        foreach (Sale sale in sales)
-        {
-            // keep the existing entry so incremental appends preserve receipts
-            _ = _receivedBySale[sale.Id] = _receivedBySale.TryGetValue(sale.Id, out long received) ? received : 0;
         }
     }
 
@@ -618,6 +655,10 @@ public sealed class LedgerState
                 return _receipts.TryGetValue(m.Reverses, out ReceiptInfo? receipt)
                     ? SaleTrip(receipt.Sale)
                     : null;
+            case ReceiptRevoke m:
+                return _receipts.TryGetValue(m.Reverses, out ReceiptInfo? revokedReceipt)
+                    ? SaleTrip(revokedReceipt.Sale)
+                    : null;
             case TransferOut m when m.Document is LoadRef loadRef:
                 return LoadTrip(loadRef.Id);
             case TransferIn m when m.Document is LoadRef loadRef:
@@ -634,6 +675,196 @@ public sealed class LedgerState
 
         TripId? SaleTripOfIssue(long issueSeq) =>
             _saleIssues.TryGetValue(issueSeq, out SaleIssueInfo? issue) ? SaleTrip(issue.Sale) : null;
+    }
+
+    /// <summary>
+    /// Copies this state so a batch can be validated-and-applied off to the
+    /// side: on any failure the clone is discarded and the live state is
+    /// untouched, so an append is truly atomic.
+    /// </summary>
+    public LedgerState Clone()
+    {
+        var copy = new LedgerState { LastSequence = LastSequence };
+
+        foreach ((var key, long value) in _stock)
+            copy._stock[key] = value;
+        foreach ((var key, long value) in _funds)
+            copy._funds[key] = value;
+        foreach ((var key, long value) in _observed)
+            copy._observed[key] = value;
+        foreach ((var key, TripState value) in _trips)
+            copy._trips[key] = value;
+        foreach ((var key, long value) in _receivedBySale)
+            copy._receivedBySale[key] = value;
+        foreach ((var key, long value) in _returnedBySale)
+            copy._returnedBySale[key] = value;
+        foreach (SaleId key in _voidedSales)
+            copy._voidedSales.Add(key);
+        foreach ((var key, long value) in _returnedPerLine)
+            copy._returnedPerLine[key] = value;
+        foreach ((var key, SaleIssueInfo value) in _saleIssues)
+            copy._saleIssues[key] = value;
+        foreach ((var key, ReceiptInfo value) in _receipts)
+            copy._receipts[key] = value;
+        foreach ((var key, long value) in _refundedByReceipt)
+            copy._refundedByReceipt[key] = value;
+        foreach ((var key, long value) in _revokedByIssue)
+            copy._revokedByIssue[key] = value;
+        foreach ((var key, long value) in _revokedByReceipt)
+            copy._revokedByReceipt[key] = value;
+        foreach ((var key, CellStats source) in _cellStats)
+        {
+            copy._cellStats[key] = new CellStats
+            {
+                Starting = source.Starting,
+                Loaded = source.Loaded,
+                Sold = source.Sold,
+                Returned = source.Returned,
+                Damaged = source.Damaged,
+                Lost = source.Lost,
+                Adjusted = source.Adjusted,
+            };
+        }
+
+        copy._tripsById = _tripsById;
+        copy._salesById = _salesById;
+        copy._returnsById = _returnsById;
+        copy._loadsById = _loadsById;
+        copy._voidsById = _voidsById;
+        return copy;
+    }
+
+    /// <summary>
+    /// The cash the trip's own sales produced: live receipts across the trip's
+    /// sales, minus refunds (revoked receipts drop out entirely). Per-trip, so
+    /// closing one peddler never reads the cash of another.
+    /// </summary>
+    public Money TripCash(TripId trip)
+    {
+        long total = 0;
+        foreach ((long seq, ReceiptInfo info) in _receipts)
+        {
+            if (!_salesById.TryGetValue(info.Sale, out Sale? sale) || sale.Trip != trip)
+            {
+                continue;
+            }
+
+            long revoked = _revokedByReceipt.TryGetValue(seq, out long rv) ? rv : 0;
+            long refunded = _refundedByReceipt.TryGetValue(seq, out long rf) ? rf : 0;
+            total += info.Amount - revoked - refunded;
+        }
+
+        return new Money(total);
+    }
+
+    /// <summary>
+    /// The synthesis's replay guard: on top of the per-movement invariants this
+    /// independently verifies the bound documents against the stream, so a
+    /// duplicated or mutated receipt/issue is loud instead of silently
+    /// inflating funds or stock. Called by <see cref="Fold"/> on every replay
+    /// and by the store after each append batch.
+    /// </summary>
+    public void VerifyCrossChecks(IReadOnlyList<Sale> sales)
+    {
+        foreach ((long seq, ReceiptInfo info) in _receipts)
+        {
+            if (!_salesById.TryGetValue(info.Sale, out Sale? sale))
+            {
+                throw new LedgerIntegrityException($"[seq {seq}] receipt for unknown sale {info.Sale}");
+            }
+
+            bool known = false;
+            foreach (PaymentLine payment in sale.Payments)
+            {
+                if (payment.Id == info.PaymentLineId)
+                {
+                    known = true;
+                    break;
+                }
+            }
+
+            if (!known)
+            {
+                throw new LedgerIntegrityException($"[seq {seq}] receipt settles foreign payment line {info.PaymentLineId}");
+            }
+        }
+
+        foreach ((long seq, SaleIssueInfo info) in _saleIssues)
+        {
+            if (!_salesById.TryGetValue(info.Sale, out Sale? sale))
+            {
+                throw new LedgerIntegrityException($"[seq {seq}] issue for unknown sale {info.Sale}");
+            }
+
+            bool known = false;
+            foreach (SaleLine line in sale.Lines)
+            {
+                if (line.Id == info.LineId)
+                {
+                    known = true;
+                    break;
+                }
+            }
+
+            if (!known)
+            {
+                throw new LedgerIntegrityException($"[seq {seq}] issue for foreign sale line {info.LineId}");
+            }
+        }
+
+        foreach (Sale sale in sales)
+        {
+            foreach (SaleLine line in sale.Lines)
+            {
+                long issues = 0;
+                foreach ((long seq, SaleIssueInfo info) in _saleIssues)
+                {
+                    if (info.Sale != sale.Id || info.LineId != line.Id)
+                    {
+                        continue;
+                    }
+
+                    issues++;
+                    if (info.Quantity != line.Quantity.Units)
+                    {
+                        throw new LedgerIntegrityException($"[sale {sale.Id}] issue {seq} carries {info.Quantity} but the document line says {line.Quantity.Units}");
+                    }
+                }
+
+                if (issues != 1)
+                {
+                    throw new LedgerIntegrityException($"[sale {sale.Id}] line {line.Id} has {issues} issues; expected exactly 1");
+                }
+            }
+
+            foreach (PaymentLine payment in sale.Payments)
+            {
+                if (payment.Method == PaymentMethod.Credit)
+                {
+                    continue;
+                }
+
+                long receipts = 0;
+                foreach ((long seq, ReceiptInfo info) in _receipts)
+                {
+                    if (info.Sale != sale.Id || info.PaymentLineId != payment.Id)
+                    {
+                        continue;
+                    }
+
+                    receipts++;
+                    if (info.Method != payment.Method || info.Amount != payment.Amount.Centavos)
+                    {
+                        throw new LedgerIntegrityException($"[sale {sale.Id}] receipt {seq} ({info.Method} {info.Amount}) does not match payment line {payment.Id} ({payment.Method} {payment.Amount.Centavos})");
+                    }
+                }
+
+                if (receipts != 1)
+                {
+                    throw new LedgerIntegrityException($"[sale {sale.Id}] payment line {payment.Id} has {receipts} receipts; expected exactly 1");
+                }
+            }
+        }
     }
 
     private void Cell(ProductId product, LocationId location, long delta)

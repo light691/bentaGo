@@ -22,8 +22,6 @@ public readonly struct Quantity : IEquatable<Quantity>
 
     public Quantity Plus(Quantity other) => new(checked(_units + other._units));
 
-    public Quantity Minus(Quantity other) => new(checked(_units - other._units));
-
     public bool IsZero => _units == 0;
 
     public bool Equals(Quantity other) => _units == other._units;

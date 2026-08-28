@@ -62,35 +62,37 @@ public sealed class InMemoryLedgerStore : ILedgerStore
         long sequence = first;
         var staged = new List<Movement>(movements.Count);
 
-        // Guard against the CURRENT state before assigning sequences, then
-        // assign in batch order. The guards see only already-committed state,
-        // so a batch is atomic in effect: either every movement is legal
-        // against the state BEFORE the batch, or nothing is appended.
+        // Validate-and-apply off to the side, sequentially: movements that
+        // are individually legal against the pre-batch state can still
+        // interact (two lines consuming the same stock cell), so each one is
+        // validated against the state the batch has already produced. On any
+        // failure the clone is discarded and nothing is committed.
+        LedgerState next = State.Clone();
         foreach (Movement movement in movements)
         {
-            DomainError? violation = State.Accepts(movement with { Sequence = sequence });
+            Movement sequenced = movement with { Sequence = sequence };
+            DomainError? violation = next.ApplyCommitted(sequenced);
             if (violation is not null)
             {
                 return Result<AppendReceipt>.Fail(violation);
             }
 
-            staged.Add(movement with { Sequence = sequence });
+            staged.Add(sequenced);
             sequence++;
         }
 
-        foreach (Movement movement in staged)
+        // A stream that passes the per-movement checks but drifts from its
+        // documents (duplicated receipt, mutated amount) must never commit.
+        try
         {
-            State.BindDocuments(_trips, _sales, _returns, _loads, _voids);
-            DomainError? error = State.ApplyCommitted(movement);
-            if (error is not null)
-            {
-                // Cannot happen: ApplyCommitted re-runs the same guard the
-                // batch already passed, against the same state.
-                return Result<AppendReceipt>.Fail(error);
-            }
+            next.VerifyCrossChecks(_sales);
+        }
+        catch (LedgerIntegrityException ex)
+        {
+            return Result<AppendReceipt>.Fail(new DomainError("INTEGRITY", ex.Message));
         }
 
-        State.BindDocuments(_trips, _sales, _returns, _loads, _voids);
+        State = next;
         _movements.AddRange(staged);
         Context = NewContext();
         return Result<AppendReceipt>.Ok(new AppendReceipt(first, sequence - 1));
