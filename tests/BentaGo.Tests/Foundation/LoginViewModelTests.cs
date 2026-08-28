@@ -20,7 +20,10 @@ public sealed class LoginViewModelTests : IDisposable
 
     private async Task<ServiceProvider> CreateSeededHostAsync()
     {
-        var host = BentaGoHost.BuildForTests(_tempRoot);
+        var host = BentaGoHost.Build(
+            development: true,
+            dataRootOverride: _tempRoot,
+            extra: services => services.AddTransient<LoginViewModel>());
         var initializer = host.GetRequiredService<DbInitializer>();
         await initializer.EnsureCreatedOrMigrateAsync();
         await host.GetRequiredService<IAdminSeeder>().SeedAsync();
