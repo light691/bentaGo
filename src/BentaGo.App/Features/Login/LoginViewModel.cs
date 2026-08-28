@@ -5,7 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace BentaGo.App.Features.Login;
 
-public sealed class LoginViewModel : ViewModelBase
+public sealed class LoginViewModel : ValidatableViewModelBase
 {
     private readonly ILoginService _loginService;
     private string _username = "";
@@ -28,7 +28,7 @@ public sealed class LoginViewModel : ViewModelBase
         get => _username;
         set
         {
-            if (SetProperty(ref _username, value))
+            if (SetValidatedField(ref _username, value, v => string.IsNullOrWhiteSpace(v) ? "Username is required." : null))
             {
                 OnPropertyChanged(nameof(CanLogin));
             }
@@ -40,7 +40,7 @@ public sealed class LoginViewModel : ViewModelBase
         get => _password;
         set
         {
-            if (SetProperty(ref _password, value))
+            if (SetValidatedField(ref _password, value, v => string.IsNullOrEmpty(v) ? "Password is required." : null))
             {
                 OnPropertyChanged(nameof(CanLogin));
             }
@@ -67,8 +67,20 @@ public sealed class LoginViewModel : ViewModelBase
 
     public bool CanLogin => !IsBusy && !string.IsNullOrWhiteSpace(Username) && !string.IsNullOrEmpty(Password);
 
+    /// <summary>
+    /// Submit-time field validation (bg-004-synthesis §8.1): blank fields get
+    /// corrective copy; the auth failure copy stays form-level and generic,
+    /// never field-level (never reveals which credential is wrong).
+    /// </summary>
+    public void ValidateSubmit()
+    {
+        SetFieldError(nameof(Username), string.IsNullOrWhiteSpace(Username) ? "Username is required." : null);
+        SetFieldError(nameof(Password), string.IsNullOrEmpty(Password) ? "Password is required." : null);
+    }
+
     private async Task LoginAsync()
     {
+        ValidateSubmit();
         ErrorMessage = null;
         IsBusy = true;
         try

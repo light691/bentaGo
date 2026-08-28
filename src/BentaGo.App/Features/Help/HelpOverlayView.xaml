@@ -1,0 +1,58 @@
+<UserControl x:Class="BentaGo.App.Features.Help.HelpOverlayView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="clr-namespace:BentaGo.App.Ui"
+             ui:FocusTarget.Id="HelpOverlay.Root">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0"
+                   Text="{Binding Title}"
+                   Style="{StaticResource TitleTextStyle}"
+                   Margin="0,0,0,8" />
+
+        <TextBlock Grid.Row="1"
+                   Text="{Binding Hint}"
+                   Style="{StaticResource StatusTextStyle}"
+                   Margin="0,0,0,8" />
+
+        <!-- Every ShortcutCatalog entry: Active rows rendered, Reserved/Future greyed. -->
+        <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+            <ItemsControl ItemsSource="{Binding Rows}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Grid Margin="0,2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="86" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Border Grid.Column="0"
+                                    Style="{StaticResource KeyCapStyle}"
+                                    HorizontalAlignment="Left">
+                                <TextBlock Text="{Binding Gesture}"
+                                           Style="{StaticResource CaptionTextStyle}"
+                                           VerticalAlignment="Center"
+                                           HorizontalAlignment="Center" />
+                            </Border>
+                            <TextBlock Grid.Column="1"
+                                       Text="{Binding Action}"
+                                       Style="{StaticResource BodyTextStyle}"
+                                       VerticalAlignment="Center"
+                                       Margin="10,0,0,0" />
+                        </Grid>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+
+        <TextBlock Grid.Row="3"
+                   Text="Simulated data - BG-002 scenario"
+                   Style="{StaticResource CaptionTextStyle}"
+                   Margin="0,8,0,0" />
+    </Grid>
+</UserControl>

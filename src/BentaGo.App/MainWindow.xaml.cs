@@ -1,31 +1,41 @@
 using System.Windows;
 using System.Windows.Input;
 using BentaGo.App.Mvvm;
+using BentaGo.App.Navigation.Shortcuts;
 
 namespace BentaGo.App;
 
+/// <summary>
+/// The BG-001 shell extended (bg-004-synthesis §5.2). Code-behind is limited
+/// to WPF-forced mechanisms: the window-level KeyBindings generated from
+/// ShortcutCatalog (gesture list, parameters only - no logic) and the
+/// constructor wiring. Focus resolution lives in the FocusCoordinator.
+/// </summary>
 public partial class MainWindow : Window
 {
     private readonly MainViewModel _viewModel;
 
-    public MainWindow()
+    public MainWindow(MainViewModel viewModel)
     {
         InitializeComponent();
-        _viewModel = new MainViewModel(ObservableObjectFactory.Build());
-        DataContext = _viewModel;
-        KeyDown += OnKeyDown;
+        _viewModel = viewModel;
+        DataContext = viewModel;
+        AddWindowBindings();
     }
 
-    private void OnKeyDown(object sender, KeyEventArgs e)
+    /// <summary>
+    /// One InputBinding per window-bound Active shortcut, generated from the
+    /// catalog so binding/catalog parity holds by construction (§6.3.8).
+    /// </summary>
+    private void AddWindowBindings()
     {
-        if (e.Key == Key.F1)
+        foreach (ShortcutEntry entry in ShortcutCatalog.WindowBindings)
         {
-            MessageBox.Show(
-                "Keyboard shortcuts\n\nF1  Help\nEnter  Submit the login form\nTab  Move focus\nEsc  Close dialogs",
-                "BentaGo Help",
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
-            e.Handled = true;
+            (ICommand command, object? parameter) = _viewModel.CommandMapping(entry.Id);
+            InputBindings.Add(new KeyBinding(command, entry.Key, entry.Modifiers)
+            {
+                CommandParameter = parameter,
+            });
         }
     }
 }

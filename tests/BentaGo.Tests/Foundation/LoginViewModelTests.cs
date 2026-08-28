@@ -1,6 +1,7 @@
 using System.IO;
 using BentaGo.App;
 using BentaGo.App.Features.Login;
+using BentaGo.App.Mvvm;
 using BentaGo.Infrastructure.Hosting;
 using BentaGo.Infrastructure.Persistence;
 using BentaGo.Infrastructure.Security;
@@ -23,7 +24,7 @@ public sealed class LoginViewModelTests : IDisposable
         var host = BentaGoHost.Build(
             development: true,
             dataRootOverride: _tempRoot,
-            extra: services => services.AddTransient<LoginViewModel>());
+            extra: ObservableObjectFactory.RegisterAppServices);
         var initializer = host.GetRequiredService<DbInitializer>();
         await initializer.EnsureCreatedOrMigrateAsync();
         await host.GetRequiredService<IAdminSeeder>().SeedAsync();

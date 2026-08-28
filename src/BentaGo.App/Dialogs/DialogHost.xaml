@@ -1,0 +1,18 @@
+<Window x:Class="BentaGo.App.Dialogs.DialogHost"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Style="{StaticResource DialogWindowStyle}"
+        WindowStartupLocation="CenterOwner"
+        SizeToContent="WidthAndHeight">
+    <!-- Esc closes only the top dialog: this modal window owns its own input
+         scope, so Esc can never reach MainWindow (bg-004-synthesis §7.2). -->
+    <Window.InputBindings>
+        <KeyBinding Key="Esc" Command="{Binding CancelCommand}" />
+    </Window.InputBindings>
+    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                  HorizontalScrollBarVisibility="Auto"
+                  MaxWidth="{DynamicResource DialogHost.MaxWidth}"
+                  MaxHeight="{DynamicResource DialogHost.MaxHeight}">
+        <ContentControl Content="{Binding}" />
+    </ScrollViewer>
+</Window>
