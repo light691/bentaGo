@@ -22,3 +22,4 @@
 18. Ambiguity resolution order: docs/05, docs/00, docs/01, docs/02, docs/03, docs/04, docs/decisions, an earlier coordinator note. Never invent business rules. A brief with an unresolved product rule is refused and reported, not guessed.
 19. Nothing outside your unit becomes a change. New findings become follow-ups in the report.
 20. Report shape per the brief: status, branch, head SHA, verdict, what you actually ran, deviations, forbidden-field violations, suggested follow-ups.
+20. Builders verify by build only. The full verification chain (format, test, run) is coordinator-owned and runs at the drain; builders end their slice at a green build plus a commit.
