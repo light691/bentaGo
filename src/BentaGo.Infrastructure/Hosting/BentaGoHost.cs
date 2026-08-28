@@ -39,6 +39,7 @@ public static class BentaGoHost
             $"Data Source={Path.Combine(paths.DataDir, "bentago.db")}"));
         services.AddSingleton<IDbContextFactory<BentaGoDbContext>>(sp =>
             sp.GetRequiredService<BentaGoDbContextFactory>());
+        services.AddSingleton<DbInitializer>();
 
         // TODO(bg001a-4): real implementations replace these placeholders.
         services.AddSingleton<IPasswordHasher, PasswordHasherPlaceholder>();

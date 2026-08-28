@@ -11,4 +11,8 @@
     <ProjectReference Include="..\..\src\BentaGo.Infrastructure\BentaGo.Infrastructure.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />
+  </ItemGroup>
+
 </Project>
