@@ -45,6 +45,14 @@ public sealed class AdminSeeder : IAdminSeeder
             Value = _passwordHasher.Hash("admin"),
         });
 
-        await context.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await context.SaveChangesAsync(cancellationToken);
+        }
+        catch (Microsoft.Data.Sqlite.SqliteException)
+        {
+            // A concurrent boot seeded the same keys between our check and
+            // save. The rows now exist, which is the wanted end state.
+        }
     }
 }

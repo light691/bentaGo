@@ -48,11 +48,29 @@ public sealed class RestoreService : IRestoreService
                 $"does not match active database migration '{currentVersion}'; active database left unchanged");
         }
 
-        // (b) Rename the active database aside.
-        File.Move(dbPath, preRestorePath);
+        // (b) Move the active database (and any stale journal companions)
+        // aside, then put the backup in place. The whole window is inside
+        // the rollback try: a hard failure at any point restores the
+        // pre-restore files.
+        string walPath = dbPath + "-wal";
+        string shmPath = dbPath + "-shm";
+        string preRestoreWalPath = preRestorePath + "-wal";
+        string preRestoreShmPath = preRestorePath + "-shm";
 
         try
         {
+            if (File.Exists(walPath))
+            {
+                File.Move(walPath, preRestoreWalPath);
+            }
+
+            if (File.Exists(shmPath))
+            {
+                File.Move(shmPath, preRestoreShmPath);
+            }
+
+            File.Move(dbPath, preRestorePath);
+
             // (c) Copy the backup into place.
             File.Copy(backupPath, dbPath);
 
@@ -61,15 +79,35 @@ public sealed class RestoreService : IRestoreService
         }
         catch
         {
-            // (e) Roll the rename back and rethrow.
+            // (e) Roll everything back and rethrow.
             if (File.Exists(dbPath))
             {
                 File.Delete(dbPath);
             }
 
+            if (File.Exists(walPath))
+            {
+                File.Delete(walPath);
+            }
+
+            if (File.Exists(shmPath))
+            {
+                File.Delete(shmPath);
+            }
+
             if (File.Exists(preRestorePath))
             {
                 File.Move(preRestorePath, dbPath);
+            }
+
+            if (File.Exists(preRestoreWalPath) && !File.Exists(walPath))
+            {
+                File.Move(preRestoreWalPath, walPath);
+            }
+
+            if (File.Exists(preRestoreShmPath) && !File.Exists(shmPath))
+            {
+                File.Move(preRestoreShmPath, shmPath);
             }
 
             throw;

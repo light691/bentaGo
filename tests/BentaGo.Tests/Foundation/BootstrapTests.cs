@@ -268,4 +268,37 @@ public sealed class BootstrapTests : IDisposable
             .CreateDbContextAsync();
         Assert.Equal(1, await context.AppSettings.CountAsync(s => s.Key == "seed.admin.username"));
     }
+
+    [Fact]
+    public async Task Restore_SeedMissingRefusedAndActiveDatabaseUnchanged()
+    {
+        // A schema-valid backup that never got seeded must be refused by the
+        // post-copy seed verification, and the active database must be intact.
+        string seedlessRoot = NewTempRoot();
+        ServiceProvider seedlessHost = BentaGoHost.BuildForTests(seedlessRoot);
+        await seedlessHost.GetRequiredService<DbInitializer>().EnsureCreatedOrMigrateAsync();
+        BackupReceipt seedlessBackup = await seedlessHost
+            .GetRequiredService<IBackupService>().CreateAsync();
+
+        string root = NewTempRoot();
+        ServiceProvider host = BentaGoHost.BuildForTests(root);
+        var initializer = host.GetRequiredService<DbInitializer>();
+        var seeder = host.GetRequiredService<IAdminSeeder>();
+        var restoreService = host.GetRequiredService<IRestoreService>();
+
+        await initializer.EnsureCreatedOrMigrateAsync();
+        await seeder.SeedAsync();
+
+        string dbBefore = ComputeSha256(DbPath(root));
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => restoreService.RestoreAsync(seedlessBackup.BackupPath));
+        Assert.Contains("admin seed row", ex.Message);
+
+        Assert.Equal(dbBefore, ComputeSha256(DbPath(root)));
+
+        await using var context = await host.GetRequiredService<IDbContextFactory<BentaGoDbContext>>()
+            .CreateDbContextAsync();
+        Assert.Equal(1, await context.AppSettings.CountAsync(s => s.Key == "seed.admin.username"));
+    }
 }

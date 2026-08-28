@@ -31,7 +31,7 @@ public sealed class BackupService : IBackupService
         DateTime createdUtc = DateTime.UtcNow;
         string backupPath = Path.Combine(
             _paths.BackupsDir,
-            $"bentago-{createdUtc:yyyyMMddHHmmss}.db");
+            $"bentago-{createdUtc:yyyyMMddHHmmssfff}.db");
 
         string databaseVersion = await ReadMigrationIdAsync(dbPath, cancellationToken);
 
