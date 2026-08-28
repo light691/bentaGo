@@ -1,0 +1,23 @@
+## .NET Core build outputs
+bin/
+obj/
+
+## Visual Studio
+.vs/
+*.user
+
+## BentaGo artifacts
+artifacts/
+backups/
+logs/
+.wt/
+TestResults/
+
+## SQLite databases
+*.db
+*.db-shm
+*.db-wal
+
+## OS
+.DS_Store
+Thumbs.db

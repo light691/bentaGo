@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\BentaGo.Application\BentaGo.Application.csproj" />
+    <ProjectReference Include="..\BentaGo.Infrastructure\BentaGo.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>

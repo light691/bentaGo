@@ -17,6 +17,10 @@
 15. Run the installed cleanup checks before each commit. Run no-comments before review (deslop and control skills live in cursor-team-kit and are not installed here; note gaps in the report instead).
 16. Triage automated review comments as fix, dismiss, or ask. Record the reason.
 17. Timebox. On expiry, stop, commit what works, and report partial findings. Never run past the timebox to make coverage look better.
+18. Visible progress rule. A builder unit commits after each phase milestone and writes files as it goes, not only at the end. A silent worker (no writes, no commits) is treated as stuck and replaced. Do not spend most of the timebox reading; skim the docs sections your brief names, read the rest only when a step needs it.
+19. Slice-on-stall rule (pilot evidence 2026-08-29). When a worker produces no repo change after 25 minutes, replace it and slice the unit smaller. Never re-send the same scope. Builder briefs must inline every requirement the worker needs; reading the docs is for verification context only. A builder brief covers at most two commit milestones.
 18. Ambiguity resolution order: docs/05, docs/00, docs/01, docs/02, docs/03, docs/04, docs/decisions, an earlier coordinator note. Never invent business rules. A brief with an unresolved product rule is refused and reported, not guessed.
 19. Nothing outside your unit becomes a change. New findings become follow-ups in the report.
 20. Report shape per the brief: status, branch, head SHA, verdict, what you actually ran, deviations, forbidden-field violations, suggested follow-ups.
+20. Builders verify by build only. The full verification chain (format, test, run) is coordinator-owned and runs at the drain; builders end their slice at a green build plus a commit.
+21. Never send mid-flight corrections to a running builder. A correction arrives as a new turn and derails the child (b attempt 1: one wrongful deletion then 70 min of nothing). Stand the child down and respawn with the corrected brief.
