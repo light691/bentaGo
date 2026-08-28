@@ -23,3 +23,4 @@
 19. Nothing outside your unit becomes a change. New findings become follow-ups in the report.
 20. Report shape per the brief: status, branch, head SHA, verdict, what you actually ran, deviations, forbidden-field violations, suggested follow-ups.
 20. Builders verify by build only. The full verification chain (format, test, run) is coordinator-owned and runs at the drain; builders end their slice at a green build plus a commit.
+21. Never send mid-flight corrections to a running builder. A correction arrives as a new turn and derails the child (b attempt 1: one wrongful deletion then 70 min of nothing). Stand the child down and respawn with the corrected brief.
