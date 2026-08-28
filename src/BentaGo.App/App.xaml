@@ -13,6 +13,7 @@
                 <ResourceDictionary Source="Themes/Theme.xaml" />
                 <ResourceDictionary Source="Styles/ScreenStyles.xaml" />
                 <ResourceDictionary Source="Styles/Validation.xaml" />
+                <ResourceDictionary Source="Views/Converters.xaml" />
                 <ResourceDictionary Source="Views/DataTemplates.xaml" />
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>

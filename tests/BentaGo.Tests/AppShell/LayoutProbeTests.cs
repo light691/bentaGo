@@ -1,8 +1,20 @@
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Media;
 using BentaGo.App;
+using BentaGo.App.Dialogs.Confirm;
+using BentaGo.App.Dialogs.Payment;
+using BentaGo.App.Features.Login;
+using BentaGo.App.Features.PeddlerHome;
+using BentaGo.App.Features.Reconciliation;
+using BentaGo.App.Features.Sales;
+using BentaGo.App.Features.Stock;
+using BentaGo.App.Mvvm;
+using BentaGo.Core.Domain;
+using BentaGo.Infrastructure.Hosting;
+using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
 namespace BentaGo.Tests.AppShell;
@@ -10,8 +22,8 @@ namespace BentaGo.Tests.AppShell;
 /// <summary>
 /// Layout probes (bg-004-synthesis 4.6): every screen view must fit the
 /// 1092x614 DIP work area (1366x768 at 125%) and interactive targets must
-/// stay >= 44 DIP. The p1 slice probes the design-system controls; screen
-/// views are added as they land in p3.
+/// stay >= 44 DIP. Dialogs are probed at the DialogHost caps (760x600) that
+/// guarantee the payment dialog fits the same work area (14).
 /// </summary>
 [Collection("AppShellSta")]
 public sealed class LayoutProbeTests
@@ -81,5 +93,74 @@ public sealed class LayoutProbeTests
             Assert.True(primary.ActualHeight >= 44, $"primary button too small: {primary.ActualHeight}");
             Assert.True(keypad.ActualHeight >= 44, $"keypad button too small: {keypad.ActualHeight}");
         });
+    }
+
+    /// <summary>
+    /// Every screen view (and both dialog views) must fit its probe area:
+    /// screens at 1092x614 DIP, dialogs at the DialogHost caps (760x600)
+    /// (bg-004-synthesis 4.6, 14).
+    /// </summary>
+    [Fact]
+    public void AllScreensAndDialogsFitTheirProbeArea()
+    {
+        _sta.Run(() =>
+        {
+            string temp = Path.Combine(Path.GetTempPath(), "bentago-layout-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                using var services = BentaGoHost.Build(
+                    development: true,
+                    dataRootOverride: temp,
+                    extra: ObservableObjectFactory.RegisterAppServices);
+
+                var cases = new (string Name, FrameworkElement View, double Width, double Height)[]
+                {
+                    ("login", NewView<LoginView, LoginViewModel>(services), ProbeWidth, ProbeHeight),
+                    ("home", NewView<PeddlerHomeView, PeddlerHomeViewModel>(services), ProbeWidth, ProbeHeight),
+                    ("sales", NewView<SalesView, SalesViewModel>(services), ProbeWidth, ProbeHeight),
+                    ("stock", NewView<StockView, StockViewModel>(services), ProbeWidth, ProbeHeight),
+                    ("reconciliation", NewView<ReconciliationView, ReconciliationViewModel>(services), ProbeWidth, ProbeHeight),
+                    ("payment-dialog", NewPaymentView(services), 760, 600),
+                    ("confirm-dialog", NewView<ConfirmDialogView, ConfirmDialogViewModel>(services), 760, 600),
+                };
+
+                foreach ((string name, FrameworkElement view, double width, double height) in cases)
+                {
+                    using var probe = new ProbeHost(view, width, height);
+                    _sta.PumpIdle();
+                    Assert.True(
+                        view.ActualWidth <= width + 0.5 && view.ActualHeight <= height + 0.5,
+                        $"{name} overflows its probe area: {view.ActualWidth}x{view.ActualHeight} in {width}x{height}");
+                }
+            }
+            finally
+            {
+                try
+                {
+                    Directory.Delete(temp, recursive: true);
+                }
+                catch
+                {
+                    // Best-effort cleanup.
+                }
+            }
+        });
+    }
+
+    private static FrameworkElement NewView<TView, TViewModel>(IServiceProvider services)
+        where TView : FrameworkElement, new()
+        where TViewModel : class
+    {
+        var view = new TView();
+        view.DataContext = services.GetRequiredService<TViewModel>();
+        return view;
+    }
+
+    private static FrameworkElement NewPaymentView(IServiceProvider services)
+    {
+        var viewModel = services.GetRequiredService<PaymentDialogViewModel>();
+        viewModel.Load(Money.FromPesos(1250m));
+        viewModel.SplitLines.Add(new SplitLineDraft(() => { }));
+        return new PaymentDialogView { DataContext = viewModel };
     }
 }

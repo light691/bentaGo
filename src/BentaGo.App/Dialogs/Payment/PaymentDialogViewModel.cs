@@ -2,9 +2,11 @@ using System.Globalization;
 using System.Windows.Input;
 using BentaGo.App.Data;
 using BentaGo.App.Mvvm;
+using BentaGo.App.Navigation;
 using BentaGo.App.Ui;
 using BentaGo.Core.Domain;
 using BentaGo.Core.Domain.Payments;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace BentaGo.App.Dialogs.Payment;
 
@@ -25,14 +27,16 @@ public sealed class PaymentDialogViewModel : DialogViewModelBase<PaymentDialogRe
     private const string CreditId = "credit";
     private const string SplitId = "split";
 
+    private readonly IFocusService _focus;
     private Money _total;
     private string _selectedMethodId = CashId;
     private string _amountReceivedText = "";
     private string _customerName = "";
     private string _reference = "";
 
-    public PaymentDialogViewModel()
+    public PaymentDialogViewModel(IServiceProvider services)
     {
+        _focus = services.GetRequiredService<IFocusService>();
         MethodOptions =
         [
             new MethodOption(CashId, "Cash"),
@@ -50,7 +54,7 @@ public sealed class PaymentDialogViewModel : DialogViewModelBase<PaymentDialogRe
         ClearEntryCommand = new RelayCommand(_ => ClearEntry());
         AddSplitLineCommand = new RelayCommand(_ => AddSplitLine());
         RemoveSplitLineCommand = new RelayCommand(parameter => RemoveSplitLine((SplitLineDraft)parameter!));
-        FocusMethodCommand = new RelayCommand(_ => { });
+        FocusMethodCommand = new RelayCommand(_ => _focus.Request(AutomationIds.PaymentMethodTabs));
     }
 
     public Money Total
@@ -393,7 +397,13 @@ public sealed class SplitLineDraft : ViewModelBase
     private int _methodIndex;
     private string _amountText = "";
 
-    public SplitLineDraft(Action changed) => _changed = changed;
+    public SplitLineDraft(Action changed)
+    {
+        _changed = changed;
+        CycleMethodCommand = new RelayCommand(_ => CycleMethod());
+    }
+
+    public System.Windows.Input.ICommand CycleMethodCommand { get; }
 
     public PaymentMethod Method => FundedMethods[_methodIndex];
 

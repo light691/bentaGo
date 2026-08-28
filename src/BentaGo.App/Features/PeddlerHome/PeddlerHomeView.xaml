@@ -1,0 +1,104 @@
+<UserControl x:Class="BentaGo.App.Features.PeddlerHome.PeddlerHomeView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="clr-namespace:BentaGo.App.Ui">
+    <Grid Margin="{StaticResource ScreenPadding}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- Header: greeting, peddler, trip, online/offline, current time. -->
+        <StackPanel Grid.Row="0">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="{Binding Session.Greeting}" Style="{StaticResource HeaderTextStyle}" />
+                <TextBlock Text="{Binding Session.PeddlerName}"
+                           Style="{StaticResource HeaderTextStyle}"
+                           Margin="{StaticResource Thickness.XL}" />
+                <Ellipse Style="{StaticResource StatusDotStyle}"
+                         Fill="{DynamicResource Brush.Status.Success}"
+                         VerticalAlignment="Center" />
+                <TextBlock Text="Online"
+                           Style="{StaticResource StatusTextStyle}"
+                           Margin="{StaticResource Thickness.XS}" />
+            </StackPanel>
+            <TextBlock Style="{StaticResource StatusTextStyle}">
+                <Run Text="Trip " /><Run Text="{Binding Session.TripNumber, Mode=OneWay}" />
+                <Run Text="  ·  now " /><Run Text="{Binding Session.NowText, Mode=OneWay}" />
+            </TextBlock>
+        </StackPanel>
+
+        <!-- Urgent previous-date-trip banner (scenario is same-day: hidden). -->
+        <Border Grid.Row="1"
+                Style="{StaticResource Banner.WarningStyle}"
+                Margin="{StaticResource Thickness.M}"
+                Visibility="{Binding Session.PreviousDateTripOpen, Converter={StaticResource BoolToVisibility}}">
+            <TextBlock Text="This trip opened on a previous date. Close it before starting today's route."
+                       Style="{StaticResource BodyTextStyle}" />
+        </Border>
+
+        <!-- Info cards. -->
+        <Grid Grid.Row="2" Margin="{StaticResource Thickness.M}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Border Grid.Column="0" Style="{StaticResource CardStyle}" Margin="{StaticResource Thickness.S}">
+                <StackPanel>
+                    <TextBlock Text="Today's Sales" Style="{StaticResource LabelTextStyle}" />
+                    <TextBlock Text="{Binding Dashboard.TodaySalesText}" Style="{StaticResource MoneyTextStyle}" />
+                </StackPanel>
+            </Border>
+            <Border Grid.Column="1" Style="{StaticResource CardStyle}" Margin="{StaticResource Thickness.S}">
+                <StackPanel>
+                    <TextBlock Text="Transactions" Style="{StaticResource LabelTextStyle}" />
+                    <TextBlock Text="{Binding Dashboard.TransactionsText}" Style="{StaticResource MoneyTextStyle}" />
+                </StackPanel>
+            </Border>
+            <Border Grid.Column="0" Style="{StaticResource CardStyle}" Margin="{StaticResource Thickness.S}">
+                <StackPanel>
+                    <TextBlock Text="Cash Sales" Style="{StaticResource LabelTextStyle}" />
+                    <TextBlock Text="{Binding Dashboard.CashSalesText}" Style="{StaticResource MoneyTextStyle}" />
+                </StackPanel>
+            </Border>
+            <Border Grid.Column="1" Style="{StaticResource CardStyle}" Margin="{StaticResource Thickness.S}">
+                <StackPanel>
+                    <TextBlock Text="Remaining Items" Style="{StaticResource LabelTextStyle}" />
+                    <TextBlock Text="{Binding Dashboard.RemainingItemsText}" Style="{StaticResource MoneyTextStyle}" />
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- Primary + secondary actions. -->
+        <StackPanel Grid.Row="3" Margin="{StaticResource Thickness.M}">
+            <Button Content="NEW SALE"
+                    Style="{StaticResource Button.PrimaryStyle}"
+                    Command="{Binding NewSaleCommand}"
+                    HorizontalAlignment="Left"
+                    MinWidth="220"
+                    ui:FocusTarget.Id="Home.NewSaleButton" />
+            <StackPanel Orientation="Horizontal" Margin="{StaticResource Thickness.L}">
+                <Button Content="My Stock"
+                        Style="{StaticResource Button.SecondaryStyle}"
+                        Command="{Binding StockCommand}"
+                        Margin="{StaticResource Thickness.S}"
+                        ui:FocusTarget.Id="Home.StockButton" />
+                <Button Content="Transactions"
+                        Style="{StaticResource Button.SecondaryStyle}"
+                        Command="{Binding TransactionsCommand}"
+                        Margin="{StaticResource Thickness.S}" />
+                <Button Content="Returns"
+                        Style="{StaticResource Button.SecondaryStyle}"
+                        Command="{Binding ReturnsCommand}"
+                        Margin="{StaticResource Thickness.S}" />
+                <Button Content="End Trip"
+                        Style="{StaticResource Button.SecondaryStyle}"
+                        Command="{Binding EndTripCommand}"
+                        Margin="{StaticResource Thickness.S}"
+                        ui:FocusTarget.Id="Home.EndTripButton" />
+            </StackPanel>
+        </StackPanel>
+    </Grid>
+</UserControl>

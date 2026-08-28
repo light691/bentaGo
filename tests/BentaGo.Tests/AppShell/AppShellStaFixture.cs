@@ -61,6 +61,7 @@ public sealed class AppShellStaFixture : IDisposable
         "pack://application:,,,/BentaGo.App;component/Themes/Theme.xaml",
         "pack://application:,,,/BentaGo.App;component/Styles/ScreenStyles.xaml",
         "pack://application:,,,/BentaGo.App;component/Styles/Validation.xaml",
+        "pack://application:,,,/BentaGo.App;component/Views/Converters.xaml",
         "pack://application:,,,/BentaGo.App;component/Views/DataTemplates.xaml",
     ];
 

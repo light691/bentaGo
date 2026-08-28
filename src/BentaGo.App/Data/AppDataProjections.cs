@@ -45,7 +45,11 @@ public sealed record ReconciliationSummary(
     Money ExpectedCash);
 
 /// <summary>One sellable offer in the POS catalog.</summary>
-public sealed record ProductOffer(string Sku, string Name, Money UnitPrice, int OnHand);
+public sealed record ProductOffer(string Sku, string Name, Money UnitPrice, int OnHand)
+{
+    /// <summary>Display price (presentation formatting only).</summary>
+    public string PriceText => MoneyDisplay.Peso(UnitPrice);
+}
 
 /// <summary>
 /// The immutable snapshot the read-only screens bind to. Display values are

@@ -1,0 +1,70 @@
+<UserControl x:Class="BentaGo.App.Features.Stock.StockView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="clr-namespace:BentaGo.App.Ui">
+    <Grid Margin="{StaticResource ScreenPadding}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0">
+            <TextBlock Text="My Stock" Style="{StaticResource HeaderTextStyle}" />
+            <TextBlock Style="{StaticResource StatusTextStyle}">
+                <Run Text="Trip " /><Run Text="{Binding Session.TripNumber, Mode=OneWay}" />
+            </TextBlock>
+        </StackPanel>
+
+        <Grid Grid.Row="1" Margin="{StaticResource Thickness.M}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBox Grid.Column="0"
+                     Style="{StaticResource ScanEditorStyle}"
+                     Text="{Binding SearchQuery, UpdateSourceTrigger=PropertyChanged}"
+                     MaxWidth="420"
+                     HorizontalAlignment="Left"
+                     ui:FocusTarget.Id="Stock.StockSearchBox" />
+            <Button Grid.Column="1"
+                    Content="{Binding LowOnlyLabel}"
+                    Style="{StaticResource Button.SecondaryStyle}"
+                    Command="{Binding ToggleLowOnlyCommand}"
+                    Margin="{StaticResource Thickness.XS}" />
+        </Grid>
+
+        <DataGrid Grid.Row="2"
+                  ItemsSource="{Binding FilteredRows}"
+                  RowStyle="{StaticResource DataGrid.LowStockRowStyle}"
+                  AutoGenerateColumns="False">
+            <DataGrid.Columns>
+                <DataGridTemplateColumn Header="SKU" Width="110">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="{Binding Sku}"
+                                           Style="{StaticResource LowStockSkuTextStyle}"
+                                           VerticalAlignment="Center" />
+                                <Border Style="{StaticResource Banner.WarningStyle}"
+                                        Padding="{StaticResource Thickness.XS}"
+                                        CornerRadius="{StaticResource Corner.S}"
+                                        Margin="{StaticResource Thickness.XS}"
+                                        Visibility="{Binding IsLow, Converter={StaticResource BoolToVisibility}}">
+                                    <TextBlock Text="LOW" Style="{StaticResource CaptionTextStyle}" />
+                                </Border>
+                            </StackPanel>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTextColumn Header="Product" Binding="{Binding Product}" Width="*" />
+                <DataGridTextColumn Header="Loaded" Binding="{Binding Loaded}" Width="60" />
+                <DataGridTextColumn Header="Sold" Binding="{Binding Sold}" Width="60" />
+                <DataGridTextColumn Header="Damaged/Lost" Binding="{Binding DamagedLost}" Width="110" />
+                <DataGridTextColumn Header="Returned" Binding="{Binding Returned}" Width="70" />
+                <DataGridTextColumn Header="On hand" Binding="{Binding OnHand}" Width="70" />
+                <DataGridTextColumn Header="Last movement" Binding="{Binding LastMovementText}" Width="130" />
+            </DataGrid.Columns>
+        </DataGrid>
+    </Grid>
+</UserControl>

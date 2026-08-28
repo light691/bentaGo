@@ -14,26 +14,34 @@
         <TextBlock Grid.Row="0"
                    Text="{Binding Title}"
                    Style="{StaticResource TitleTextStyle}"
-                   Margin="0,0,0,8" />
+                   Margin="{StaticResource Thickness.M}" />
 
         <TextBlock Grid.Row="1"
                    Text="{Binding Hint}"
                    Style="{StaticResource StatusTextStyle}"
-                   Margin="0,0,0,8" />
+                   Margin="{StaticResource Thickness.M}" />
 
         <!-- Every ShortcutCatalog entry: Active rows rendered, Reserved/Future greyed. -->
         <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
             <ItemsControl ItemsSource="{Binding Rows}">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
-                        <Grid Margin="0,2">
+                        <Grid Margin="{StaticResource Thickness.XS}">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="86" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
-                            <Border Grid.Column="0"
-                                    Style="{StaticResource KeyCapStyle}"
-                                    HorizontalAlignment="Left">
+                            <Border Grid.Column="0" HorizontalAlignment="Left">
+                                <Border.Style>
+                                    <Style TargetType="Border" BasedOn="{StaticResource KeyCapStyle}">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsGreyed}" Value="True">
+                                                <Setter Property="Background" Value="{DynamicResource Brush.State.Disabled.Bg}" />
+                                                <Setter Property="BorderBrush" Value="{DynamicResource Brush.State.Disabled.Border}" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
                                 <TextBlock Text="{Binding Gesture}"
                                            Style="{StaticResource CaptionTextStyle}"
                                            VerticalAlignment="Center"
@@ -41,9 +49,18 @@
                             </Border>
                             <TextBlock Grid.Column="1"
                                        Text="{Binding Action}"
-                                       Style="{StaticResource BodyTextStyle}"
                                        VerticalAlignment="Center"
-                                       Margin="10,0,0,0" />
+                                       Margin="{StaticResource Thickness.M}">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource BodyTextStyle}">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsGreyed}" Value="True">
+                                                <Setter Property="Foreground" Value="{DynamicResource Brush.State.Disabled.Fg}" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
                         </Grid>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
@@ -53,6 +70,6 @@
         <TextBlock Grid.Row="3"
                    Text="Simulated data - BG-002 scenario"
                    Style="{StaticResource CaptionTextStyle}"
-                   Margin="0,8,0,0" />
+                   Margin="{StaticResource Thickness.M}" />
     </Grid>
 </UserControl>

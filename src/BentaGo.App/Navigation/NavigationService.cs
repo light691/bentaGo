@@ -67,7 +67,7 @@ public sealed class NavigationService : INavigationService, IDisposable
         string? from = _currentKey;
         _currentKey = key;
 
-        Navigated?.Invoke(this, new NavigationEventArgs(from, key, registration.InitialFocusTarget, viewModel));
+        Navigated?.Invoke(this, new NavigationEventArgs(from ?? "", key, registration.InitialFocusTarget, viewModel));
         FocusRequested?.Invoke(this, new FocusRequest(registration.InitialFocusTarget));
 
         watch.Stop();

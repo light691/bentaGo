@@ -1,0 +1,151 @@
+<UserControl x:Class="BentaGo.App.Features.Reconciliation.ReconciliationView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="clr-namespace:BentaGo.App.Ui">
+    <Grid Margin="{StaticResource ScreenPadding}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0">
+            <TextBlock Text="End Trip / Reconciliation" Style="{StaticResource HeaderTextStyle}" />
+            <TextBlock Style="{StaticResource StatusTextStyle}">
+                <Run Text="Trip " /><Run Text="{Binding Session.TripNumber, Mode=OneWay}" />
+            </TextBlock>
+        </StackPanel>
+
+        <Border Grid.Row="1"
+                Style="{StaticResource Banner.SuccessStyle}"
+                Margin="{StaticResource Thickness.M}"
+                Visibility="{Binding IsClosed, Converter={StaticResource BoolToVisibility}}">
+            <TextBlock Text="Trip closed (simulated data - BG-005 writes the close)."
+                       Style="{StaticResource BodyTextStyle}" />
+        </Border>
+
+        <Grid Grid.Row="2" Margin="{StaticResource Thickness.M}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <!-- Per-method summary + expected cash. -->
+            <Border Grid.Column="0" Style="{StaticResource CardStyle}" Margin="{StaticResource Thickness.XS}">
+                <StackPanel>
+                    <TextBlock Text="Payment summary" Style="{StaticResource TitleTextStyle}" />
+                    <ItemsControl ItemsSource="{Binding Summary.ByMethod}" Margin="{StaticResource Thickness.M}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Margin="{StaticResource Thickness.XS}">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="{Binding Method}" Style="{StaticResource LabelTextStyle}" />
+                                    <TextBlock Grid.Column="1" Text="{Binding Amount}" Style="{StaticResource MoneyTextStyle}" />
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <Border BorderThickness="0,1,0,0"
+                        BorderBrush="{DynamicResource Brush.Divider}"
+                        Margin="{StaticResource Thickness.M}" />
+                    <Grid Margin="{StaticResource Thickness.M}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="Gross Sales" Style="{StaticResource LabelTextStyle}" />
+                        <TextBlock Grid.Column="1" Text="{Binding Summary.GrossSales, Mode=OneWay}" Style="{StaticResource BodyTextStyle}" />
+                        <TextBlock Grid.Column="0" Text="Discounts" Style="{StaticResource LabelTextStyle}" Margin="{StaticResource Thickness.M}" />
+                        <TextBlock Grid.Column="1" Text="{Binding Summary.Discounts, Mode=OneWay}" Style="{StaticResource BodyTextStyle}" Margin="{StaticResource Thickness.M}" />
+                        <TextBlock Grid.Column="0" Text="Net Sales" Style="{StaticResource LabelTextStyle}" Margin="{StaticResource Thickness.M}" />
+                        <TextBlock Grid.Column="1" Text="{Binding Summary.NetSales, Mode=OneWay}" Style="{StaticResource BodyTextStyle}" Margin="{StaticResource Thickness.M}" />
+                        <TextBlock Grid.Column="0" Text="EXPECTED CASH" Style="{StaticResource BodyTextStyle}" FontWeight="{StaticResource FontWeight.Strong}" Margin="{StaticResource Thickness.M}" />
+                        <TextBlock Grid.Column="1" Text="{Binding Summary.ExpectedCash, Mode=OneWay}" Style="{StaticResource MoneyTextStyle}" Margin="{StaticResource Thickness.M}" />
+                    </Grid>
+                    <TextBlock Text="Expected cash is the cash fund this trip produced (reopened day)."
+                               Style="{StaticResource CaptionTextStyle}" />
+                </StackPanel>
+            </Border>
+
+            <!-- Actual cash remitted + variance banner + actions. -->
+            <StackPanel Grid.Column="1" Margin="{StaticResource Thickness.XS}">
+                <Border Style="{StaticResource CardStyle}">
+                    <StackPanel>
+                        <TextBlock Text="Cash remitted" Style="{StaticResource TitleTextStyle}" />
+                        <TextBlock Text="Actual cash remitted (leave blank if not counted)"
+                                   Style="{StaticResource LabelTextStyle}"
+                                   Margin="{StaticResource Thickness.M}" />
+                        <TextBox Text="{Binding ActualCashText, UpdateSourceTrigger=PropertyChanged}"
+                                 Style="{StaticResource ScanEditorStyle}"
+                                 MaxWidth="260"
+                                 HorizontalAlignment="Left"
+                                 ui:FocusTarget.Id="Reconciliation.ActualCashBox" />
+                        <TextBlock Text="{Binding DraftStatusText}"
+                                   Style="{StaticResource StatusTextStyle}"
+                                   Margin="{StaticResource Thickness.M}" />
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource Banner.SuccessStyle}"
+                        Margin="{StaticResource Thickness.M}"
+                        Visibility="{Binding IsBalanced, Converter={StaticResource BoolToVisibility}}">
+                    <TextBlock Text="{Binding BannerText}" Style="{StaticResource TitleTextStyle}" />
+                </Border>
+                <Border Style="{StaticResource Banner.WarningStyle}"
+                        Margin="{StaticResource Thickness.M}"
+                        Visibility="{Binding IsShort, Converter={StaticResource BoolToVisibility}}">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#x26A0; " Style="{StaticResource TitleTextStyle}" />
+                        <TextBlock Text="{Binding BannerText}" Style="{StaticResource TitleTextStyle}" />
+                    </StackPanel>
+                </Border>
+                <Border Style="{StaticResource Banner.ErrorStyle}"
+                        Margin="{StaticResource Thickness.M}"
+                        Visibility="{Binding IsOver, Converter={StaticResource BoolToVisibility}}">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#x26A0; " Style="{StaticResource TitleTextStyle}" />
+                        <TextBlock Text="{Binding BannerText}" Style="{StaticResource TitleTextStyle}" />
+                    </StackPanel>
+                </Border>
+
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="{StaticResource Thickness.M}">
+                    <Button Content="Save Draft"
+                            Style="{StaticResource Button.SecondaryStyle}"
+                            Command="{Binding SaveDraftCommand}"
+                            Margin="{StaticResource Thickness.S}" />
+                    <Button Content="Print Summary"
+                            Style="{StaticResource Button.SecondaryStyle}"
+                            Command="{Binding PrintSummaryCommand}"
+                            Margin="{StaticResource Thickness.S}" />
+                    <Button Content="Submit Close"
+                            Style="{StaticResource Button.PrimaryStyle}"
+                            Command="{Binding SubmitCloseCommand}"
+                            IsDefault="True"
+                            MinWidth="140"
+                            Margin="{StaticResource Thickness.S}"
+                            ui:FocusTarget.Id="Reconciliation.SubmitCloseButton" />
+                </StackPanel>
+            </StackPanel>
+        </Grid>
+
+        <!-- Optional inventory count table (placeholder rows; BG-005 wires entry). -->
+        <StackPanel Grid.Row="3" Margin="{StaticResource Thickness.M}">
+            <TextBlock Text="Inventory count (optional)" Style="{StaticResource TitleTextStyle}" />
+            <DataGrid ItemsSource="{Binding CountRows}" AutoGenerateColumns="False" MinHeight="120">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="SKU" Binding="{Binding Sku}" Width="110" />
+                    <DataGridTextColumn Header="Product" Binding="{Binding Product}" Width="*" />
+                    <DataGridTextColumn Header="Expected" Binding="{Binding Expected}" Width="80" />
+                    <DataGridTextColumn Header="Counted" Binding="{Binding Counted}" Width="80" />
+                    <DataGridTextColumn Header="Variance" Binding="{Binding Variance}" Width="80" />
+                    <DataGridTextColumn Header="Reason" Binding="{Binding Reason}" Width="*" />
+                </DataGrid.Columns>
+            </DataGrid>
+        </StackPanel>
+    </Grid>
+</UserControl>

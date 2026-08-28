@@ -22,10 +22,14 @@ public sealed class StockViewModel : ViewModelBase, IRetainableScreen
     public StockViewModel(IServiceProvider services)
     {
         _focus = services.GetRequiredService<IFocusService>();
-        _rows = services.GetRequiredService<IAppDataSource>().Current.Stock;
+        AppSnapshot data = services.GetRequiredService<IAppDataSource>().Current;
+        _rows = data.Stock;
+        Session = data.Session;
         ToggleLowOnlyCommand = new RelayCommand(_ => LowOnly = !LowOnly);
         FocusSearchCommand = new RelayCommand(_ => _focus.Request(AutomationIds.StockSearchBox));
     }
+
+    public SessionHeader Session { get; }
 
     public ICommand ToggleLowOnlyCommand { get; }
 

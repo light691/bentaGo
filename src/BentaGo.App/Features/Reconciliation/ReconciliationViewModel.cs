@@ -31,6 +31,7 @@ public sealed class ReconciliationViewModel : ValidatableViewModelBase, IRetaina
         AppSnapshot data = services.GetRequiredService<IAppDataSource>().Current;
         _summary = data.Summary;
         Session = data.Session;
+        CountRows = data.Stock.Select(row => new CountRow(row.Sku, row.Product, row.OnHand)).ToArray();
 
         SaveDraftCommand = new RelayCommand(_ => SaveDraft(), _ => !IsClosed && !DraftSaved);
         SubmitCloseCommand = new RelayCommand(_ => SubmitClose(), _ => CanSubmitClose);
@@ -43,6 +44,8 @@ public sealed class ReconciliationViewModel : ValidatableViewModelBase, IRetaina
 
     public ReconciliationSummary Summary => _summary;
 
+    public IReadOnlyList<CountRow> CountRows { get; }
+
     public string ActualCashText
     {
         get => _actualCashText;
@@ -52,6 +55,9 @@ public sealed class ReconciliationViewModel : ValidatableViewModelBase, IRetaina
             {
                 OnPropertyChanged(nameof(BannerText));
                 OnPropertyChanged(nameof(BannerKind));
+                OnPropertyChanged(nameof(IsBalanced));
+                OnPropertyChanged(nameof(IsShort));
+                OnPropertyChanged(nameof(IsOver));
                 NotifySubmitGate();
             }
         }
@@ -131,6 +137,11 @@ public sealed class ReconciliationViewModel : ValidatableViewModelBase, IRetaina
         }
     }
 
+    // Non-color banner channels for the view (each renders text + glyph + tint).
+    public bool IsBalanced => BannerKind == "Balanced";
+    public bool IsShort => BannerKind == "Short";
+    public bool IsOver => BannerKind == "Over";
+
     private Money Variance
     {
         get
@@ -195,3 +206,10 @@ public sealed class ReconciliationViewModel : ValidatableViewModelBase, IRetaina
         OnPropertyChanged(nameof(CanSubmitClose));
     }
 }
+
+/// <summary>
+/// One row of the optional inventory count table (docs/03 page 9): expected
+/// value from the scenario; counted/variance/reason are blank placeholders
+/// (BG-005 wires the count entry use case).
+/// </summary>
+public sealed record CountRow(string Sku, string Product, string Expected, string Counted = "", string Variance = "", string Reason = "");
