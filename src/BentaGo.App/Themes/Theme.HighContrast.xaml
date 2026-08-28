@@ -1,0 +1,60 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- ================================================================
+         Theme.HighContrast.xaml - the same Brush.* key set as Theme.xaml,
+         backed by SystemColors via DynamicResource, so the degradation is
+         total by construction (bg-004-synthesis 4.4). Scalars and styles
+         keep coming from Theme.xaml: the HighContrastManager inserts this
+         dictionary into Application.Resources after Theme when high
+         contrast is active, and removes it when it is not. Because every
+         brush consumed by styles is a DynamicResource, the swap re-resolves
+         in place. Key parity (Theme brushes, exact) is asserted by
+         ResourceSmokeTests.
+         ================================================================ -->
+
+    <SolidColorBrush x:Key="Brush.Surface.Page" Color="{DynamicResource {x:Static SystemColors.WindowColorKey}}" />
+    <SolidColorBrush x:Key="Brush.Surface.Card" Color="{DynamicResource {x:Static SystemColors.WindowColorKey}}" />
+    <SolidColorBrush x:Key="Brush.Surface.Sunken" Color="{DynamicResource {x:Static SystemColors.ControlColorKey}}" />
+    <SolidColorBrush x:Key="Brush.Surface.Selected" Color="{DynamicResource {x:Static SystemColors.HighlightColorKey}}" />
+
+    <SolidColorBrush x:Key="Brush.Text.Primary" Color="{DynamicResource {x:Static SystemColors.WindowTextColorKey}}" />
+    <SolidColorBrush x:Key="Brush.Text.Secondary" Color="{DynamicResource {x:Static SystemColors.WindowTextColorKey}}" />
+    <SolidColorBrush x:Key="Brush.Text.Disabled" Color="{DynamicResource {x:Static SystemColors.GrayTextColorKey}}" />
+    <SolidColorBrush x:Key="Brush.Text.OnAccent" Color="{DynamicResource {x:Static SystemColors.HighlightTextColorKey}}" />
+    <SolidColorBrush x:Key="Brush.Text.OnBrand" Color="{DynamicResource {x:Static SystemColors.HighlightTextColorKey}}" />
+
+    <SolidColorBrush x:Key="Brush.Accent" Color="{DynamicResource {x:Static SystemColors.HighlightColorKey}}" />
+    <SolidColorBrush x:Key="Brush.Accent.Hover" Color="{DynamicResource {x:Static SystemColors.HighlightColorKey}}" />
+    <SolidColorBrush x:Key="Brush.Accent.Pressed" Color="{DynamicResource {x:Static SystemColors.HighlightColorKey}}" />
+    <SolidColorBrush x:Key="Brush.Brand" Color="{DynamicResource {x:Static SystemColors.HighlightColorKey}}" />
+
+    <SolidColorBrush x:Key="Brush.Border.Default" Color="{DynamicResource {x:Static SystemColors.WindowFrameColorKey}}" />
+    <SolidColorBrush x:Key="Brush.Border.Strong" Color="{DynamicResource {x:Static SystemColors.WindowFrameColorKey}}" />
+    <SolidColorBrush x:Key="Brush.Divider" Color="{DynamicResource {x:Static SystemColors.WindowFrameColorKey}}" />
+
+    <!-- Status keeps a text + glyph channel in HC; the hue channel collapses
+         to the system text color by design (never color-only, 4.4). -->
+    <SolidColorBrush x:Key="Brush.Status.Success" Color="{DynamicResource {x:Static SystemColors.WindowTextColorKey}}" />
+    <SolidColorBrush x:Key="Brush.Status.Warning" Color="{DynamicResource {x:Static SystemColors.WindowTextColorKey}}" />
+    <SolidColorBrush x:Key="Brush.Status.Error" Color="{DynamicResource {x:Static SystemColors.WindowTextColorKey}}" />
+    <SolidColorBrush x:Key="Brush.Status.Info" Color="{DynamicResource {x:Static SystemColors.WindowTextColorKey}}" />
+    <SolidColorBrush x:Key="Brush.Status.Success.Bg" Color="{DynamicResource {x:Static SystemColors.WindowColorKey}}" />
+    <SolidColorBrush x:Key="Brush.Status.Warning.Bg" Color="{DynamicResource {x:Static SystemColors.WindowColorKey}}" />
+    <SolidColorBrush x:Key="Brush.Status.Error.Bg" Color="{DynamicResource {x:Static SystemColors.WindowColorKey}}" />
+    <SolidColorBrush x:Key="Brush.Status.Info.Bg" Color="{DynamicResource {x:Static SystemColors.WindowColorKey}}" />
+
+    <SolidColorBrush x:Key="Brush.Focus" Color="{DynamicResource {x:Static SystemColors.HighlightColorKey}}" />
+
+    <SolidColorBrush x:Key="Brush.State.Disabled.Bg" Color="{DynamicResource {x:Static SystemColors.ControlColorKey}}" />
+    <SolidColorBrush x:Key="Brush.State.Disabled.Fg" Color="{DynamicResource {x:Static SystemColors.GrayTextColorKey}}" />
+    <SolidColorBrush x:Key="Brush.State.Disabled.Border" Color="{DynamicResource {x:Static SystemColors.WindowFrameColorKey}}" />
+
+    <!-- Payment method accents collapse to the selection color in HC; the
+         method label text stays readable on its own. -->
+    <SolidColorBrush x:Key="Brush.Pay.Cash" Color="{DynamicResource {x:Static SystemColors.HighlightColorKey}}" />
+    <SolidColorBrush x:Key="Brush.Pay.Gcash" Color="{DynamicResource {x:Static SystemColors.HighlightColorKey}}" />
+    <SolidColorBrush x:Key="Brush.Pay.Maya" Color="{DynamicResource {x:Static SystemColors.HighlightColorKey}}" />
+    <SolidColorBrush x:Key="Brush.Pay.Bank" Color="{DynamicResource {x:Static SystemColors.HighlightColorKey}}" />
+    <SolidColorBrush x:Key="Brush.Pay.Credit" Color="{DynamicResource {x:Static SystemColors.HighlightColorKey}}" />
+</ResourceDictionary>

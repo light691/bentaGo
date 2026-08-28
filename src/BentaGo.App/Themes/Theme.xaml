@@ -1,0 +1,149 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=System.Runtime">
+
+    <!-- ================================================================
+         Theme.xaml — tokens and system states only (bg-004-synthesis §4).
+         Brushes are consumed via DynamicResource (live high-contrast swap);
+         scalars (sizes/spacing/corners) via StaticResource.
+         Hue values are PROVISIONAL: the reference image
+         (designs/bentago-wpf-mvp-screen-set.png) was not readable in the
+         design session. Token structure is the contract; hues may be tuned
+         by a later visual pass.
+         ================================================================ -->
+
+    <!-- Surfaces -->
+    <SolidColorBrush x:Key="Brush.Surface.Page" Color="#F4F5F7" />
+    <SolidColorBrush x:Key="Brush.Surface.Card" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="Brush.Surface.Sunken" Color="#E8EAED" />
+    <SolidColorBrush x:Key="Brush.Surface.Selected" Color="#E7F0EC" />
+
+    <!-- Text -->
+    <SolidColorBrush x:Key="Brush.Text.Primary" Color="#202124" />
+    <SolidColorBrush x:Key="Brush.Text.Secondary" Color="#5E6470" />
+    <SolidColorBrush x:Key="Brush.Text.Disabled" Color="#9AA0A6" />
+    <SolidColorBrush x:Key="Brush.Text.OnAccent" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="Brush.Text.OnBrand" Color="#FFFFFF" />
+
+    <!-- Brand / accent -->
+    <SolidColorBrush x:Key="Brush.Accent" Color="#0B6E4F" />
+    <SolidColorBrush x:Key="Brush.Accent.Hover" Color="#0A5C41" />
+    <SolidColorBrush x:Key="Brush.Accent.Pressed" Color="#07462F" />
+    <SolidColorBrush x:Key="Brush.Brand" Color="#14532D" />
+
+    <!-- Borders -->
+    <SolidColorBrush x:Key="Brush.Border.Default" Color="#D7DAE0" />
+    <SolidColorBrush x:Key="Brush.Border.Strong" Color="#B6BCC5" />
+    <SolidColorBrush x:Key="Brush.Divider" Color="#E0E3E8" />
+
+    <!-- Status accents (always paired with text; never color-only) -->
+    <SolidColorBrush x:Key="Brush.Status.Success" Color="#1E7D32" />
+    <SolidColorBrush x:Key="Brush.Status.Warning" Color="#B26A00" />
+    <SolidColorBrush x:Key="Brush.Status.Error" Color="#B3261E" />
+    <SolidColorBrush x:Key="Brush.Status.Info" Color="#0B57D0" />
+    <SolidColorBrush x:Key="Brush.Status.Success.Bg" Color="#E6F4EA" />
+    <SolidColorBrush x:Key="Brush.Status.Warning.Bg" Color="#FCEFD9" />
+    <SolidColorBrush x:Key="Brush.Status.Error.Bg" Color="#F9E5E3" />
+    <SolidColorBrush x:Key="Brush.Status.Info.Bg" Color="#E7F0FB" />
+
+    <!-- Focus / disabled -->
+    <SolidColorBrush x:Key="Brush.Focus" Color="#0B57D0" />
+    <SolidColorBrush x:Key="Brush.State.Disabled.Bg" Color="#F1F3F4" />
+    <SolidColorBrush x:Key="Brush.State.Disabled.Fg" Color="#9AA0A6" />
+    <SolidColorBrush x:Key="Brush.State.Disabled.Border" Color="#E4E7EB" />
+
+    <!-- Payment method accents (selection only; label text always readable) -->
+    <SolidColorBrush x:Key="Brush.Pay.Cash" Color="#1E7D32" />
+    <SolidColorBrush x:Key="Brush.Pay.Gcash" Color="#0064E0" />
+    <SolidColorBrush x:Key="Brush.Pay.Maya" Color="#F5533D" />
+    <SolidColorBrush x:Key="Brush.Pay.Bank" Color="#6B4FBB" />
+    <SolidColorBrush x:Key="Brush.Pay.Credit" Color="#B26A00" />
+
+    <!-- ============================ Type ramp ============================ -->
+    <FontFamily x:Key="Font.Family.Primary">Segoe UI</FontFamily>
+    <sys:Double x:Key="FontSize.Display">40</sys:Double>
+    <sys:Double x:Key="FontSize.Header">26</sys:Double>
+    <sys:Double x:Key="FontSize.Title">20</sys:Double>
+    <sys:Double x:Key="FontSize.Body">15</sys:Double>
+    <sys:Double x:Key="FontSize.Label">13</sys:Double>
+    <sys:Double x:Key="FontSize.Status">12</sys:Double>
+    <sys:Double x:Key="FontSize.Caption">11</sys:Double>
+    <FontWeight x:Key="FontWeight.Strong">Bold</FontWeight>
+    <FontWeight x:Key="FontWeight.Semi">SemiBold</FontWeight>
+
+    <!-- Named text styles -->
+    <Style x:Key="DisplayTextStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource Font.Family.Primary}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Display}" />
+        <Setter Property="FontWeight" Value="{StaticResource FontWeight.Strong}" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
+    </Style>
+    <Style x:Key="HeaderTextStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource Font.Family.Primary}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Header}" />
+        <Setter Property="FontWeight" Value="{StaticResource FontWeight.Semi}" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
+    </Style>
+    <Style x:Key="TitleTextStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource Font.Family.Primary}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Title}" />
+        <Setter Property="FontWeight" Value="{StaticResource FontWeight.Semi}" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
+    </Style>
+    <Style x:Key="BodyTextStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource Font.Family.Primary}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Body}" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
+    </Style>
+    <Style x:Key="LabelTextStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource Font.Family.Primary}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Label}" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Secondary}" />
+    </Style>
+    <Style x:Key="StatusTextStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource Font.Family.Primary}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Status}" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Secondary}" />
+    </Style>
+    <Style x:Key="CaptionTextStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource Font.Family.Primary}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Caption}" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Secondary}" />
+    </Style>
+    <Style x:Key="MoneyTextStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource Font.Family.Primary}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Body}" />
+        <Setter Property="FontWeight" Value="{StaticResource FontWeight.Strong}" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
+    </Style>
+
+    <!-- ====================== Spacing / metrics ====================== -->
+    <Thickness x:Key="Thickness.XS">4</Thickness>
+    <Thickness x:Key="Thickness.S">8</Thickness>
+    <Thickness x:Key="Thickness.M">12</Thickness>
+    <Thickness x:Key="Thickness.L">16</Thickness>
+    <Thickness x:Key="Thickness.XL">24</Thickness>
+    <Thickness x:Key="Thickness.XXL">32</Thickness>
+    <Thickness x:Key="ScreenPadding">24</Thickness>
+    <Thickness x:Key="CardPadding">16</Thickness>
+
+    <CornerRadius x:Key="Corner.S">4</CornerRadius>
+    <CornerRadius x:Key="Corner.M">8</CornerRadius>
+    <CornerRadius x:Key="Corner.L">12</CornerRadius>
+
+    <sys:Double x:Key="Control.Height.Default">38</sys:Double>
+    <sys:Double x:Key="Control.Height.Large">48</sys:Double>
+
+    <sys:Double x:Key="DialogHost.MaxWidth">760</sys:Double>
+    <sys:Double x:Key="DialogHost.MaxHeight">600</sys:Double>
+
+    <!-- ====================== Focus visual ====================== -->
+    <ControlTemplate x:Key="FocusVisual.Default" TargetType="Control">
+        <Rectangle Margin="-3"
+                   RadiusX="4"
+                   RadiusY="4"
+                   Stroke="{DynamicResource Brush.Focus}"
+                   StrokeThickness="2"
+                   SnapsToDevicePixels="True" />
+    </ControlTemplate>
+</ResourceDictionary>

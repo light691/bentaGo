@@ -1,0 +1,15 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:features="clr-namespace:BentaGo.App.Features.Login">
+
+    <!-- ================================================================
+         DataTemplates.xaml — the VM→View map (BG-001 pattern generalized,
+         bg-004-synthesis §5.2). MainWindow never names a screen; screens
+         bind only to their own view models, and adding a BG-005 screen is
+         one DataTemplate + one registration + one ScreenKeys entry.
+         ================================================================ -->
+
+    <DataTemplate DataType="{x:Type features:LoginViewModel}">
+        <features:LoginView />
+    </DataTemplate>
+</ResourceDictionary>

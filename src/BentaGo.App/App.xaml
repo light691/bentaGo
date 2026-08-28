@@ -1,5 +1,20 @@
 <Application x:Class="BentaGo.App.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <Application.Resources />
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <!-- Merge order is load-bearing (bg-004-synthesis §4): Theme
+                     first (tokens), then shared control styles, then
+                     validation templates, then the VM→View map. The
+                     HighContrast override dictionary is inserted after Theme
+                     at runtime by HighContrastManager when high contrast is
+                     active. -->
+                <ResourceDictionary Source="Themes/Theme.xaml" />
+                <ResourceDictionary Source="Styles/ScreenStyles.xaml" />
+                <ResourceDictionary Source="Styles/Validation.xaml" />
+                <ResourceDictionary Source="Views/DataTemplates.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Application.Resources>
 </Application>

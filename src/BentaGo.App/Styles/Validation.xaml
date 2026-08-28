@@ -1,0 +1,96 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- ================================================================
+         Validation.xaml - the shared error vocabulary (bg-004-synthesis 8).
+         One error template per input kind + one field-error text style; the
+         shell never hand-places error chrome per field. The message text
+         binds the first ValidationError's ErrorContent off the adorned
+         element, so it works regardless of the template DataContext.
+         Cross-dictionary token references are DynamicResource (merged-
+         dictionary isolation, see ScreenStyles.xaml header); the same-file
+         ErrorTextStyle reference stays StaticResource.
+         ================================================================ -->
+
+    <Style x:Key="ErrorTextStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{DynamicResource Font.Family.Primary}" />
+        <Setter Property="FontSize" Value="{DynamicResource FontSize.Label}" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Status.Error}" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+        <Setter Property="Margin" Value="0,2,0,0" />
+    </Style>
+
+    <ControlTemplate x:Key="ErrorTemplate.TextBox">
+        <DockPanel LastChildFill="True">
+            <Border DockPanel.Dock="Right"
+                    Margin="6,0,0,0"
+                    MaxWidth="340"
+                    Background="{DynamicResource Brush.Status.Error.Bg}"
+                    BorderBrush="{DynamicResource Brush.Status.Error}"
+                    BorderThickness="1"
+                    CornerRadius="{DynamicResource Corner.S}"
+                    Padding="6,2"
+                    VerticalAlignment="Center">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0"
+                               Text="&#x26A0;"
+                               Foreground="{DynamicResource Brush.Status.Error}"
+                               FontFamily="{DynamicResource Font.Family.Primary}"
+                               FontSize="{DynamicResource FontSize.Body}"
+                               VerticalAlignment="Center"
+                               Margin="0,0,5,0" />
+                    <TextBlock Grid.Column="1"
+                               VerticalAlignment="Center"
+                               Text="{Binding AdornedElement.(Validation.Errors)[0].ErrorContent, ElementName=ErrorAdornerPlaceholder}"
+                               Style="{StaticResource ErrorTextStyle}" />
+                </Grid>
+            </Border>
+            <Border BorderBrush="{DynamicResource Brush.Status.Error}"
+                    BorderThickness="1.5"
+                    CornerRadius="{DynamicResource Corner.S}">
+                <AdornedElementPlaceholder x:Name="ErrorAdornerPlaceholder" />
+            </Border>
+        </DockPanel>
+    </ControlTemplate>
+
+    <ControlTemplate x:Key="ErrorTemplate.PasswordBox">
+        <DockPanel LastChildFill="True">
+            <Border DockPanel.Dock="Right"
+                    Margin="6,0,0,0"
+                    MaxWidth="340"
+                    Background="{DynamicResource Brush.Status.Error.Bg}"
+                    BorderBrush="{DynamicResource Brush.Status.Error}"
+                    BorderThickness="1"
+                    CornerRadius="{DynamicResource Corner.S}"
+                    Padding="6,2"
+                    VerticalAlignment="Center">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0"
+                               Text="&#x26A0;"
+                               Foreground="{DynamicResource Brush.Status.Error}"
+                               FontFamily="{DynamicResource Font.Family.Primary}"
+                               FontSize="{DynamicResource FontSize.Body}"
+                               VerticalAlignment="Center"
+                               Margin="0,0,5,0" />
+                    <TextBlock Grid.Column="1"
+                               VerticalAlignment="Center"
+                               Text="{Binding AdornedElement.(Validation.Errors)[0].ErrorContent, ElementName=ErrorAdornerPlaceholder}"
+                               Style="{StaticResource ErrorTextStyle}" />
+                </Grid>
+            </Border>
+            <Border BorderBrush="{DynamicResource Brush.Status.Error}"
+                    BorderThickness="1.5"
+                    CornerRadius="{DynamicResource Corner.S}">
+                <AdornedElementPlaceholder x:Name="ErrorAdornerPlaceholder" />
+            </Border>
+        </DockPanel>
+    </ControlTemplate>
+</ResourceDictionary>
