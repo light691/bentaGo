@@ -6,3 +6,5 @@ ts	what	why	evidence	result
 2026-08-29T00:00Z	Remote deferred until operator names destination	Plan: configure remote only after operator names it	No remote configured	Open gate
 2026-08-29T00:00Z	Orchestrate store moved to plan layout (gates.md, frontier.json)	Plan defines the store	Files present	Done
 2026-08-29T00:50Z	pilot	BG-001 first worker stood down as silent (45 min, no output)	unknown failure mode; fresh respawn with consolidated scope is cheaper than waiting	agent 6837cd4e, only side effect branch bg-001	replaced
+2026-08-29T01:20Z	pilot	Subagent machinery verified working (smoke test wrote file instantly)	Two builder workers stalled on oversized briefs; harness is fine	smoke child WRITE_OK yes, branch bg-001	contract fix: slice units, inline content, first commit fast
+2026-08-29T01:20Z	pilot	BG-001 reworked into internal slices a (infra) and b (shell) on one branch	Builders stall on multi-milestone briefs in one turn	worker stalls at 45 and 30 minutes, zero repo writes	sliced respawn
