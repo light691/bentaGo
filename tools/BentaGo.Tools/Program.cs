@@ -2,6 +2,13 @@ using System.IO;
 using System.Security.Cryptography;
 using BentaGo.Application.Contracts;
 using BentaGo.Application.Services;
+using BentaGo.Core.Common;
+using BentaGo.Core.Domain;
+using BentaGo.Core.Domain.Builders;
+using BentaGo.Core.Domain.Commands;
+using BentaGo.Core.Domain.Documents;
+using BentaGo.Core.Domain.Ledger;
+using BentaGo.Core.Domain.Payments;
 using BentaGo.Infrastructure.Backup;
 using BentaGo.Infrastructure.Configuration;
 using BentaGo.Infrastructure.Hosting;
@@ -24,6 +31,8 @@ try
     {
         "status" => RunStatus(),
         "scenario" when commandLine.Length > 1 && commandLine[1] == "two-peddlers" => await RunScenarioAsync(commandLine.Skip(2).ToArray()),
+        "ledger" when commandLine.Length > 1 => await RunLedgerAsync(commandLine.Skip(1).ToArray()),
+        "lane8-crash-worker" => await RunLane8CrashWorkerAsync(commandLine.Skip(1).ToArray()),
         "foundation" when commandLine.Length > 1 && commandLine[1] == "migrate" => await RunMigrateAsync(commandLine.Skip(2).ToArray()),
         "foundation" when commandLine.Length > 1 && commandLine[1] == "backup" => await RunBackupAsync(commandLine.Skip(2).ToArray()),
         "foundation" when commandLine.Length > 1 && commandLine[1] == "restore" => await RunRestoreAsync(commandLine.Skip(2).ToArray()),
@@ -46,6 +55,15 @@ static void PrintHelp()
         Commands:
           status                         Print data root, database path, schema version, database sha256.
           scenario two-peddlers          Print the deterministic two-peddler business day (orders, balances).
+                                          Options: --persist (run against SQLite), --data-root <dir>
+          ledger load|checkout|void|return|adjustment|count|close|reopen|rebuild [options]
+                                         Run one business operation against the SQLite ledger. Common
+                                         options: --data-root <dir>, --by <user-id>, --when <utc-iso>.
+                                         checkout extra options: --key <checkout-key> --trip <id> --receipt <n>
+                                           --product <id> --qty <n> --price <pesos> --method <Cash|Gcash|Maya|BankTransfer|Credit>
+                                           --fail-before-commit (L3 seam) --crash-after-write (L8 seam)
+          lane8-crash-worker             Lane-8 crash child: sells the last unit in a transaction delayed
+                                         before commit; parent kills it by PID. Options: --data-root <dir>
           foundation migrate             Migrate the database schema to the latest version.
                                           Options: --data-root <dir> (default: BENTAGO_DATA_ROOT or a fresh temp dir)
           foundation backup              Create a verified backup of the active database.
@@ -110,6 +128,390 @@ static async Task<int> RunScenarioAsync(string[] args)
         Console.Error.WriteLine($"ERROR: {ex}");
         return 1;
     }
+}
+
+static Dictionary<string, string> ParseOptions(string[] args)
+{
+    var options = new Dictionary<string, string>(StringComparer.Ordinal);
+    for (int i = 0; i < args.Length; i++)
+    {
+        if (!args[i].StartsWith("--", StringComparison.Ordinal))
+        {
+            continue;
+        }
+
+        string key = args[i][2..];
+        if (i + 1 < args.Length && !args[i + 1].StartsWith("--", StringComparison.Ordinal))
+        {
+            options[key] = args[i + 1];
+            i++;
+        }
+        else
+        {
+            options[key] = "true";
+        }
+    }
+
+    return options;
+}
+
+static string? Opt(Dictionary<string, string> options, string key) =>
+    options.TryGetValue(key, out string? value) && value != "true" ? value : null;
+
+static Guid OptGuid(Dictionary<string, string> options, string key, string usage)
+{
+    string? value = Opt(options, key);
+    if (value is null || !Guid.TryParse(value, out Guid parsed))
+    {
+        throw new InvalidOperationException($"missing or invalid --{key} ({usage})");
+    }
+
+    return parsed;
+}
+
+static string RequireOpt(Dictionary<string, string> options, string key)
+{
+    string? value = Opt(options, key);
+    if (string.IsNullOrWhiteSpace(value))
+    {
+        throw new InvalidOperationException($"missing --{key}");
+    }
+
+    return value;
+}
+
+static UserId OptUser(Dictionary<string, string> options)
+{
+    string? by = Opt(options, "by");
+    return new UserId(by is not null && Guid.TryParse(by, out Guid parsed) ? parsed : Guid.NewGuid());
+}
+
+static DateTimeOffset OptWhen(Dictionary<string, string> options)
+{
+    string? when = Opt(options, "when");
+    if (when is null)
+    {
+        return DateTimeOffset.UtcNow;
+    }
+
+    return DateTimeOffset.Parse(when, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.RoundtripKind);
+}
+
+static async Task<int> RunLedgerAsync(string[] args)
+{
+    if (args.Length == 0 || string.IsNullOrWhiteSpace(args[0]))
+    {
+        Console.Error.WriteLine("usage: ledger load|checkout|void|return|adjustment|count|close|reopen|rebuild [options]");
+        return 1;
+    }
+
+    string op = args[0];
+    Dictionary<string, string> opts = ParseOptions(args.Skip(1).ToArray());
+    string root = Opt(opts, "data-root")
+        ?? Environment.GetEnvironmentVariable("BENTAGO_DATA_ROOT")
+        ?? Path.Combine(Path.GetTempPath(), "bentago-ledger-" + Guid.NewGuid().ToString("N"));
+
+    try
+    {
+        ServiceProvider host = BentaGoHost.Build(development: true, dataRootOverride: root);
+        await host.GetRequiredService<DbInitializer>().EnsureCreatedOrMigrateAsync();
+        var store = host.GetRequiredService<SqliteLedgerStore>();
+        var debug = host.GetRequiredService<DebugOptions>();
+        UserId by = OptUser(opts);
+        DateTimeOffset when = OptWhen(opts);
+
+        switch (op)
+        {
+            case "opening-stock":
+                {
+                    // Pure OpeningStock against an opening load document with no
+                    // lines (scenario precedent): stock into a location.
+                    var loadId = new LoadId(Guid.NewGuid());
+                    var load = new StockLoad(loadId, "OPEN-" + Guid.NewGuid().ToString("N")[..8], default, Array.Empty<StockLoadLine>(), by, when);
+                    store.RegisterLoad(load);
+                    store.Bind();
+                    Result<AppendReceipt> open = store.Append(new[]
+                    {
+                    Moves.OpeningStock(0, when, by, new LoadRef(loadId),
+                        new ProductId(OptGuid(opts, "product", "product id")),
+                        new LocationId(OptGuid(opts, "location", "location id")),
+                        Quantity.Of(int.Parse(RequireOpt(opts, "qty")))),
+                });
+                    if (open.IsFailure)
+                    {
+                        Console.Error.WriteLine($"OPENING-STOCK: FAIL ({open.Errors[0].Code}: {open.Errors[0].Message})");
+                        return 1;
+                    }
+
+                    Console.WriteLine($"OPENING-STOCK: seq {open.Value.FirstSequence}-{open.Value.LastSequence}");
+                    return 0;
+                }
+
+            case "open-trip":
+                {
+                    string? tripOpt = Opt(opts, "trip");
+                    var tripId = new TripId(tripOpt is not null && Guid.TryParse(tripOpt, out Guid parsedTrip) ? parsedTrip : Guid.NewGuid());
+                    Result<Trip> result = host.GetRequiredService<IOpenTripService>().OpenTrip(new NewTripCommand(
+                        tripId,
+                        new PeddlerId(OptGuid(opts, "peddler", "peddler id")),
+                        new LocationId(OptGuid(opts, "location", "route location id")),
+                        by, when));
+                    if (result.IsFailure)
+                    {
+                        Console.Error.WriteLine($"OPEN-TRIP: FAIL ({string.Join("; ", result.Errors.Select(e => $"{e.Code}: {e.Message}"))})");
+                        return 1;
+                    }
+
+                    Console.WriteLine($"OPEN-TRIP: {tripId.Value:N}");
+                    return 0;
+                }
+
+            case "load":
+                {
+                    var loadId = new LoadId(Guid.NewGuid());
+                    var command = new LoadCommand(
+                        loadId,
+                        RequireOpt(opts, "number"),
+                        new TripId(OptGuid(opts, "trip", "trip id")),
+                        new LocationId(OptGuid(opts, "from", "source location id")),
+                        new[]
+                        {
+                        new LoadLine(
+                            new ProductId(OptGuid(opts, "product", "product id")),
+                            Opt(opts, "sku") ?? "SKU",
+                            Opt(opts, "name") ?? "Product",
+                            Quantity.Of(int.Parse(RequireOpt(opts, "qty"))),
+                            Money.FromPesos(decimal.TryParse(Opt(opts, "cost"), out decimal cost) ? cost : 0m)),
+                        },
+                        by, when);
+                    Result<LoadOutcome> result = host.GetRequiredService<ILoadService>().Load(command);
+                    if (result.IsFailure)
+                    {
+                        Console.Error.WriteLine($"LOAD: FAIL ({string.Join("; ", result.Errors.Select(e => $"{e.Code}: {e.Message}"))})");
+                        return 1;
+                    }
+
+                    Console.WriteLine($"LOAD:      {command.LoadNumber} seq {result.Value.Receipt.FirstSequence}-{result.Value.Receipt.LastSequence}");
+                    return 0;
+                }
+
+            case "checkout":
+                {
+                    bool failBeforeCommit = opts.ContainsKey("fail-before-commit");
+                    bool crashAfterWrite = opts.ContainsKey("crash-after-write");
+                    if (failBeforeCommit)
+                    {
+                        debug.FailNextAppendAfterInsert();
+                    }
+
+                    if (crashAfterWrite)
+                    {
+                        debug.DelayBeforeCommit();
+                    }
+
+                    if (!Enum.TryParse<PaymentMethod>(RequireOpt(opts, "method"), out PaymentMethod method))
+                    {
+                        throw new InvalidOperationException($"unknown payment method '--method {opts["method"]}'");
+                    }
+
+                    decimal price = decimal.Parse(RequireOpt(opts, "price"));
+                    int qty = int.Parse(RequireOpt(opts, "qty"));
+                    var saleId = new SaleId(Guid.NewGuid());
+                    var lineId = new SaleLineId(Guid.NewGuid());
+                    var paymentId = new PaymentLineId(Guid.NewGuid());
+                    var command = new NewSaleCommand(
+                        saleId,
+                        new TripId(OptGuid(opts, "trip", "trip id")),
+                        RequireOpt(opts, "receipt"),
+                        by, when,
+                        new[]
+                        {
+                        new NewSaleLine(lineId, new ProductId(OptGuid(opts, "product", "product id")),
+                            Opt(opts, "sku") ?? "SKU", Opt(opts, "name") ?? "Product",
+                            Money.FromPesos(price), Quantity.Of(qty), Money.Zero),
+                        },
+                        method == PaymentMethod.Cash
+                            ? new[]
+                            {
+                            new NewPaymentLine(paymentId, method, "", Money.FromPesos(price * qty), Money.FromPesos(price * qty), Money.Zero),
+                            }
+                            : method == PaymentMethod.Credit
+                                ? new[] { NewPaymentLine.Credit(paymentId, RequireOpt(opts, "reference"), Money.FromPesos(price * qty)) }
+                                : new[] { new NewPaymentLine(paymentId, method, "", Money.FromPesos(price * qty), Money.Zero, Money.Zero) });
+                    var key = new CheckoutKey(OptGuid(opts, "key", "checkout idempotency key"));
+                    Result<CheckoutOutcome> result = host.GetRequiredService<ICheckoutService>().Checkout(key, command);
+                    if (result.IsFailure)
+                    {
+                        Console.Error.WriteLine($"CHECKOUT: FAIL ({string.Join("; ", result.Errors.Select(e => $"{e.Code}: {e.Message}"))})");
+                        return 1;
+                    }
+
+                    Console.WriteLine($"CHECKOUT:  {result.Value.Reference.ReceiptNumber} sale {result.Value.Reference.SaleId.Value:N} replayed {result.Value.Replayed} seq {result.Value.Receipt?.FirstSequence}-{result.Value.Receipt?.LastSequence}");
+
+                    // C5: print AFTER commit, outside the sale transaction.
+                    if (!result.Value.Replayed)
+                    {
+                        Sale? sale = store.Context.FindSale(result.Value.Reference.SaleId);
+                        if (sale is not null)
+                        {
+                            PrintTicketResult print = await host.GetRequiredService<IPrintTicketStore>().PrintTicketAsync(sale);
+                            Console.WriteLine($"PRINT:     {(print.Printed ? "OK" : $"FAILED ({print.FailureReason})")}");
+                        }
+                    }
+
+                    return 0;
+                }
+
+            case "void":
+                {
+                    var voidId = new VoidId(Guid.NewGuid());
+                    Result<VoidOutcome> result = host.GetRequiredService<IVoidService>().Void(new VoidCommand(
+                        voidId, new SaleId(OptGuid(opts, "sale", "sale id")), RequireOpt(opts, "reason"), by, when));
+                    return PrintSimple(result, "VOID", $"sale {opts["sale"]}");
+                }
+
+            case "return":
+                {
+                    var returnId = new ReturnId(Guid.NewGuid());
+                    Result<ReturnOutcome> result = host.GetRequiredService<IReturnService>().Return(new ReturnCommand(
+                        returnId,
+                        new SaleId(OptGuid(opts, "sale", "sale id")),
+                        new[]
+                        {
+                        new ReturnLineCommand(
+                            new SaleLineId(OptGuid(opts, "line", "sale line id")),
+                            Quantity.Of(int.Parse(RequireOpt(opts, "qty"))),
+                            RequireOpt(opts, "reason"),
+                            Enum.Parse<PaymentMethod>(RequireOpt(opts, "refund-method")),
+                            Money.FromPesos(decimal.Parse(RequireOpt(opts, "refund")))),
+                        },
+                        by, when));
+                    return PrintSimple(result, "RETURN", $"sale {opts["sale"]}");
+                }
+
+            case "adjustment":
+                {
+                    bool increase = opts.ContainsKey("increase");
+                    var adjustmentId = new AdjustmentId(Guid.NewGuid());
+                    Result<AdjustmentOutcome> result = host.GetRequiredService<IAdjustmentService>().Adjust(new AdjustmentCommand(
+                        adjustmentId,
+                        new ProductId(OptGuid(opts, "product", "product id")),
+                        new LocationId(OptGuid(opts, "location", "location id")),
+                        increase,
+                        Quantity.Of(int.Parse(RequireOpt(opts, "qty"))),
+                        RequireOpt(opts, "reason"),
+                        by, when));
+                    return PrintSimple(result, "ADJUSTMENT", increase ? "increase" : "decrease");
+                }
+
+            case "count":
+                {
+                    var countId = new CountId(Guid.NewGuid());
+                    Result<CountOutcome> result = host.GetRequiredService<ICountService>().Count(new CountCommand(
+                        countId,
+                        new LocationId(OptGuid(opts, "location", "location id")),
+                        new[] { new CountLineCommand(new ProductId(OptGuid(opts, "product", "product id")), Quantity.Of(int.Parse(RequireOpt(opts, "observed"))), null) },
+                        by, when));
+                    return PrintSimple(result, "COUNT", $"location {opts["location"]}");
+                }
+
+            case "close":
+                {
+                    var closeId = new CloseId(Guid.NewGuid());
+                    Result<CloseOutcome> result = host.GetRequiredService<ICloseService>().Close(new CloseCommand(
+                        closeId,
+                        new TripId(OptGuid(opts, "trip", "trip id")),
+                        Money.FromPesos(decimal.Parse(RequireOpt(opts, "counted"))),
+                        Opt(opts, "notes"),
+                        by, when));
+                    return PrintSimple(result, "CLOSE", $"trip {opts["trip"]}");
+                }
+
+            case "reopen":
+                {
+                    Result<AppendReceipt> result = host.GetRequiredService<IReopenService>().Reopen(new ReopenCommand(
+                        new TripId(OptGuid(opts, "trip", "trip id")), RequireOpt(opts, "reason"), by, when));
+                    if (result.IsFailure)
+                    {
+                        Console.Error.WriteLine($"REOPEN: FAIL ({string.Join("; ", result.Errors.Select(e => $"{e.Code}: {e.Message}"))})");
+                        return 1;
+                    }
+
+                    Console.WriteLine($"REOPEN:    ok seq {result.Value.FirstSequence}-{result.Value.LastSequence}");
+                    return 0;
+                }
+
+            case "rebuild":
+                {
+                    RebuildReceipt receipt = await store.RebuildAsync();
+                    Console.WriteLine($"REBUILD:   head {receipt.LastSequence} movements {receipt.MovementCount} documents {receipt.DocumentCount}");
+                    return 0;
+                }
+
+            default:
+                Console.Error.WriteLine($"ERROR: unknown ledger op '{op}'");
+                return 1;
+        }
+    }
+    catch (Exception ex)
+    {
+        Console.Error.WriteLine($"ERROR: {ex.Message}");
+        return 1;
+    }
+}
+
+static int PrintSimple<T>(Result<T> result, string label, string what)
+{
+    if (result.IsFailure)
+    {
+        Console.Error.WriteLine($"{label}: FAIL ({string.Join("; ", result.Errors.Select(e => $"{e.Code}: {e.Message}"))})");
+        return 1;
+    }
+
+    Console.WriteLine($"{label}:    {what} ok");
+    return 0;
+}
+
+/// <summary>
+/// Lane-8 crash child (docs/05 lane 8): opens the parent-seeded root, binds,
+/// builds the last-unit sale, and appends it inside a transaction delayed
+/// BEFORE COMMIT. The ready-file is written mid-transaction (post-insert,
+/// pre-commit), then the parent kills this process by PID.
+/// </summary>
+static async Task<int> RunLane8CrashWorkerAsync(string[] args)
+{
+    Dictionary<string, string> opts = ParseOptions(args);
+    string? root = Opt(opts, "data-root");
+    if (root is null)
+    {
+        Console.Error.WriteLine("lane8-crash-worker requires --data-root <dir>");
+        return 1;
+    }
+
+    string readyFile = Path.Combine(root, "lane8-ready.txt");
+    ServiceProvider host = BentaGoHost.Build(development: true, dataRootOverride: root);
+    await host.GetRequiredService<DbInitializer>().EnsureCreatedOrMigrateAsync();
+
+    var store = host.GetRequiredService<SqliteLedgerStore>();
+    var debug = host.GetRequiredService<DebugOptions>();
+
+    store.Bind();
+    (Sale document, IReadOnlyList<Movement> movements) = Lane8Fixture.BuildSale(store);
+    store.RegisterSale(document);
+    store.Bind();
+
+    debug.DelayBeforeCommit();
+    debug.PreCommit = () => File.WriteAllText(readyFile, $"pid {Environment.ProcessId}\n");
+
+    Result<AppendReceipt> outcome = store.Append(movements);
+    if (outcome.IsFailure)
+    {
+        Console.WriteLine($"WORKER: append failed {outcome.Errors[0].Code}");
+        return 1;
+    }
+
+    Console.WriteLine($"WORKER: committed seq {outcome.Value.FirstSequence}-{outcome.Value.LastSequence}");
+    return 0;
 }
 
 static int RunStatus()

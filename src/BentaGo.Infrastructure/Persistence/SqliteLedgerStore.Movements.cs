@@ -417,7 +417,7 @@ public sealed partial class SqliteLedgerStore
         var audits = new List<AuditEvent>();
         using var command = connection.CreateCommand();
         command.CommandText =
-            "SELECT \"sequence\", \"actor_id\", \"when_utc\", \"category\", \"message\", \"doc_kind\", \"doc_id\" FROM \"AuditEvents\" ORDER BY \"sequence\"";
+            "SELECT \"sequence\", \"actor_id\", \"when_utc\", \"category\", \"message\", \"doc_kind\", \"doc_id\" FROM \"AuditEvents\" ORDER BY \"rowid\"";
         using SqliteDataReader reader = command.ExecuteReader();
         while (reader.Read())
         {

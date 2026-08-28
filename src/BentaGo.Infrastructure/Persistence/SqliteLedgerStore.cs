@@ -304,6 +304,7 @@ public sealed partial class SqliteLedgerStore : ILedgerStore, IAsyncDisposable
 
                 if (_debug.ConsumeDelayBeforeCommit())
                 {
+                    _debug.PreCommit?.Invoke();
                     Thread.Sleep(TimeSpan.FromMilliseconds(DefaultDelayBeforeCommitMs));
                 }
 

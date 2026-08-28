@@ -175,7 +175,7 @@ namespace BentaGo.Infrastructure.Migrations
                     "when_utc" TEXT NOT NULL);
 
                 CREATE TABLE "AuditEvents" (
-                    "sequence" INTEGER NOT NULL CONSTRAINT "PK_AuditEvents" PRIMARY KEY,
+                    "sequence" INTEGER NOT NULL,
                     "actor_id" TEXT NOT NULL,
                     "when_utc" TEXT NOT NULL,
                     "category" TEXT NOT NULL,
