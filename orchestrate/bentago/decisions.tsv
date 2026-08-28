@@ -15,3 +15,4 @@ ts	what	why	evidence	result
 2026-08-29T00:00Z	gates	Philippine defaults confirmed: PHP centavos, Asia/Manila, 28 Aug 2026 dates, GCash/Maya first-class	Operator: I live in the Philippines, know the defaults	docs/01, docs/03, docs/decisions/0001	defaults confirmed
 2026-08-29T00:00Z	gates	Remote destination named: github.com/light691/bentaGo	Operator decision	git remote -v origin https://github.com/light691/bentaGo.git	remote configured; repo creation and auth pending on operator
 2026-08-29T00:00Z	gates	gh CLI not installed; repo 404; no credentials available	PR lifecycle waits for repo creation plus auth	gh 404, gh command missing	paths: create repo / install gh / PAT / stay local
+2026-08-29T00:00Z	gates	Remote gate closed: repo live private light691/bentaGo, main default	gh v2.98.0 auth as light691 via browser device flow, repo created/present, main+bg-001 pushed	gh repo view json, git push	PR lifecycle operational; merge-ready PRs open as real PRs
