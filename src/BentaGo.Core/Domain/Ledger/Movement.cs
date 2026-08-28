@@ -135,6 +135,8 @@ public sealed record Receipt : Movement
     public override MovementEffect Effect => MovementEffect.FundIncrease;
     public required PaymentMethod Method { get; init; }
     public required Money Amount { get; init; }
+    /// <summary>The sale payment line this receipt settles.</summary>
+    public required PaymentLineId PaymentLineId { get; init; }
 }
 
 public sealed record ReceiptRefund : Movement
@@ -143,6 +145,7 @@ public sealed record ReceiptRefund : Movement
     public override MovementEffect Effect => MovementEffect.FundDecrease;
     public required PaymentMethod Method { get; init; }
     public required Money Amount { get; init; }
+    public required PaymentLineId PaymentLineId { get; init; }
     /// <summary>The Receipt sequence being partially refunded.</summary>
     public required long Reverses { get; init; }
 }
@@ -153,6 +156,7 @@ public sealed record ReceiptRevoke : Movement
     public override MovementEffect Effect => MovementEffect.FundDecrease;
     public required PaymentMethod Method { get; init; }
     public required Money Amount { get; init; }
+    public required PaymentLineId PaymentLineId { get; init; }
     /// <summary>The Receipt sequence being revoked.</summary>
     public required long Reverses { get; init; }
 }

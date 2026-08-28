@@ -93,7 +93,7 @@ public sealed class LedgerState
     public long LastSequence { get; private set; }
 
     internal sealed record SaleIssueInfo(SaleLineId LineId, SaleId Sale, ProductId Product, LocationId Location, long Quantity, long LineQuantity);
-    internal sealed record ReceiptInfo(PaymentMethod Method, SaleId Sale, long Amount);
+    internal sealed record ReceiptInfo(PaymentMethod Method, SaleId Sale, long Amount, PaymentLineId PaymentLineId);
 
     private sealed class CellStats
     {
@@ -184,6 +184,34 @@ public sealed class LedgerState
 
     public Quantity Returned(SaleLineId line) =>
         Quantity.Of((int)(_returnedPerLine.TryGetValue(line, out long units) ? units : 0));
+
+    /// <summary>The sequence of the sale issue for (sale, line), if it exists.</summary>
+    public long? SaleIssueSequence(SaleId sale, SaleLineId line)
+    {
+        foreach ((long seq, SaleIssueInfo info) in _saleIssues)
+        {
+            if (info.Sale == sale && info.LineId == line)
+            {
+                return seq;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>The sequence of the receipt for (sale, payment line), if it exists.</summary>
+    public long? ReceiptSequence(SaleId sale, PaymentLineId line)
+    {
+        foreach ((long seq, ReceiptInfo info) in _receipts)
+        {
+            if (info.Sale == sale && info.PaymentLineId == line)
+            {
+                return seq;
+            }
+        }
+
+        return null;
+    }
 
     public InventoryBreakdown Breakdown(ProductId product, LocationId location)
     {
@@ -456,7 +484,7 @@ public sealed class LedgerState
                 break;
             case Receipt m:
                 Fund(m.Method.FundOf()!.Value, +m.Amount.Centavos);
-                _receipts[movement.Sequence] = new ReceiptInfo(m.Method, ((SaleRef)m.Document).Id, m.Amount.Centavos);
+                _receipts[movement.Sequence] = new ReceiptInfo(m.Method, ((SaleRef)m.Document).Id, m.Amount.Centavos, m.PaymentLineId);
                 _receivedBySale[((SaleRef)m.Document).Id] =
                     (_receivedBySale.TryGetValue(((SaleRef)m.Document).Id, out long recv) ? recv : 0) + m.Amount.Centavos;
                 break;

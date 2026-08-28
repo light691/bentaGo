@@ -18,3 +18,4 @@ public readonly record struct AdjustmentId(Guid Value);
 public readonly record struct CountId(Guid Value);
 public readonly record struct CloseId(Guid Value);
 public readonly record struct TransferId(Guid Value);
+public readonly record struct PaymentLineId(Guid Value);

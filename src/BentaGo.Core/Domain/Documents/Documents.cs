@@ -63,7 +63,13 @@ public sealed record SaleLine(
     public Money LineTotal => UnitPrice.Times(Quantity.Units).Minus(Discount);
 }
 
-public sealed record PaymentLine(PaymentMethod Method, string Reference, Money Amount, Money Tendered, Money Change);
+public sealed record PaymentLine(
+    PaymentLineId Id,
+    PaymentMethod Method,
+    string Reference,
+    Money Amount,
+    Money Tendered,
+    Money Change);
 
 public sealed record SaleVoid(VoidId Id, SaleId OriginalSaleId, string Reason, UserId By, DateTimeOffset WhenUtc);
 

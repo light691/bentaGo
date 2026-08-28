@@ -159,7 +159,7 @@ public static class Moves
 
     public static Receipt Receipt(
         long sequence, DateTimeOffset whenUtc, UserId actor, SaleRef document,
-        PaymentMethod method, Money amount) =>
+        PaymentMethod method, Money amount, PaymentLineId paymentLineId) =>
         new()
         {
             Sequence = sequence,
@@ -168,11 +168,12 @@ public static class Moves
             Document = document,
             Method = NotCredit(method),
             Amount = Positive(amount),
+            PaymentLineId = paymentLineId,
         };
 
     public static ReceiptRefund ReceiptRefund(
         long sequence, DateTimeOffset whenUtc, UserId actor, ReturnRef document,
-        PaymentMethod method, Money amount, long reverses) =>
+        PaymentMethod method, Money amount, PaymentLineId paymentLineId, long reverses) =>
         new()
         {
             Sequence = sequence,
@@ -181,12 +182,13 @@ public static class Moves
             Document = document,
             Method = NotCredit(method),
             Amount = Positive(amount),
+            PaymentLineId = paymentLineId,
             Reverses = reverses,
         };
 
     public static ReceiptRevoke ReceiptRevoke(
         long sequence, DateTimeOffset whenUtc, UserId actor, VoidRef document,
-        PaymentMethod method, Money amount, long reverses) =>
+        PaymentMethod method, Money amount, PaymentLineId paymentLineId, long reverses) =>
         new()
         {
             Sequence = sequence,
@@ -195,6 +197,7 @@ public static class Moves
             Document = document,
             Method = NotCredit(method),
             Amount = Positive(amount),
+            PaymentLineId = paymentLineId,
             Reverses = reverses,
         };
 
