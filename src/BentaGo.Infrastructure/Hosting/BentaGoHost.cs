@@ -42,6 +42,7 @@ public static class BentaGoHost
         services.AddSingleton<DbInitializer>();
 
         services.AddSingleton<IPasswordHasher, BCryptPasswordHasher>();
+        services.AddSingleton<BentaGo.Application.Contracts.ILoginService, LoginService>();
         services.AddSingleton<IAdminSeeder, AdminSeeder>();
         services.AddSingleton<IBackupService, BackupService>();
         services.AddSingleton<IRestoreService, RestoreService>();

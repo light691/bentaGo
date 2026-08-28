@@ -1,3 +1,5 @@
+using BentaGo.App.Features.Login;
+using BentaGo.Infrastructure.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace BentaGo.App.Mvvm;
@@ -17,16 +19,10 @@ public static class ObservableObjectFactory
             return _provider;
         }
 
-        var services = new ServiceCollection();
-
-        // BentaGoHost registrations (DI + logging + data).
-        Infrastructure.BentaGoHost.Build(services);
-
-        // App-level view models.
-        services.AddTransient<Features.Login.LoginViewModel>();
-        services.AddTransient<MainViewModel>();
-
-        _provider = services.BuildServiceProvider();
+        _provider = BentaGoHost.Build(extra: services =>
+        {
+            services.AddTransient<LoginViewModel>();
+        });
         return _provider;
     }
 }
