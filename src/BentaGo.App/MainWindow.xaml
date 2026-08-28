@@ -1,0 +1,14 @@
+<Window x:Class="BentaGo.App.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="BentaGo"
+        SizeToContent="Manual"
+        Width="1366"
+        Height="768">
+    <Grid>
+        <TextBlock Text="BentaGo placeholder shell"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Center"
+                   FontSize="24" />
+    </Grid>
+</Window>
