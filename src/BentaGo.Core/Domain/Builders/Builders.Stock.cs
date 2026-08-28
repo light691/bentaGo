@@ -192,9 +192,10 @@ public static class CloseBuilder
             return Result<CloseDraft>.Fail(new DomainError("TRIP_NOT_OPEN", $"trip {cmd.Trip} is not open"));
         }
 
-        // Expected cash is the cash this trip's own sales produced — never the
-        // global till, or closing one peddler would read the cash of another.
-        Money expectedCash = ctx.State.TripCash(cmd.Trip);
+        // Expected cash is the physical cash this trip's own sales produced —
+        // never the global till or another fund (a GCash sale is not "counted
+        // cash"), or closing one peddler would read another's or a digital fund.
+        Money expectedCash = ctx.State.TripCash(cmd.Trip, Fund.PhysicalCash);
         Money variance = expectedCash.Minus(cmd.CountedCash);
 
         var close = new DailyClose(cmd.Id, cmd.Trip, expectedCash, cmd.CountedCash, variance, cmd.Notes, cmd.By, cmd.NowUtc);

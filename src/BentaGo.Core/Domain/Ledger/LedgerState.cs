@@ -236,12 +236,6 @@ public sealed class LedgerState
     }
 
     /// <summary>
-    /// The store's pre-append guard: would this movement be legal right now?
-    /// Returns null when the movement may be appended.
-    /// </summary>
-    public DomainError? Accepts(Movement movement) => Validate(movement);
-
-    /// <summary>
     /// Validates and applies one committed movement to this state
     /// (incremental path used by the in-memory store). Bind the documents
     /// first; the state itself stays a pure fold, so <see cref="Fold"/> and
@@ -735,16 +729,23 @@ public sealed class LedgerState
     }
 
     /// <summary>
-    /// The cash the trip's own sales produced: live receipts across the trip's
-    /// sales, minus refunds (revoked receipts drop out entirely). Per-trip, so
-    /// closing one peddler never reads the cash of another.
+    /// The cash a trip's own activities produced into one fund: live receipts
+    /// across the trip's sales, minus refunds (revoked receipts drop out
+    /// entirely). Per-trip and per-fund, so closing a peddler's cash count
+    /// never reads another peddler's cash or another fund.
     /// </summary>
-    public Money TripCash(TripId trip)
+    public Money TripCash(TripId trip, Fund fund)
     {
         long total = 0;
         foreach ((long seq, ReceiptInfo info) in _receipts)
         {
             if (!_salesById.TryGetValue(info.Sale, out Sale? sale) || sale.Trip != trip)
+            {
+                continue;
+            }
+
+            Fund? receiptFund = info.Method.FundOf();
+            if (receiptFund is null || receiptFund.Value != fund)
             {
                 continue;
             }

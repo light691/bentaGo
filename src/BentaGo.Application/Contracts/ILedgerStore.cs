@@ -13,6 +13,11 @@ public sealed record AppendReceipt(long FirstSequence, long LastSequence);
 /// the fold. BG-003 implements this contract with one SQLite transaction, so
 /// "checkout is one database transaction" becomes a storage detail behind an
 /// unchanged public surface.
+///
+/// Call order contract: register documents (RegisterTrip/RegisterSale/...),
+/// then <see cref="Bind"/>, then <see cref="Append"/>. The append validates
+/// against the bound snapshot, so a document registered after the last
+/// <see cref="Bind"/> is not visible to the next append.
 /// </summary>
 public interface ILedgerStore
 {
