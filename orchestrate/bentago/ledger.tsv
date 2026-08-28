@@ -1,1 +1,2 @@
 unit	pr	head	verdict	verifier	date
+BG-001 status	completion	93a068c	bg-001a slice done: skeleton+host+persistence+backup/seed+tools/tests	coordinator chain: format clean, build 0 err, 8/8 tests, foundation verify PASS (VERIFY: PASS, sha equal, admin present)	worker 317c8bb3 completed	2026-08-29
