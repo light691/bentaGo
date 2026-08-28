@@ -1,6 +1,6 @@
-# Brief: BG-001b slice (WPF login shell) — READY TO SPAWN after bg-001a lands
+# Brief: BG-001b slice (WPF login shell) — SPAWNED 2026-08-29 from head 6ca3e70
 
-Worker spawn conditions: bg-001a done and verified (building, tests pass, foundation verify receipt). Same branch bg-001, single writer at a time. This brief is inlined (proven protocol): instant start, file at a time, commit per phase.
+Worker spawn conditions: bg-001a done and verified (head 93a068c: format clean, build 0 err, 8/8 tests, foundation verify PASS). Same branch bg-001, single writer at a time. This brief is inlined (proven protocol): instant start, file at a time, commit per phase.
 
 EXECUTION PROTOCOL (mandatory)
 1. First action: git -C C:\BentaGo switch bg-001; git -C C:\BentaGo status --short; git -C C:\BentaGo log --oneline -3
@@ -27,7 +27,7 @@ PHASE 3 (commit "bg001b-3 shell")
 9. Update App.xaml/App.xaml.cs: build host on start (BentaGoHost.Build), ShowDialogless startup, handle unhandled exceptions by logging to host log (Infrastructure logger) and showing a owned error window with the message.
 PHASE 4 (commit "bg001b-4 tests")
 10. tests/BentaGo.Tests/Foundation/LoginViewModelTests.cs: facts: empty fields disable command; invalid credentials set generic ErrorMessage and no Authenticated event; valid credentials (temp data root, seed admin/admin) authenticate and StatusText becomes "Ready"; password never appears in ErrorMessage. Uses BentaGoHost.BuildForTests(tempRoot) + seed, real BCrypt. Namespace BentaGo.Tests.Foundation so --filter Foundation matches.
-11. Run $env:Path = "C:\Users\nicky\.dotnet;$env:Path"; dotnet format --verify-no-changes; dotnet build -c Release; dotnet test -c Release --filter Foundation. Fix all failures. Commit.
+11. Run $env:Path = "C:\Users\nicky\.dotnet;$env:Path"; dotnet build -c Release. Fix build failures. Commit. (The FULL verification chain — format verify, test, foundation verify — is coordinator-owned and runs at the drain; do not run it yourself. Build only.)
 
 FORBIDDEN
 - No roles, permissions, navigation beyond the two views, no design-system resources (BG-004), no scanner/printer code, no domain entities, no extra NuGet packages, no UI launch (coordinator screenshots later).
