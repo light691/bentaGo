@@ -1,2 +1,3 @@
 unit	pr	head	verdict	verifier	date
 BG-001 status	completion	93a068c	bg-001a slice done: skeleton+host+persistence+backup/seed+tools/tests	coordinator chain: format clean, build 0 err, 8/8 tests, foundation verify PASS (VERIFY: PASS, sha equal, admin present)	worker 317c8bb3 completed	2026-08-29
+BG-001 unit	left	eb0b13e	bg-001b complete: mvvm base, login VM, shell, tests	format clean; build 0 err 0 warn; 12/12 Foundation; foundation verify PASS (sha equal, admin present); nuget audit clean (NU1903 closed via 2.1.13 pin)	coordinator drain	2026-08-29
