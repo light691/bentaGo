@@ -138,12 +138,23 @@
     <sys:Double x:Key="DialogHost.MaxHeight">600</sys:Double>
 
     <!-- ====================== Focus visual ====================== -->
-    <ControlTemplate x:Key="FocusVisual.Default" TargetType="Control">
-        <Rectangle Margin="-3"
-                   RadiusX="4"
-                   RadiusY="4"
-                   Stroke="{DynamicResource Brush.Focus}"
-                   StrokeThickness="2"
-                   SnapsToDevicePixels="True" />
-    </ControlTemplate>
+    <!-- FocusVisualStyle is a Style-typed property: the shared focus ring is
+         a Style whose Template draws the 2px rounded rectangle. Declared as
+         a Style (not a raw ControlTemplate) so the first real keyboard
+         navigation onto any styled control applies it without a type error
+         (review-gate finding). -->
+    <Style x:Key="FocusVisual.Default" TargetType="Control">
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Control">
+                    <Rectangle Margin="-3"
+                               RadiusX="4"
+                               RadiusY="4"
+                               Stroke="{DynamicResource Brush.Focus}"
+                               StrokeThickness="2"
+                               SnapsToDevicePixels="True" />
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
 </ResourceDictionary>

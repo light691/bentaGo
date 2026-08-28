@@ -182,8 +182,14 @@ public sealed class ResourceSmokeTests
                 Assert.IsType<SolidColorBrush>(block.Foreground);
             }
 
-            var focusTemplate = (ControlTemplate)System.Windows.Application.Current.FindResource(DesignTokens.FocusVisualDefault);
-            Assert.NotNull(focusTemplate);
+            // FocusVisualStyle is a Style-typed property, so the shared focus
+            // ring key must resolve to a Style carrying a Template setter,
+            // never a raw ControlTemplate (review-gate regression guard).
+            var focusVisual = (Style)System.Windows.Application.Current.FindResource(DesignTokens.FocusVisualDefault);
+            Assert.NotNull(focusVisual);
+            Assert.Contains(
+                focusVisual.Setters.Cast<Setter>(),
+                setter => setter.Property == Control.TemplateProperty);
         });
     }
 
