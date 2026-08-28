@@ -56,7 +56,7 @@ contributed the durability, transaction-mode, idempotency, and test-seam grafts 
 | C11 | Lane-shaped brief: one DB transaction per operation; balances = rebuildable projection of movements; sequence assignment single source (batch first = last+1) INSIDE the transaction; documents INSERT in the SAME transaction as movements; no catalog tables (products are BG-005) | orchestrate/bentago/queue/bg-003-brief.md lines 6, 9-13, 16-21 |
 | C12 | Fold semantics the store must reproduce: Validate / ApplyCommitted / Fold / VerifyCrossChecks with the exact DomainError codes | src/BentaGo.Core/Domain/Ledger/LedgerState.cs |
 | C13 | Bind-then-append contract: register documents → `Bind` → `Append`; a document registered after the last `Bind` is not visible to the next append | src/BentaGo.Application/Contracts/ILedgerStore.cs lines 15-21 |
-| C14 | Two-peddler scenario output byte-identical across runs and across store implementations (golden exists) | bg-002-synthesis; artifacts/verification/bg-002/ae40e6a/scenario-two-peddlers.golden.txt |
+| C14 | Two-peddler scenario output byte-identical across runs and across store implementations (golden exists) | bg-002-synthesis; artifacts/verification/bg-002/audit-fix/golden.txt |
 | C15 | Perf: P95 checkout ≤ 500 ms with 10k products / 100k movements; ledger rebuild ≤ 2 s; baselines recorded FIRST | docs/05 lines 218-223; docs/01 line 137 (SQLite transaction-safe under power loss) |
 
 ## 3. Invariant map (exact DomainError codes)
