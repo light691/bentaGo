@@ -182,7 +182,7 @@ opinion.
 
 | # | Decision | Verdict |
 |---|---|---|
-| D1 | **Idempotency key**: client-supplied branded `CheckoutKey(Guid)`; carried on the checkout command; a generic key→payload mapping row (payload = the receipt reference) UNIQUE in the DB, inserted in the sale txn; a duplicate submit inside the txn → rollback → `FindCheckout(key)` → same receipt reference, `Replayed: true`, one sale. Receipt NUMBER is a separate unique business ref (caller-supplied for BG-003; generation policy is a UI-era question). | C5 + lane 4 |
+| D1 | **Idempotency key**: client-supplied branded `CheckoutKey(Guid)`; carried on the checkout command; a generic key→payload mapping row (payload = the receipt reference) UNIQUE in the DB, inserted in the sale txn. A duplicate submit is **not an error**: `Append(AppendBatch)` detects the key collision inside the txn, rolls back, and returns `Ok(AppendOutcome(Receipt: null, Replayed: true, ReplayedPayload: <stored payload>))`; the service returns the stored receipt reference (`CheckoutReference`), one sale. `FindCheckout` is the explicit lookup API for the service pre-check and cross-restart tests. Receipt NUMBER is a separate unique business ref (caller-supplied for BG-003; generation policy is a UI-era question). | C5 + lane 4 |
 | D2 | **Lock/transaction ordering** (§6): raw `BEGIN IMMEDIATE` → read `LedgerHead(LastSequence, DocumentsVersion)` inside txn → refresh hot fold if stale → clone-apply guards → assign sequences → INSERT movements + bound documents + audit + key row, update projection tables, bump watermark → COMMIT. `PRAGMA journal_mode=WAL`, `synchronous=FULL`, `busy_timeout=5000`, `foreign_keys=ON`, `Pooling=False`, one long-lived connection per store. | C11, C15, lanes 4-5, 8 |
 | D3 | **Caches live in SQLite** (five projection tables: cell balances, fund balances, observed, trip states, per-cell breakdown) updated in the same Append txn from the fold clone; the HOT `LedgerState` is the guard/report engine; movements are the source of truth; `RebuildAsync` recomputes projections via `Fold` and they must equal the running state exactly (Lane 6). | C1, C5 |
 | D4 | **InMemoryLedgerStore stays** as the fast in-memory implementation of the widened `ILedgerStore`: Domain tests + in-memory `scenario two-peddlers` keep using it; SqliteLedgerStore is wired where persistence matters (host DI, Persistence tests, live lanes, `--persist`). Both implement the same bind-then-append contract; the open-attempt set is cleared at each append result (verified: no Domain test depends on retaining a failed attempt's documents). | C13, C14 |
@@ -212,7 +212,9 @@ is taken **before** the head read, and every Append runs its guards against a fo
 includes every movement committed before the lock was acquired — the in-txn refresh closes
 the stale-race, so two appends can never both validate against the same pre-commit state.
 Same-key duplicates: the second INSERT violates the UNIQUE key row inside its txn → rollback →
-`FindCheckout` → first sale's receipt reference (D1, lane 4). Committed stock never goes
+`Append` returns `Ok(Replayed: true, ReplayedPayload: stored payload)` → the service returns
+the first sale's receipt reference (D1; lane 4; `FindCheckout` is the explicit lookup for the
+pre-check and restart tests). Committed stock never goes
 below zero (lane 5). Deployment assumption recorded: never let an unvetted second writer
 mutate the file with a deferred txn; the unique Sequence PK and re-fold-on-mismatch still
 fail loud rather than corrupt.
@@ -271,6 +273,14 @@ fidelity gain the CHECK matrix doesn't already give.
 public sealed record AppendReceipt(long FirstSequence, long LastSequence);
 public sealed record RebuildReceipt(long LastSequence, int MovementCount, int DocumentCount);
 
+/// Outcome of an AppendBatch: either the committed range, or — when the batch carried
+/// an IdempotencyMapping whose key already exists — a replay (nothing was written this
+/// call; ReplayedPayload is the payload stored by the first commit).
+public sealed record AppendOutcome(
+    AppendReceipt? Receipt,          // null when Replayed
+    bool Replayed,
+    string? ReplayedPayload);
+
 /// The batch is the ONE durable write unit: movements + audits that must land in the
 /// SAME transaction + an optional idempotency mapping (generic key -> payload).
 public sealed record AppendBatch(
@@ -299,20 +309,27 @@ public interface ILedgerStore
     void RegisterClose(DailyClose @close);
     void Bind();
 
-    Result<AppendReceipt> Append(AppendBatch batch);          // the only transaction opener
+    Result<AppendOutcome> Append(AppendBatch batch);          // the only transaction opener
     Result<AppendReceipt> Append(IReadOnlyList<Movement> movements);  // BG-002 call shape kept (scenario/tests)
 
     void RecordAudit(AuditEvent audit);                       // standalone tiny txn (lane-9 style)
-    Result<(string Payload, SaleId SaleId)?> FindCheckout(string idempotencyKey);  // L4
+    Result<CheckoutReference?> FindCheckout(string idempotencyKey);   // L4 lookup (see below)
     Task<RebuildReceipt> RebuildAsync(CancellationToken ct = default);             // L6
 }
+
+/// The receipt reference a checkout key maps to (D1, lane 4).
+public sealed record CheckoutReference(string ReceiptNumber, SaleId SaleId);
 ```
 
 Store-level error codes added (never fold-code collisions): `DUP_RECEIPT_NUMBER`,
 `LEDGER_CORRUPT` (unknown Kind / illegal column set on read), `LOCK_TIMEOUT` (busy_timeout
-expiry — retryable). Idempotency duplicates are **not errors**: `Append` returns the
-`Replayed` outcome via the service re-read path (D1). All fold codes surface unchanged and
-verbatim.
+expiry — retryable). **Idempotency duplicates are not errors by construction**: inside
+`Append(AppendBatch)` the INSERT of the batch's key into `IdempotencyKeys` is the only
+UNIQUE violation that is caught and turned into `Ok(AppendOutcome(Receipt: null, Replayed:
+true, ReplayedPayload: <stored payload>))` (the batch is rolled back; nothing was written).
+The service maps that to the stored receipt reference without a second lookup (D1, lane 4);
+`FindCheckout` remains the explicit lookup API for the service's pre-check fast path and for
+cross-restart idempotency tests (U9). All fold codes surface unchanged and verbatim.
 
 ### 9.2 The store (`src/BentaGo.Infrastructure/Persistence/`)
 
