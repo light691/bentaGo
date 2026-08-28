@@ -1,8 +1,10 @@
 id	track	state	branch	pr	head	brief
-A	foundation	pending	pkg/a	-	-	Package A solution foundation (M1)
-B	domain	pending	pkg/b	-	-	Package B domain and ledger (M2)
-C	exchange	pending	pkg/c	-	-	Package C CSV exchange and admin setup (M3)
-D	ui	pending	pkg/d	-	-	Package D WPF design system and navigation shell
-E	selling	pending	pkg/e	-	-	Package E POS selling workflow (M4)
-F	hardware	pending	pkg/f	-	-	Package F hardware and correction workflows (M5)
-G	close	pending	pkg/g	-	-	Package G reconciliation, reports, release (M6)
+BG-001	foundation	pending	bg-001	-	-	Package A foundation, pinned SDK, backups
+BG-002	domain	pending	bg-002	-	-	Domain model, invariants, scenario builder
+BG-003	persist	pending	bg-003	-	-	EF Core persisting ledger, atomic ops
+BG-004	shell	pending	bg-004	-	-	WPF shell and six-screen design system
+BG-005	admin	pending	bg-005	-	-	Auth, catalog, trips, loads, CSV exchange
+BG-006	sales	pending	bg-006	-	-	Search, scanner, cart, payments, checkout
+BG-007	hardware	pending	bg-007	-	-	Receipts, ESC/POS, diagnostics, corrections
+BG-008	close	pending	bg-008	-	-	Close, counts, variance, reports, exports
+BG-009	release	pending	bg-009	-	-	Velopack, recovery, pilot, support bundle

@@ -1,0 +1,7 @@
+ts	what	why	evidence	result
+2026-08-29T00:00Z	Program executes docs/05 BG-001..BG-009 with orchestrate playbook	Operator command: whole app, heavily orchestrated, subagents	User request in session; docs/05 present	Armed
+2026-08-29T00:00Z	Gate 0 answered explicitly by operator	Plan requires written answers before code	11 answers recorded	Closed, docs/decisions/0001
+2026-08-29T00:00Z	. NET 10 pinned via global.json 10.0.400	Host had only SDK 8.0.419	dotnet --version resolves 10.0.400	Done
+2026-08-29T00:00Z	Default branch renamed master to main	Plan requires main	git branch -m main	Done
+2026-08-29T00:00Z	Remote deferred until operator names destination	Plan: configure remote only after operator names it	No remote configured	Open gate
+2026-08-29T00:00Z	Orchestrate store moved to plan layout (gates.md, frontier.json)	Plan defines the store	Files present	Done
