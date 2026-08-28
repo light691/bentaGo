@@ -1,0 +1,8 @@
+id	track	state	branch	pr	head	brief
+A	foundation	pending	pkg/a	-	-	Package A solution foundation (M1)
+B	domain	pending	pkg/b	-	-	Package B domain and ledger (M2)
+C	exchange	pending	pkg/c	-	-	Package C CSV exchange and admin setup (M3)
+D	ui	pending	pkg/d	-	-	Package D WPF design system and navigation shell
+E	selling	pending	pkg/e	-	-	Package E POS selling workflow (M4)
+F	hardware	pending	pkg/f	-	-	Package F hardware and correction workflows (M5)
+G	close	pending	pkg/g	-	-	Package G reconciliation, reports, release (M6)
