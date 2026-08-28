@@ -24,3 +24,8 @@
 20. Report shape per the brief: status, branch, head SHA, verdict, what you actually ran, deviations, forbidden-field violations, suggested follow-ups.
 20. Builders verify by build only. The full verification chain (format, test, run) is coordinator-owned and runs at the drain; builders end their slice at a green build plus a commit.
 21. Never send mid-flight corrections to a running builder. A correction arrives as a new turn and derails the child (b attempt 1: one wrongful deletion then 70 min of nothing). Stand the child down and respawn with the corrected brief.
+
+## Environment fact (2026-08-29)
+- Subagents and coordinator sessions are VISION-CAPABLE (read_image works; deepseek-v4-flash-vision-exp).
+- Lane briefs must require visual evidence (screenshots/frames read via read_image) wherever UI behavior is claimed; "no image model" is no longer an excuse.
+- The BG-004 PROVISIONAL brand accent was set when vision was unavailable; finalize it from the brand reference image during the bg-004 UX round.
