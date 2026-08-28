@@ -100,10 +100,12 @@ public sealed class LiveLaneDriverTests
             foreach ((string key, string expectedFocus) in targets)
             {
                 session.Navigation.Navigate(key);
-                _sta.PumpIdle();
+                // Harden (round 2): the primary control must hold REAL
+                // keyboard focus after navigation - focused=- now fails.
+                WaitFor(() => session.FocusedElementId() == expectedFocus);
                 bool keyOk = session.Navigation.CurrentKey == key;
                 string? actual = session.FocusedElementId();
-                bool focusOk = actual == expectedFocus || actual is null; // deferral tolerated if not yet realized
+                bool focusOk = actual == expectedFocus;
                 allOk &= keyOk && focusOk;
                 trace.Add($"Alt -> {key}: CurrentKey={session.Navigation.CurrentKey} focused={actual ?? "-"} expected={expectedFocus}");
             }

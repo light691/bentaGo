@@ -1,6 +1,9 @@
+using System.ComponentModel;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 using BentaGo.App.Ui;
 
 namespace BentaGo.App.Navigation;
@@ -8,15 +11,26 @@ namespace BentaGo.App.Navigation;
 /// <summary>
 /// The only UI-bound focus type (bg-004-synthesis §5.1): resolves element
 /// names over the shell content subtree (matching FocusTarget.Id), defers via
-/// Loaded if content is not yet realized, and logs misses. It is the single
-/// funnel for both navigation focus requests and explicit VM requests, so
-/// MainWindow code-behind stays free of focus logic.
+/// Loaded if content is not yet realized, and retries until BOTH the target
+/// view is realized AND the window is really keyboard-active. Round-2 fixes:
+///  - requests arriving before the view (or activation) are remembered and
+///    re-armed on every trigger (content change, content Loaded, window
+///    Activated) - never dropped;
+///  - keyboard focus is only claimed when the window is active AND
+///    Keyboard.FocusedElement really became the target;
+///  - on window re-activation the last successfully focused element is
+///    restored.
 /// </summary>
 public sealed class FocusCoordinator : IFocusService, IDisposable
 {
     private readonly INavigationService _navigation;
+
     private string? _pendingElement;
-    private FrameworkElement? _deferredContent;
+    private string? _lastFocusedElement;
+    private MainWindow? _resolvedShell;
+    private FrameworkElement? _hookedContent;
+    private bool _wired;
+    private bool _disposed;
 
     public FocusCoordinator(INavigationService navigation)
     {
@@ -35,18 +49,24 @@ public sealed class FocusCoordinator : IFocusService, IDisposable
         // The payload is observable first (unit tests capture it), then the
         // shell-side side effect happens.
         Requested?.Invoke(this, request);
+        EnsureShellHooks();
         if (TryFocus(request.ElementName))
         {
             return;
         }
 
         _pendingElement = request.ElementName;
-        DeferToCurrentContent();
+        RetryPending();
     }
 
-    public static bool TryFocus(string elementName)
+    /// <summary>
+    /// Claims keyboard focus for a symbolic target. Returns true only when
+    /// the window is active AND Keyboard.FocusedElement really became the
+    /// target; otherwise the request stays pending for a later retry.
+    /// </summary>
+    public bool TryFocus(string elementName)
     {
-        if (System.Windows.Application.Current?.MainWindow is not { } window)
+        if (System.Windows.Application.Current?.MainWindow is not { IsActive: true } window)
         {
             return false;
         }
@@ -60,7 +80,14 @@ public sealed class FocusCoordinator : IFocusService, IDisposable
 
         element.Focus();
         Keyboard.Focus(element);
-        return true;
+        if (ReferenceEquals(Keyboard.FocusedElement, element))
+        {
+            _pendingElement = null;
+            _lastFocusedElement = elementName;
+            return true;
+        }
+
+        return false;
     }
 
     /// <summary>Symbolic name of the currently keyboard-focused element (used by
@@ -70,31 +97,105 @@ public sealed class FocusCoordinator : IFocusService, IDisposable
         return Keyboard.FocusedElement is DependencyObject focused ? FocusTarget.GetId(focused) : null;
     }
 
-    private void DeferToCurrentContent()
+    private void EnsureShellHooks()
     {
-        if (System.Windows.Application.Current?.MainWindow is not MainWindow shell
-            || shell.ShellContent?.Content is not FrameworkElement content)
+        if (_wired || _disposed)
         {
             return;
         }
 
-        _deferredContent = content;
-        content.Loaded -= OnDeferredContentLoaded;
-        content.Loaded += OnDeferredContentLoaded;
-    }
-
-    private void OnDeferredContentLoaded(object? sender, RoutedEventArgs e)
-    {
-        if (_deferredContent is { } content)
+        if (System.Windows.Application.Current?.MainWindow is not MainWindow shell)
         {
-            content.Loaded -= OnDeferredContentLoaded;
-            _deferredContent = null;
+            return;
         }
 
-        if (_pendingElement is { } pending)
+        _resolvedShell = shell;
+        shell.Activated += OnShellActivated;
+        DependencyPropertyDescriptor
+            .FromProperty(ContentControl.ContentProperty, typeof(ContentControl))
+            .AddValueChanged(shell.ShellContent, OnShellContentChanged);
+        _wired = true;
+    }
+
+    private void OnShellActivated(object? sender, EventArgs e)
+    {
+        RetryPending();
+
+        // Re-activation: restore the last focused element (but not when focus
+        // already sits on an element with its own id).
+        if (_pendingElement is null
+            && _lastFocusedElement is { } last
+            && CurrentFocusedElementName() != last)
         {
-            _pendingElement = null;
-            TryFocus(pending); // a second miss is simply logged by TryFocus
+            TryFocus(last);
+        }
+    }
+
+    private void OnShellContentChanged(object? sender, EventArgs e) => RetryPending();
+
+    private void OnContentLoaded(object? sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement loaded && ReferenceEquals(loaded, _hookedContent))
+        {
+            loaded.Loaded -= OnContentLoaded;
+            _hookedContent = null;
+        }
+
+        RetryPending();
+    }
+
+    /// <summary>
+    /// Re-arms the pending request: try now, and if the view (or activation)
+    /// is still missing, re-hang the Loaded hook and schedule one deferred
+    /// re-check at Loaded priority so the retry survives either race.
+    /// </summary>
+    private void RetryPending()
+    {
+        if (_pendingElement is not { } pending)
+        {
+            return;
+        }
+
+        if (TryFocus(pending))
+        {
+            return;
+        }
+
+        HangRetryOnCurrentContent();
+        if (_resolvedShell is not null)
+        {
+            _resolvedShell.Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() =>
+            {
+                if (_pendingElement is { } again)
+                {
+                    TryFocus(again);
+                }
+            }));
+        }
+    }
+
+    private void HangRetryOnCurrentContent()
+    {
+        if (_resolvedShell?.ShellContent?.Content is not FrameworkElement content)
+        {
+            return; // content not realized yet; the Content-changed hook re-arms when it lands
+        }
+
+        if (ReferenceEquals(_hookedContent, content))
+        {
+            return;
+        }
+
+        if (_hookedContent is not null)
+        {
+            _hookedContent.Loaded -= OnContentLoaded;
+        }
+
+        _hookedContent = content;
+        content.Loaded += OnContentLoaded;
+        if (content.IsLoaded)
+        {
+            OnContentLoaded(content, new RoutedEventArgs(ContentControl.LoadedEvent));
         }
     }
 
@@ -122,5 +223,26 @@ public sealed class FocusCoordinator : IFocusService, IDisposable
         return null;
     }
 
-    public void Dispose() => _navigation.FocusRequested -= OnNavigationFocusRequested;
+    public void Dispose()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+        _navigation.FocusRequested -= OnNavigationFocusRequested;
+        if (_resolvedShell is not null && _wired)
+        {
+            _resolvedShell.Activated -= OnShellActivated;
+            DependencyPropertyDescriptor
+                .FromProperty(ContentControl.ContentProperty, typeof(ContentControl))
+                .RemoveValueChanged(_resolvedShell.ShellContent, OnShellContentChanged);
+        }
+
+        if (_hookedContent is not null)
+        {
+            _hookedContent.Loaded -= OnContentLoaded;
+        }
+    }
 }
