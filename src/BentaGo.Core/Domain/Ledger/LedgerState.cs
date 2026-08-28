@@ -243,6 +243,24 @@ public sealed class LedgerState
     /// </summary>
     public DomainError? Accepts(Movement movement) => Validate(movement);
 
+    /// <summary>
+    /// Validates and applies one committed movement to this state
+    /// (incremental path used by the in-memory store). Bind the documents
+    /// first; the state itself stays a pure fold, so <see cref="Fold"/> and
+    /// this path must agree.
+    /// </summary>
+    public DomainError? ApplyCommitted(Movement movement)
+    {
+        DomainError? violation = Validate(movement);
+        if (violation is not null)
+        {
+            return violation;
+        }
+
+        Apply(movement);
+        return null;
+    }
+
     private DomainError? Validate(Movement movement)
     {
         if (movement.Sequence <= LastSequence)
@@ -600,12 +618,19 @@ public sealed class LedgerState
                 return _receipts.TryGetValue(m.Reverses, out ReceiptInfo? receipt)
                     ? SaleTrip(receipt.Sale)
                     : null;
+            case TransferOut m when m.Document is LoadRef loadRef:
+                return LoadTrip(loadRef.Id);
+            case TransferIn m when m.Document is LoadRef loadRef:
+                return LoadTrip(loadRef.Id);
             default:
                 return null;
         }
 
         TripId? SaleTrip(SaleId saleId) =>
             _salesById.TryGetValue(saleId, out Sale? sale) ? sale.Trip : null;
+
+        TripId? LoadTrip(LoadId loadId) =>
+            _loadsById.TryGetValue(loadId, out StockLoad? load) ? load.Trip : null;
 
         TripId? SaleTripOfIssue(long issueSeq) =>
             _saleIssues.TryGetValue(issueSeq, out SaleIssueInfo? issue) ? SaleTrip(issue.Sale) : null;

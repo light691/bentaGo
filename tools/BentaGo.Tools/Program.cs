@@ -1,5 +1,6 @@
 using System.IO;
 using System.Security.Cryptography;
+using BentaGo.Application.Services;
 using BentaGo.Infrastructure.Backup;
 using BentaGo.Infrastructure.Configuration;
 using BentaGo.Infrastructure.Hosting;
@@ -21,6 +22,7 @@ try
     return commandLine[0] switch
     {
         "status" => RunStatus(),
+        "scenario" when commandLine.Length > 1 && commandLine[1] == "two-peddlers" => RunScenario(),
         "foundation" when commandLine.Length > 1 && commandLine[1] == "migrate" => await RunMigrateAsync(commandLine.Skip(2).ToArray()),
         "foundation" when commandLine.Length > 1 && commandLine[1] == "backup" => await RunBackupAsync(commandLine.Skip(2).ToArray()),
         "foundation" when commandLine.Length > 1 && commandLine[1] == "restore" => await RunRestoreAsync(commandLine.Skip(2).ToArray()),
@@ -42,6 +44,7 @@ static void PrintHelp()
 
         Commands:
           status                         Print data root, database path, schema version, database sha256.
+          scenario two-peddlers          Print the deterministic two-peddler business day (orders, balances).
           foundation migrate             Migrate the database schema to the latest version.
                                           Options: --data-root <dir> (default: BENTAGO_DATA_ROOT or a fresh temp dir)
           foundation backup              Create a verified backup of the active database.
@@ -52,6 +55,14 @@ static void PrintHelp()
                                           Runs entirely under a fresh temp data root and exits 0 only if all checks pass.
           help                           Show this text.
         """);
+}
+
+static int RunScenario()
+{
+    var store = new InMemoryLedgerStore();
+    ScenarioReport report = TwoPeddlersScenario.Run(store);
+    Console.Write(report.Text);
+    return 0;
 }
 
 static int RunStatus()

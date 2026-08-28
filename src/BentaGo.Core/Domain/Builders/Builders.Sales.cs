@@ -185,6 +185,11 @@ public static class SaleBuilder
 
         foreach (PaymentLine payment in payments)
         {
+            if (payment.Method == PaymentMethod.Credit)
+            {
+                continue; // utang posts no fund; it is receivable-only.
+            }
+
             movements.Add(Moves.Receipt(
                 0, cmd.NowUtc, cmd.By, new SaleRef(sale.Id), payment.Method, payment.Amount, payment.Id));
         }
@@ -352,7 +357,29 @@ public static class ReturnBuilder
 
             if (line.RefundAmount.Centavos > 0)
             {
-                long? receipt = ctx.State.ReceiptSequence(sale.Id, FindPaymentLine(sale, line.RefundMethod));
+                PaymentLine? sourcePayment = null;
+                foreach (PaymentLine payment in sale.Payments)
+                {
+                    if (payment.Method == line.RefundMethod)
+                    {
+                        sourcePayment = payment;
+                        break;
+                    }
+                }
+
+                if (sourcePayment is null)
+                {
+                    errors.Add(new DomainError("REFUND_RECEIPT_MISSING", "no payment to refund against", original.Sku));
+                    continue;
+                }
+
+                if (line.RefundAmount.Centavos > sourcePayment.Amount.Centavos)
+                {
+                    errors.Add(new DomainError("REFUND_LIMIT", "refund exceeds the original payment", original.Sku));
+                    continue;
+                }
+
+                long? receipt = ctx.State.ReceiptSequence(sale.Id, sourcePayment.Id);
                 if (receipt is null)
                 {
                     errors.Add(new DomainError("REFUND_RECEIPT_MISSING", "no receipt to refund against", original.Sku));
@@ -361,7 +388,7 @@ public static class ReturnBuilder
 
                 movements.Add(Moves.ReceiptRefund(
                     0, cmd.NowUtc, cmd.By, new ReturnRef(cmd.Id),
-                    line.RefundMethod, line.RefundAmount, FindPaymentLine(sale, line.RefundMethod), receipt.Value));
+                    line.RefundMethod, line.RefundAmount, sourcePayment.Id, receipt.Value));
             }
         }
 
@@ -372,20 +399,5 @@ public static class ReturnBuilder
 
         var @return = new Return(cmd.Id, sale.Id, lines, cmd.By, cmd.NowUtc);
         return Result<ReturnDraft>.Ok(new ReturnDraft(@return, movements));
-    }
-
-    private static PaymentLineId FindPaymentLine(Sale sale, PaymentMethod method)
-    {
-        foreach (PaymentLine payment in sale.Payments)
-        {
-            if (payment.Method == method)
-            {
-                return payment.Id;
-            }
-        }
-
-        // Unreachable in practice: a refund with no matching payment is caught
-        // by REFUND_RECEIPT_MISSING before this is called twice.
-        throw new InvalidOperationException($"no {method} payment on sale {sale.Id}");
     }
 }
