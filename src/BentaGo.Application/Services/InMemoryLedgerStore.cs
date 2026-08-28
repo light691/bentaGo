@@ -1,8 +1,8 @@
+using BentaGo.Application.Contracts;
 using BentaGo.Core.Common;
 using BentaGo.Core.Domain.Builders;
 using BentaGo.Core.Domain.Documents;
 using BentaGo.Core.Domain.Ledger;
-using BentaGo.Application.Contracts;
 
 namespace BentaGo.Application.Services;
 
