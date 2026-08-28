@@ -1,5 +1,5 @@
 {
-  "generation": 2,
+  "generation": 3,
   "stack": [
     {
       "id": "BG-001",
@@ -7,7 +7,7 @@
       "state": "MERGED",
       "mergeCommit": "716c95fb1226f03436903a254d11ec8ca1f1e7be",
       "mergedAt": "2026-08-29T01:41:06+08:00",
-      "notes": "Foundation, host, persistence, backup/restore, login shell. Audit fixes + 13/13 + verify PASS re-run on merged main."
+      "notes": "Foundation, host, persistence, backup/restore, login shell."
     },
     {
       "id": "BG-002",
@@ -15,29 +15,30 @@
       "state": "MERGED",
       "mergeCommit": "1e827599af70d4e7af5de78ee4c13dabb8937f2e",
       "mergedAt": "2026-08-29T02:44:07+08:00",
-      "notes": "Domain model + in-memory ledger + two-peddlers scenario + tools command. Two audit rounds: 4 majors + 6 minors fixed (clone-atomic append, VerifyCrossChecks, signed variance, trip cash per fund), 43/43, foundation PASS on merged main."
+      "notes": "Domain model + in-memory ledger + two-peddlers scenario. Two audit rounds, 43/43."
+    },
+    {
+      "id": "BG-003",
+      "branch": "bg-003",
+      "state": "MERGED",
+      "mergeCommit": "b65469a562ca187f83c46549e68f50a80cc6abb1",
+      "mergedAt": "2026-08-29T04:10:00+08:00",
+      "notes": "SQLite persist the ledger + atomic ops behind widened ILedgerStore. Rebase patch-proof (18B7E2F4 unchanged); audit LEDGER/TRANSACTION/IDEMPOTENCY/MIGRATION+RECOVERY all PASS; 59/59 + foundation verify on merged main."
     },
     {
       "id": "BG-004",
       "branch": "bg-004",
       "state": "NEXT",
       "dependsOn": ["BG-001"],
-      "notes": "WPF design system + shell navigation; interaction-changing, stop at merge-ready for operator review. Brief at queue/bg-004-brief.md. Architect phase in flight."
-    },
-    {
-      "id": "BG-003",
-      "branch": "bg-003",
-      "state": "NEXT",
-      "dependsOn": ["BG-002"],
-      "notes": "Persist the ledger and atomic operations (SQLite behind ILedgerStore, idempotency, 10 live lanes, perf P95 500ms). NOT review-gated. Brief at queue/bg-003-brief.md. Architect phase in flight."
+      "notes": "WPF shell + design system; interaction-changing => STOP at merge-ready for operator screenshot/video review. Implementer in p5 (evidence + review pack)."
     },
     {
       "id": "BG-005",
       "branch": "bg-005",
       "state": "AFTER-BG-003+BG-004",
       "dependsOn": ["BG-003", "BG-004"],
-      "notes": "Auth + audit; carries deferred audit-logging findings from BG-001 audit."
+      "notes": "Auth + audit; carries deferred audit-logging findings from BG-001 audit. Blueprint: docs/05 lines 287+."
     }
   ],
-  "note": "Frontier recomputed after BG-002 operator-delegated merge. Remote: light691/bentaGo, main = 1e82759."
+  "note": "Frontier recomputed after BG-003 merge (no review gate). Remote: light691/bentaGo, main = b65469a. BG-005 architects after BG-004 merge."
 }
