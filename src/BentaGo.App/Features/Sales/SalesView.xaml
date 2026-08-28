@@ -15,6 +15,7 @@
             <TextBox x:Name="ScanBox"
                      Style="{StaticResource ScanEditorStyle}"
                      Text="{Binding ScanBoxText, UpdateSourceTrigger=PropertyChanged}"
+                     ui:Watermark.Text="Scan barcode or type a product name, then Enter"
                      ui:FocusTarget.Id="Sales.ScanBox"
                      ui:FocusTarget.IsInitial="True">
                 <TextBox.InputBindings>
@@ -34,6 +35,7 @@
                 <TextBox Grid.Column="0"
                          Style="{StaticResource ScanEditorStyle}"
                          Text="{Binding SearchQuery, UpdateSourceTrigger=PropertyChanged}"
+                         ui:Watermark.Text="Type a product name or SKU"
                          ui:FocusTarget.Id="Sales.SearchBox" />
                 <Button Grid.Column="1"
                         Content="Search"
@@ -44,7 +46,13 @@
 
             <TextBlock Text="Results" Style="{StaticResource LabelTextStyle}"
                        Margin="{StaticResource Thickness.M}" />
-            <ItemsControl ItemsSource="{Binding SearchResults}">
+            <!-- Meaningful empty state instead of a blank void. -->
+            <Border Style="{StaticResource Banner.InfoBgStyle}"
+                    Margin="{StaticResource Thickness.XS}"
+                    Visibility="{Binding HasSearchResults, Converter={StaticResource InvertedBoolToVisibility}}">
+                <TextBlock Text="{Binding SearchResultsEmptyText}" Style="{StaticResource CaptionTextStyle}" />
+            </Border>
+            <ItemsControl ItemsSource="{Binding SearchResults}" Visibility="{Binding HasSearchResults, Converter={StaticResource BoolToVisibility}}">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
                         <Grid Margin="{StaticResource Thickness.XS}">
@@ -73,13 +81,44 @@
         <!-- Cart column. -->
         <StackPanel Grid.Column="2">
             <TextBlock Text="CART" Style="{StaticResource FieldLabelStyle}" />
+            <!-- Meaningful empty state instead of a blank void. -->
+            <Border Style="{StaticResource Banner.InfoBgStyle}"
+                    Margin="{StaticResource Thickness.XS}"
+                    Visibility="{Binding HasCartItems, Converter={StaticResource InvertedBoolToVisibility}}">
+                <TextBlock Text="{Binding CartEmptyText}" Style="{StaticResource CaptionTextStyle}" />
+            </Border>
             <DataGrid ItemsSource="{Binding Cart}"
                       SelectedItem="{Binding SelectedLine, Mode=TwoWay}"
                       AutoGenerateColumns="False"
-                      MinHeight="200">
+                      MinHeight="200"
+                      Visibility="{Binding HasCartItems, Converter={StaticResource BoolToVisibility}}">
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="Item" Binding="{Binding DetailText}" Width="*" />
-                    <DataGridTextColumn Header="Qty" Binding="{Binding Quantity}" Width="56" />
+                    <DataGridTemplateColumn Header="Qty" Width="96">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <!-- Per-row quantity stepper (round-3): the +/- 
+                                     shell gestures act on the selected line. -->
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                    <Button Content="-"
+                                            Style="{StaticResource Button.QuietStyle}"
+                                            Command="{Binding DataContext.DecreaseLineCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                            CommandParameter="{Binding}"
+                                            MinWidth="24" />
+                                    <TextBlock Text="{Binding Quantity}"
+                                               Style="{StaticResource MoneyTextStyle}"
+                                               MinWidth="28"
+                                               TextAlignment="Center"
+                                               VerticalAlignment="Center" />
+                                    <Button Content="+"
+                                            Style="{StaticResource Button.QuietStyle}"
+                                            Command="{Binding DataContext.IncreaseLineCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                            CommandParameter="{Binding}"
+                                            MinWidth="24" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
                     <DataGridTextColumn Header="Total" Binding="{Binding LineTotalText}" Width="90" />
                     <DataGridTemplateColumn Header="Remove" Width="72">
                         <DataGridTemplateColumn.CellTemplate>
@@ -119,7 +158,7 @@
 
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                 <Button Content="CANCEL"
-                        Style="{StaticResource Button.DangerStyle}"
+                        Style="{StaticResource Button.SecondaryStyle}"
                         Command="{Binding ClearCartCommand}"
                         Margin="{StaticResource Thickness.S}" />
                 <Button Content="CHECKOUT"

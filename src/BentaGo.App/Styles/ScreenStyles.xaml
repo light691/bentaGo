@@ -1,5 +1,6 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:ui="clr-namespace:BentaGo.App.Ui">
 
     <!-- ================================================================
          ScreenStyles.xaml - shared control recipes referencing Theme tokens
@@ -311,8 +312,21 @@
                             BorderThickness="1"
                             CornerRadius="{DynamicResource Corner.S}"
                             Padding="{TemplateBinding Padding}">
-                        <ScrollViewer x:Name="PART_ContentHost"
-                                      VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+                        <Grid>
+                            <ScrollViewer x:Name="PART_ContentHost"
+                                          VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+                            <!-- Watermark (Ui.Watermark.Text): plain disabled
+                                 hint that never intercepts input and hides as
+                                 soon as the field has text or focus. -->
+                            <TextBlock x:Name="WatermarkHint"
+                                       Text="{Binding (ui:Watermark.Text), RelativeSource={RelativeSource TemplatedParent}}"
+                                       IsHitTestVisible="False"
+                                       Visibility="Collapsed"
+                                       FontSize="{DynamicResource FontSize.Body}"
+                                       Foreground="{DynamicResource Brush.Text.Disabled}"
+                                       HorizontalAlignment="Left"
+                                       VerticalAlignment="Center" />
+                        </Grid>
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
@@ -320,7 +334,11 @@
                         </Trigger>
                         <Trigger Property="IsKeyboardFocused" Value="True">
                             <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource Brush.Focus}" />
+                            <Setter TargetName="WatermarkHint" Property="Visibility" Value="Collapsed" />
                         </Trigger>
+                        <DataTrigger Binding="{Binding Text, RelativeSource={RelativeSource TemplatedParent}}" Value="">
+                            <Setter TargetName="WatermarkHint" Property="Visibility" Value="Visible" />
+                        </DataTrigger>
                         <Trigger Property="Validation.HasError" Value="True">
                             <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource Brush.Status.Error}" />
                         </Trigger>
@@ -536,6 +554,14 @@
         <Setter Property="Padding" Value="16,10" />
     </Style>
 
+    <Style x:Key="Banner.InfoBgStyle" TargetType="Border">
+        <Setter Property="Background" Value="{DynamicResource Brush.Status.Info.Bg}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Brush.Status.Info}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="{DynamicResource Corner.M}" />
+        <Setter Property="Padding" Value="12,6" />
+    </Style>
+
     <!-- ============================ Navigation ============================ -->
     <Style x:Key="NavRailItemStyle" TargetType="Button">
         <Setter Property="FontFamily" Value="{DynamicResource Font.Family.Primary}" />
@@ -694,5 +720,15 @@
         <Setter Property="FontFamily" Value="{DynamicResource Font.Family.Primary}" />
         <Setter Property="FontSize" Value="{DynamicResource FontSize.Caption}" />
         <Setter Property="Foreground" Value="{DynamicResource Brush.State.Disabled.Fg}" />
+    </Style>
+
+    <!-- Inline status glyphs (check / warning triangle): the Segoe MDL2
+         Assets family renders reliably; foreground is inherited so status
+         banners keep their colour channel without view literals. -->
+    <Style x:Key="StatusGlyphTextStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{DynamicResource Font.Family.IconGlyphs}" />
+        <Setter Property="FontSize" Value="{DynamicResource FontSize.Title}" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Margin" Value="0,0,8,0" />
     </Style>
 </ResourceDictionary>

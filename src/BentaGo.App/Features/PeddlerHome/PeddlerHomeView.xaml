@@ -85,14 +85,28 @@
                         Command="{Binding StockCommand}"
                         Margin="{StaticResource Thickness.S}"
                         ui:FocusTarget.Id="Home.StockButton" />
-                <Button Content="Transactions"
-                        Style="{StaticResource Button.SecondaryStyle}"
+                <!-- Off-scope actions (BG-005): visibly disabled with a
+                     "Future" tag so they never invite clicks. -->
+                <Button Style="{StaticResource Button.SecondaryStyle}"
                         Command="{Binding TransactionsCommand}"
-                        Margin="{StaticResource Thickness.S}" />
-                <Button Content="Returns"
-                        Style="{StaticResource Button.SecondaryStyle}"
+                        Margin="{StaticResource Thickness.S}">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Transactions" Style="{StaticResource PlaceholderTextStyle}" />
+                        <Border Style="{StaticResource PlaceholderStyle}" Margin="{StaticResource Thickness.XS}">
+                            <TextBlock Text="Future" Style="{StaticResource PlaceholderTextStyle}" />
+                        </Border>
+                    </StackPanel>
+                </Button>
+                <Button Style="{StaticResource Button.SecondaryStyle}"
                         Command="{Binding ReturnsCommand}"
-                        Margin="{StaticResource Thickness.S}" />
+                        Margin="{StaticResource Thickness.S}">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Returns" Style="{StaticResource PlaceholderTextStyle}" />
+                        <Border Style="{StaticResource PlaceholderStyle}" Margin="{StaticResource Thickness.XS}">
+                            <TextBlock Text="Future" Style="{StaticResource PlaceholderTextStyle}" />
+                        </Border>
+                    </StackPanel>
+                </Button>
                 <Button Content="End Trip"
                         Style="{StaticResource Button.SecondaryStyle}"
                         Command="{Binding EndTripCommand}"

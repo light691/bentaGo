@@ -101,9 +101,9 @@ public static class ShortcutCatalog
         E("remove-line", "Delete", Key.Delete, ModifierKeys.None, ScopeScreen,
           "Remove selected cart line", ShortcutStatus.Active, "docs/03 Delete"),
         E("qty-up", "+", Key.Add, ModifierKeys.None, ScopeScreen,
-          "Increase selected quantity", ShortcutStatus.Active, "docs/03 +"),
+          "Increase selected cart quantity (stepper or +)", ShortcutStatus.Active, "docs/03 +"),
         E("qty-down", "-", Key.Subtract, ModifierKeys.None, ScopeScreen,
-          "Decrease selected quantity", ShortcutStatus.Active, "docs/03 -"),
+          "Decrease selected cart quantity (stepper or -)", ShortcutStatus.Active, "docs/03 -"),
 
         // ---- Ctrl chords (docs/03 §4) ----
         E("new-sale", "Ctrl+N", Key.N, ModifierKeys.Control, ScopeScreen,

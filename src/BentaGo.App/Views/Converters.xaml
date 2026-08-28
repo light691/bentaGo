@@ -7,4 +7,5 @@
          app chain can never drift. -->
     <ui:BoolToVisibilityConverter x:Key="BoolToVisibility" />
     <ui:StringToVisibilityConverter x:Key="StringToVisibility" />
+    <ui:InvertedBoolToVisibilityConverter x:Key="InvertedBoolToVisibility" />
 </ResourceDictionary>

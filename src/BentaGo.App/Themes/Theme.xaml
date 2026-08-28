@@ -61,6 +61,9 @@
 
     <!-- ============================ Type ramp ============================ -->
     <FontFamily x:Key="Font.Family.Primary">Segoe UI</FontFamily>
+    <!-- Reliable inline status glyphs (check / warning triangle). Segoe MDL2
+         Assets ships with Windows and renders at every target DPI. -->
+    <FontFamily x:Key="Font.Family.IconGlyphs">Segoe MDL2 Assets</FontFamily>
     <sys:Double x:Key="FontSize.Display">40</sys:Double>
     <sys:Double x:Key="FontSize.Header">26</sys:Double>
     <sys:Double x:Key="FontSize.Title">20</sys:Double>

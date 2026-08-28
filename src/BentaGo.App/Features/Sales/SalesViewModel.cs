@@ -47,8 +47,10 @@ public sealed class SalesViewModel : ValidatableViewModelBase, IRetainableScreen
         CheckoutCommand = new RelayCommand(async _ => await CheckoutAsync(), _ => Cart.Count > 0 && !HasReceipt);
         ClearCartCommand = new RelayCommand(_ => ClearCart());
         RemoveLineCommand = new RelayCommand(async parameter => await RemoveLineAsync((CartLineDraft)parameter!));
-        IncreaseQuantityCommand = new RelayCommand(_ => AdjustQuantity(+1), _ => SelectedLine is not null);
-        DecreaseQuantityCommand = new RelayCommand(_ => AdjustQuantity(-1), _ => SelectedLine is not null);
+        IncreaseQuantityCommand = new RelayCommand(_ => AdjustQuantity(SelectedLine, +1), _ => SelectedLine is not null);
+        DecreaseQuantityCommand = new RelayCommand(_ => AdjustQuantity(SelectedLine, -1), _ => SelectedLine is not null);
+        IncreaseLineCommand = new RelayCommand(parameter => AdjustQuantity((CartLineDraft)parameter!, +1));
+        DecreaseLineCommand = new RelayCommand(parameter => AdjustQuantity((CartLineDraft)parameter!, -1));
         ClearSearchCommand = new RelayCommand(_ => ClearScanAndSearch());
         FocusScanCommand = new RelayCommand(_ => _focus.Request(AutomationIds.SalesScanBox));
         FocusSearchCommand = new RelayCommand(_ => _focus.Request(AutomationIds.SalesSearchBox));
@@ -57,6 +59,11 @@ public sealed class SalesViewModel : ValidatableViewModelBase, IRetainableScreen
     public ObservableCollection<CartLineDraft> Cart { get; } = new();
 
     public IReadOnlyList<ProductOffer> SearchResults { get; private set; } = Array.Empty<ProductOffer>();
+
+    /// <summary>Per-row cart quantity steppers (round-3 UX completion).</summary>
+    public ICommand IncreaseLineCommand { get; }
+
+    public ICommand DecreaseLineCommand { get; }
 
     public ICommand ScanCommand { get; }
 
@@ -127,6 +134,19 @@ public sealed class SalesViewModel : ValidatableViewModelBase, IRetainableScreen
 
     public string TotalText => MoneyDisplay.Peso(Total);
 
+    /// <summary>Empty-state guidance for the results list and the cart (round-3
+    /// UX completion): meaningful text instead of blank voids.</summary>
+    public bool HasCartItems => Cart.Count > 0;
+
+    public string CartEmptyText => "Cart is empty - scan to add items";
+
+    public bool HasSearchResults => SearchResults.Count > 0;
+
+    public string SearchResultsEmptyText =>
+        _catalog.Count == 0
+            ? "No products loaded - ask admin to import."
+            : "No matching products. Try the product name or SKU.";
+
     public Money Total
     {
         get
@@ -189,15 +209,18 @@ public sealed class SalesViewModel : ValidatableViewModelBase, IRetainableScreen
         if (query.Length == 0)
         {
             SearchResults = Array.Empty<ProductOffer>();
-            OnPropertyChanged(nameof(SearchResults));
-            return;
+        }
+        else
+        {
+            SearchResults = _catalog
+                .Where(offer => offer.Name.Contains(query, StringComparison.OrdinalIgnoreCase)
+                                || offer.Sku.Contains(query, StringComparison.OrdinalIgnoreCase))
+                .ToArray();
         }
 
-        SearchResults = _catalog
-            .Where(offer => offer.Name.Contains(query, StringComparison.OrdinalIgnoreCase)
-                            || offer.Sku.Contains(query, StringComparison.OrdinalIgnoreCase))
-            .ToArray();
         OnPropertyChanged(nameof(SearchResults));
+        OnPropertyChanged(nameof(HasSearchResults));
+        OnPropertyChanged(nameof(SearchResultsEmptyText));
     }
 
     private void AddOfferAndClear(ProductOffer offer)
@@ -206,6 +229,8 @@ public sealed class SalesViewModel : ValidatableViewModelBase, IRetainableScreen
         SearchQuery = "";
         SearchResults = Array.Empty<ProductOffer>();
         OnPropertyChanged(nameof(SearchResults));
+        OnPropertyChanged(nameof(HasSearchResults));
+        OnPropertyChanged(nameof(SearchResultsEmptyText));
         _focus.Request(AutomationIds.SalesScanBox);
     }
 
@@ -229,20 +254,20 @@ public sealed class SalesViewModel : ValidatableViewModelBase, IRetainableScreen
         NotifyCartChanged();
     }
 
-    private void AdjustQuantity(int delta)
+    private void AdjustQuantity(CartLineDraft? line, int delta)
     {
-        if (SelectedLine is null)
+        if (line is null)
         {
             return;
         }
 
-        int next = SelectedLine.Quantity + delta;
+        int next = line.Quantity + delta;
         if (next <= 0)
         {
             return;
         }
 
-        SelectedLine.Quantity = next;
+        line.Quantity = next; // CartLineDraft raises the change callback itself
     }
 
     private async Task RemoveLineAsync(CartLineDraft line)
@@ -297,6 +322,8 @@ public sealed class SalesViewModel : ValidatableViewModelBase, IRetainableScreen
         SearchResults = Array.Empty<ProductOffer>();
         SetFieldError(nameof(ScanBoxText), null);
         OnPropertyChanged(nameof(SearchResults));
+        OnPropertyChanged(nameof(HasSearchResults));
+        OnPropertyChanged(nameof(SearchResultsEmptyText));
     }
 
     private void NotifyCartChanged()
@@ -304,6 +331,8 @@ public sealed class SalesViewModel : ValidatableViewModelBase, IRetainableScreen
         OnPropertyChanged(nameof(SubtotalText));
         OnPropertyChanged(nameof(TotalText));
         OnPropertyChanged(nameof(Total));
+        OnPropertyChanged(nameof(HasCartItems));
+        OnPropertyChanged(nameof(CartEmptyText));
         NotifyCartCommands();
     }
 

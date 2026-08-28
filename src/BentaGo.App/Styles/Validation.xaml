@@ -22,33 +22,21 @@
 
     <ControlTemplate x:Key="ErrorTemplate.TextBox">
         <DockPanel LastChildFill="True">
-            <Border DockPanel.Dock="Right"
-                    Margin="6,0,0,0"
-                    MaxWidth="340"
-                    Background="{DynamicResource Brush.Status.Error.Bg}"
-                    BorderBrush="{DynamicResource Brush.Status.Error}"
-                    BorderThickness="1"
-                    CornerRadius="{DynamicResource Corner.S}"
-                    Padding="6,2"
-                    VerticalAlignment="Center">
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column="0"
-                               Text="&#x26A0;"
+            <!-- Corrective copy renders directly UNDER the field (round-3),
+                 anchored left; a text-only strip (no chip) with the MDL2
+                 warning triangle so it cannot drift into neighbour columns. -->
+            <StackPanel DockPanel.Dock="Bottom" Margin="0,2,0,0">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="&#xE7BA;"
+                               FontFamily="{DynamicResource Font.Family.IconGlyphs}"
                                Foreground="{DynamicResource Brush.Status.Error}"
-                               FontFamily="{DynamicResource Font.Family.Primary}"
-                               FontSize="{DynamicResource FontSize.Body}"
+                               FontSize="{DynamicResource FontSize.Label}"
                                VerticalAlignment="Center"
                                Margin="0,0,5,0" />
-                    <TextBlock Grid.Column="1"
-                               VerticalAlignment="Center"
-                               Text="{Binding AdornedElement.(Validation.Errors)[0].ErrorContent, ElementName=ErrorAdornerPlaceholder}"
+                    <TextBlock Text="{Binding AdornedElement.(Validation.Errors)[0].ErrorContent, ElementName=ErrorAdornerPlaceholder}"
                                Style="{StaticResource ErrorTextStyle}" />
-                </Grid>
-            </Border>
+                </StackPanel>
+            </StackPanel>
             <Border BorderBrush="{DynamicResource Brush.Status.Error}"
                     BorderThickness="1.5"
                     CornerRadius="{DynamicResource Corner.S}">
@@ -59,33 +47,18 @@
 
     <ControlTemplate x:Key="ErrorTemplate.PasswordBox">
         <DockPanel LastChildFill="True">
-            <Border DockPanel.Dock="Right"
-                    Margin="6,0,0,0"
-                    MaxWidth="340"
-                    Background="{DynamicResource Brush.Status.Error.Bg}"
-                    BorderBrush="{DynamicResource Brush.Status.Error}"
-                    BorderThickness="1"
-                    CornerRadius="{DynamicResource Corner.S}"
-                    Padding="6,2"
-                    VerticalAlignment="Center">
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column="0"
-                               Text="&#x26A0;"
+            <StackPanel DockPanel.Dock="Bottom" Margin="0,2,0,0">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="&#xE7BA;"
+                               FontFamily="{DynamicResource Font.Family.IconGlyphs}"
                                Foreground="{DynamicResource Brush.Status.Error}"
-                               FontFamily="{DynamicResource Font.Family.Primary}"
-                               FontSize="{DynamicResource FontSize.Body}"
+                               FontSize="{DynamicResource FontSize.Label}"
                                VerticalAlignment="Center"
                                Margin="0,0,5,0" />
-                    <TextBlock Grid.Column="1"
-                               VerticalAlignment="Center"
-                               Text="{Binding AdornedElement.(Validation.Errors)[0].ErrorContent, ElementName=ErrorAdornerPlaceholder}"
+                    <TextBlock Text="{Binding AdornedElement.(Validation.Errors)[0].ErrorContent, ElementName=ErrorAdornerPlaceholder}"
                                Style="{StaticResource ErrorTextStyle}" />
-                </Grid>
-            </Border>
+                </StackPanel>
+            </StackPanel>
             <Border BorderBrush="{DynamicResource Brush.Status.Error}"
                     BorderThickness="1.5"
                     CornerRadius="{DynamicResource Corner.S}">

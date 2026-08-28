@@ -58,6 +58,7 @@ public static class DesignTokens
 
     // ---- Type ramp ----
     public const string FontFamilyPrimary = "Font.Family.Primary";
+    public const string FontFamilyIconGlyphs = "Font.Family.IconGlyphs";
     public const string FontSizeDisplay = "FontSize.Display";
     public const string FontSizeHeader = "FontSize.Header";
     public const string FontSizeTitle = "FontSize.Title";
@@ -107,6 +108,7 @@ public static class DesignTokens
     public const string BannerSuccessStyle = "Banner.SuccessStyle";
     public const string BannerWarningStyle = "Banner.WarningStyle";
     public const string BannerErrorStyle = "Banner.ErrorStyle";
+    public const string BannerInfoBgStyle = "Banner.InfoBgStyle";
     public const string DataGridLowStockRowStyle = "DataGrid.LowStockRowStyle";
     public const string NavRailItemStyle = "NavRailItemStyle";
     public const string MethodTabButtonStyle = "MethodTabButtonStyle";
@@ -118,6 +120,7 @@ public static class DesignTokens
     public const string KeyCapStyle = "KeyCapStyle";
     public const string PlaceholderStyle = "PlaceholderStyle";
     public const string PlaceholderTextStyle = "PlaceholderTextStyle";
+    public const string StatusGlyphTextStyle = "StatusGlyphTextStyle";
     public const string LowStockSkuTextStyle = "LowStockSkuTextStyle";
 
     // ---- Validation (Styles/Validation.xaml) ----
@@ -141,7 +144,7 @@ public static class DesignTokens
         FocusBrush,
         StateDisabledBgBrush, StateDisabledFgBrush, StateDisabledBorderBrush,
         PayCashBrush, PayGcashBrush, PayMayaBrush, PayBankBrush, PayCreditBrush,
-        FontFamilyPrimary,
+        FontFamilyPrimary, FontFamilyIconGlyphs,
         FontSizeDisplay, FontSizeHeader, FontSizeTitle, FontSizeBody, FontSizeLabel, FontSizeStatus, FontSizeCaption,
         FontWeightStrong, FontWeightSemi,
         DisplayTextStyle, HeaderTextStyle, TitleTextStyle, BodyTextStyle, LabelTextStyle, StatusTextStyle, CaptionTextStyle, MoneyTextStyle,
@@ -153,10 +156,10 @@ public static class DesignTokens
         FocusVisualDefault,
         ButtonPrimaryStyle, ButtonSecondaryStyle, ButtonDangerStyle, ButtonQuietStyle,
         ButtonKeypadStyle, KeypadButtonAccentStyle,
-        CardStyle, BannerSuccessStyle, BannerWarningStyle, BannerErrorStyle,
+        CardStyle, BannerSuccessStyle, BannerWarningStyle, BannerErrorStyle, BannerInfoBgStyle,
         DataGridLowStockRowStyle, NavRailItemStyle, MethodTabButtonStyle,
         ScanEditorStyle, FieldLabelStyle, DialogWindowStyle, HelpOverlayStyle,
-        StatusDotStyle, KeyCapStyle, PlaceholderStyle, PlaceholderTextStyle, LowStockSkuTextStyle,
+        StatusDotStyle, KeyCapStyle, PlaceholderStyle, PlaceholderTextStyle, StatusGlyphTextStyle, LowStockSkuTextStyle,
         ErrorTemplateTextBox, ErrorTemplatePasswordBox, ErrorTextStyle,
     };
 }

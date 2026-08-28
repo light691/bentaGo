@@ -72,9 +72,17 @@
                 </StackPanel>
             </Border>
 
-            <!-- Actual cash remitted + variance banner + actions. -->
-            <StackPanel Grid.Column="1" Margin="{StaticResource Thickness.XS}">
-                <Border Style="{StaticResource CardStyle}">
+            <!-- Actual cash remitted + variance banner + actions (balanced: the banner
+             zone stretches so the actions row sits at the bottom, never dead
+             space). -->
+            <Grid Grid.Column="1" Margin="{StaticResource Thickness.XS}">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <Border Grid.Row="0" Style="{StaticResource CardStyle}">
                     <StackPanel>
                         <TextBlock Text="Cash remitted" Style="{StaticResource TitleTextStyle}" />
                         <TextBlock Text="Actual cash remitted (leave blank if not counted)"
@@ -91,29 +99,37 @@
                     </StackPanel>
                 </Border>
 
-                <Border Style="{StaticResource Banner.SuccessStyle}"
-                        Margin="{StaticResource Thickness.M}"
-                        Visibility="{Binding IsBalanced, Converter={StaticResource BoolToVisibility}}">
-                    <TextBlock Text="{Binding BannerText}" Style="{StaticResource TitleTextStyle}" />
-                </Border>
-                <Border Style="{StaticResource Banner.WarningStyle}"
-                        Margin="{StaticResource Thickness.M}"
-                        Visibility="{Binding IsShort, Converter={StaticResource BoolToVisibility}}">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="&#x26A0; " Style="{StaticResource TitleTextStyle}" />
-                        <TextBlock Text="{Binding BannerText}" Style="{StaticResource TitleTextStyle}" />
-                    </StackPanel>
-                </Border>
-                <Border Style="{StaticResource Banner.ErrorStyle}"
-                        Margin="{StaticResource Thickness.M}"
-                        Visibility="{Binding IsOver, Converter={StaticResource BoolToVisibility}}">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="&#x26A0; " Style="{StaticResource TitleTextStyle}" />
-                        <TextBlock Text="{Binding BannerText}" Style="{StaticResource TitleTextStyle}" />
-                    </StackPanel>
-                </Border>
+                <Grid Grid.Row="1">
+                    <Border Style="{StaticResource Banner.SuccessStyle}"
+                            Margin="{StaticResource Thickness.M}"
+                            VerticalAlignment="Center"
+                            Visibility="{Binding IsBalanced, Converter={StaticResource BoolToVisibility}}">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE73E;" Style="{StaticResource StatusGlyphTextStyle}" />
+                            <TextBlock Text="{Binding BannerText}" Style="{StaticResource TitleTextStyle}" />
+                        </StackPanel>
+                    </Border>
+                    <Border Style="{StaticResource Banner.WarningStyle}"
+                            Margin="{StaticResource Thickness.M}"
+                            VerticalAlignment="Center"
+                            Visibility="{Binding IsShort, Converter={StaticResource BoolToVisibility}}">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE7BA;" Style="{StaticResource StatusGlyphTextStyle}" />
+                            <TextBlock Text="{Binding BannerText}" Style="{StaticResource TitleTextStyle}" />
+                        </StackPanel>
+                    </Border>
+                    <Border Style="{StaticResource Banner.ErrorStyle}"
+                            Margin="{StaticResource Thickness.M}"
+                            VerticalAlignment="Center"
+                            Visibility="{Binding IsOver, Converter={StaticResource BoolToVisibility}}">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE7BA;" Style="{StaticResource StatusGlyphTextStyle}" />
+                            <TextBlock Text="{Binding BannerText}" Style="{StaticResource TitleTextStyle}" />
+                        </StackPanel>
+                    </Border>
+                </Grid>
 
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="{StaticResource Thickness.M}">
+                <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="{StaticResource Thickness.M}">
                     <Button Content="Save Draft"
                             Style="{StaticResource Button.SecondaryStyle}"
                             Command="{Binding SaveDraftCommand}"
@@ -130,7 +146,7 @@
                             Margin="{StaticResource Thickness.S}"
                             ui:FocusTarget.Id="Reconciliation.SubmitCloseButton" />
                 </StackPanel>
-            </StackPanel>
+            </Grid>
         </Grid>
 
         <!-- Optional inventory count table (placeholder rows; BG-005 wires entry). -->
