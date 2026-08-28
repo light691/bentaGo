@@ -13,3 +13,5 @@ ts	what	why	evidence	result
 2026-08-29T00:00Z	gates	CSV gate closed on coordinator v1 fixtures	Operator: provide samples ourselves for now, client exports later	samples/input, samples/README-csv-contract.md	badge v1 fixtures active
 2026-08-29T00:00Z	gates	Remote destination gate remains open; local default	Operator asked what it means; no repo named yet	git remote -v empty	local branches until named
 2026-08-29T00:00Z	gates	Philippine defaults confirmed: PHP centavos, Asia/Manila, 28 Aug 2026 dates, GCash/Maya first-class	Operator: I live in the Philippines, know the defaults	docs/01, docs/03, docs/decisions/0001	defaults confirmed
+2026-08-29T00:00Z	gates	Remote destination named: github.com/light691/bentaGo	Operator decision	git remote -v origin https://github.com/light691/bentaGo.git	remote configured; repo creation and auth pending on operator
+2026-08-29T00:00Z	gates	gh CLI not installed; repo 404; no credentials available	PR lifecycle waits for repo creation plus auth	gh 404, gh command missing	paths: create repo / install gh / PAT / stay local
