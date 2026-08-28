@@ -22,6 +22,7 @@ public static class ObservableObjectFactory
         _provider = BentaGoHost.Build(extra: services =>
         {
             services.AddTransient<LoginViewModel>();
+            services.AddTransient<MainViewModel>();
         });
         return _provider;
     }
