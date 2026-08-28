@@ -1,5 +1,6 @@
 using System.IO;
 using System.Security.Cryptography;
+using BentaGo.Application.Contracts;
 using BentaGo.Application.Services;
 using BentaGo.Infrastructure.Backup;
 using BentaGo.Infrastructure.Configuration;
@@ -22,7 +23,7 @@ try
     return commandLine[0] switch
     {
         "status" => RunStatus(),
-        "scenario" when commandLine.Length > 1 && commandLine[1] == "two-peddlers" => RunScenario(),
+        "scenario" when commandLine.Length > 1 && commandLine[1] == "two-peddlers" => await RunScenarioAsync(commandLine.Skip(2).ToArray()),
         "foundation" when commandLine.Length > 1 && commandLine[1] == "migrate" => await RunMigrateAsync(commandLine.Skip(2).ToArray()),
         "foundation" when commandLine.Length > 1 && commandLine[1] == "backup" => await RunBackupAsync(commandLine.Skip(2).ToArray()),
         "foundation" when commandLine.Length > 1 && commandLine[1] == "restore" => await RunRestoreAsync(commandLine.Skip(2).ToArray()),
@@ -32,7 +33,7 @@ try
 }
 catch (Exception ex)
 {
-    Console.Error.WriteLine($"ERROR: {ex.Message}");
+    Console.Error.WriteLine($"ERROR: {ex}");
     return 1;
 }
 
@@ -57,12 +58,58 @@ static void PrintHelp()
         """);
 }
 
-static int RunScenario()
+static async Task<int> RunScenarioAsync(string[] args)
 {
-    var store = new InMemoryLedgerStore();
-    ScenarioReport report = TwoPeddlersScenario.Run(store);
-    Console.Write(report.Text);
-    return 0;
+    bool persist = args.Contains("--persist", StringComparer.Ordinal);
+    string root = ResolveDataRoot(args);
+
+    if (!persist)
+    {
+        var store = new InMemoryLedgerStore();
+        ScenarioReport report = TwoPeddlersScenario.Run(store);
+        Console.Write(report.Text);
+        return 0;
+    }
+
+    try
+    {
+        ServiceProvider host = BentaGoHost.Build(development: true, dataRootOverride: root);
+        var initializer = host.GetRequiredService<DbInitializer>();
+        await initializer.EnsureCreatedOrMigrateAsync();
+
+        // Run the full deterministic day against SQLite.
+        var store1 = host.GetRequiredService<SqliteLedgerStore>();
+        ScenarioReport report1 = TwoPeddlersScenario.Run(store1);
+        Console.Write(report1.Text);
+        Console.WriteLine();
+
+        // Byte-identity with the in-memory golden (C14).
+        var memory = new InMemoryLedgerStore();
+        string inMemory = TwoPeddlersScenario.Run(memory).Text;
+        bool goldenIdentical = report1.Text == inMemory;
+        Console.WriteLine($"GOLDEN_IDENT:   {(goldenIdentical ? "PASS" : "FAIL")} (persisted vs in-memory)");
+
+        // Restart: close store1, reopen a fresh store over the same file —
+        // the fold must reproduce the persisted day without re-running it.
+        store1.Close();
+        var paths = host.GetRequiredService<IDataPathProvider>();
+        var store2 = new SqliteLedgerStore(paths, host.GetRequiredService<DebugOptions>());
+        string afterRestart = TwoPeddlersScenario.Render(store2).Text;
+        bool restartOk = afterRestart == report1.Text;
+        Console.WriteLine($"RESTART:        {(restartOk ? "PASS" : "FAIL")} (render after reopen == first run)");
+
+        // Rebuild: full fold + projection rewrite; render must stay identical.
+        RebuildReceipt rebuilt = await store2.RebuildAsync();
+        bool rebuildOk = TwoPeddlersScenario.Render(store2).Text == report1.Text;
+        Console.WriteLine($"REBUILD:        {(rebuildOk ? "PASS" : "FAIL")} (head {rebuilt.LastSequence}, {rebuilt.MovementCount} movements, {rebuilt.DocumentCount} documents)");
+
+        return goldenIdentical && restartOk && rebuildOk ? 0 : 1;
+    }
+    catch (Exception ex)
+    {
+        Console.Error.WriteLine($"ERROR: {ex}");
+        return 1;
+    }
 }
 
 static int RunStatus()

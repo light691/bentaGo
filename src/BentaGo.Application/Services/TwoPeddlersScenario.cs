@@ -169,7 +169,12 @@ public static class TwoPeddlersScenario
         return Render(memory);
     }
 
-    private static ScenarioReport Render(ILedgerStore store)
+    /// <summary>
+    /// Renders whatever the store currently holds: the ordered movement
+    /// stream, audits, and balances. Used by the persisted mode to render a
+    /// reopened/rebuild store WITHOUT re-running the day (BG-003 lanes 6/10).
+    /// </summary>
+    public static ScenarioReport Render(ILedgerStore store)
     {
         // Money columns are formatted invariant (comma-decimal hosts print the
         // same golden), and the clock is shown in Asia/Manila per the display

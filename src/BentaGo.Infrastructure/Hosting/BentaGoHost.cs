@@ -45,7 +45,21 @@ public static class BentaGoHost
         services.AddSingleton<BentaGo.Application.Contracts.ILoginService, LoginService>();
         services.AddSingleton<IAdminSeeder, AdminSeeder>();
         services.AddSingleton<IBackupService, BackupService>();
-        services.AddSingleton<IRestoreService, RestoreService>();
+
+        // The one long-lived SQLite ledger connection must be closed before
+        // the restore hook moves the -wal/-shm companions (BG-003 R1).
+        services.AddSingleton<DebugOptions>();
+        services.AddSingleton<SqliteLedgerStore>();
+        services.AddSingleton<BentaGo.Application.Contracts.ILedgerStore>(sp =>
+            sp.GetRequiredService<SqliteLedgerStore>());
+        services.AddSingleton<IRestoreService>(sp => new RestoreService(
+            sp.GetRequiredService<IDataPathProvider>(),
+            sp.GetRequiredService<IDbContextFactory<BentaGoDbContext>>(),
+            () =>
+            {
+                sp.GetRequiredService<SqliteLedgerStore>().Close();
+                return Task.CompletedTask;
+            }));
 
         extra?.Invoke(services);
 

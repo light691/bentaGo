@@ -37,25 +37,29 @@ public sealed record InventoryBalance(ProductId Product, LocationId Location, Qu
 /// <summary>
 /// Per-cell stock story: what came in, what left, and the count variance.
 /// "Loaded" counts transfer-ins documented by a load (stock ladled out to a
-/// peddler); "Starting" counts opening stock and direct transfers.
+/// peddler); "Starting" counts opening stock and direct transfers. The
+/// per-cell columns are SIGNED net deltas (the fold's own arithmetic can
+/// legitimately produce a negative Starting or Adjusted — a load-in followed
+/// by a transfer-out, or a net decrease adjustment), so they are plain longs
+/// and never assert non-negativity (BG-003 projection: CellBreakdown is an
+/// INTEGER table).
 /// </summary>
 public sealed record InventoryBreakdown(
     ProductId Product,
     LocationId Location,
-    Quantity Starting,
-    Quantity Loaded,
-    Quantity Sold,
-    Quantity Returned,
-    Quantity Damaged,
-    Quantity Lost,
-    Quantity Adjusted,
-    Quantity Ending,
+    long Starting,
+    long Loaded,
+    long Sold,
+    long Returned,
+    long Damaged,
+    long Lost,
+    long Adjusted,
+    long Ending,
     Quantity? Observed,
     int? Variance)
 {
-    public static InventoryBreakdown None(ProductId product, LocationId location, Quantity ending) =>
-        new(product, location, Quantity.Zero, Quantity.Zero, Quantity.Zero, Quantity.Zero, Quantity.Zero,
-            Quantity.Zero, Quantity.Zero, ending, null, null);
+    public static InventoryBreakdown None(ProductId product, LocationId location, long ending) =>
+        new(product, location, 0, 0, 0, 0, 0, 0, 0, ending, null, null);
 }
 
 /// <summary>
@@ -216,21 +220,21 @@ public sealed class LedgerState
         long ending = _stock.TryGetValue((product, location), out long units) ? units : 0;
         if (!_cellStats.TryGetValue((product, location), out CellStats? stats))
         {
-            return InventoryBreakdown.None(product, location, Quantity.Of((int)ending));
+            return InventoryBreakdown.None(product, location, ending);
         }
 
         long observed = _observed.TryGetValue((product, location), out long seen) ? seen : -1;
         return new InventoryBreakdown(
             product,
             location,
-            Quantity.Of((int)stats.Starting),
-            Quantity.Of((int)stats.Loaded),
-            Quantity.Of((int)stats.Sold),
-            Quantity.Of((int)stats.Returned),
-            Quantity.Of((int)stats.Damaged),
-            Quantity.Of((int)stats.Lost),
-            Quantity.Of((int)stats.Adjusted),
-            Quantity.Of((int)ending),
+            stats.Starting,
+            stats.Loaded,
+            stats.Sold,
+            stats.Returned,
+            stats.Damaged,
+            stats.Lost,
+            stats.Adjusted,
+            ending,
             observed >= 0 ? Quantity.Of((int)observed) : null,
             observed >= 0 ? (int)(observed - ending) : null);
     }
