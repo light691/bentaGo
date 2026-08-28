@@ -13,7 +13,7 @@ public sealed class BentaGoDbContextFactory : IDbContextFactory<BentaGoDbContext
     public BentaGoDbContextFactory(string connectionString)
     {
         _options = new DbContextOptionsBuilder<BentaGoDbContext>()
-            .UseSqlite(connectionString)
+            .UseSqlite($"{connectionString};Pooling=False")
             .Options;
     }
 

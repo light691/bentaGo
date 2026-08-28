@@ -35,8 +35,8 @@ public sealed class BackupService : IBackupService
 
         string databaseVersion = await ReadMigrationIdAsync(dbPath, cancellationToken);
 
-        await using (var source = new SqliteConnection($"Data Source={dbPath};Mode=ReadWrite"))
-        await using (var destination = new SqliteConnection($"Data Source={backupPath};Mode=ReadWriteCreate"))
+        await using (var source = new SqliteConnection($"Data Source={dbPath};Mode=ReadWrite;Pooling=False"))
+        await using (var destination = new SqliteConnection($"Data Source={backupPath};Mode=ReadWriteCreate;Pooling=False"))
         {
             await source.OpenAsync(cancellationToken);
             await destination.OpenAsync(cancellationToken);
@@ -52,7 +52,7 @@ public sealed class BackupService : IBackupService
 
     private async Task<string> ReadMigrationIdAsync(string dbPath, CancellationToken cancellationToken)
     {
-        await using var connection = new SqliteConnection($"Data Source={dbPath};Mode=ReadOnly");
+        await using var connection = new SqliteConnection($"Data Source={dbPath};Mode=ReadOnly;Pooling=False");
         await connection.OpenAsync(cancellationToken);
 
         try
@@ -71,7 +71,7 @@ public sealed class BackupService : IBackupService
 
     internal static async Task VerifyQuickCheckAsync(string dbPath, CancellationToken cancellationToken)
     {
-        await using var connection = new SqliteConnection($"Data Source={dbPath};Mode=ReadOnly");
+        await using var connection = new SqliteConnection($"Data Source={dbPath};Mode=ReadOnly;Pooling=False");
         await connection.OpenAsync(cancellationToken);
 
         try
@@ -84,6 +84,11 @@ public sealed class BackupService : IBackupService
                 throw new InvalidOperationException(
                     $"database integrity check failed on '{dbPath}': quick_check returned '{result}'");
             }
+        }
+        catch (SqliteException ex)
+        {
+            throw new InvalidOperationException(
+                $"database integrity check failed on '{dbPath}': the file is not a valid SQLite database.", ex);
         }
         finally
         {

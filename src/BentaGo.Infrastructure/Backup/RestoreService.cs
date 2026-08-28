@@ -93,7 +93,7 @@ public sealed class RestoreService : IRestoreService
 
     private static async Task<string> ReadMigrationIdAsync(string dbPath, CancellationToken cancellationToken)
     {
-        await using var connection = new SqliteConnection($"Data Source={dbPath};Mode=ReadOnly");
+        await using var connection = new SqliteConnection($"Data Source={dbPath};Mode=ReadOnly;Pooling=False");
         await connection.OpenAsync(cancellationToken);
 
         try

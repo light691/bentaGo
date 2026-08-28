@@ -14,7 +14,7 @@ public sealed class DesignTimeDbContextFactory : IDesignTimeDbContextFactory<Ben
     {
         string tempDb = Path.Combine(Path.GetTempPath(), $"bentago-design-{Guid.NewGuid():N}.db");
         var options = new DbContextOptionsBuilder<BentaGoDbContext>()
-            .UseSqlite($"Data Source={tempDb}")
+            .UseSqlite($"Data Source={tempDb};Pooling=False")
             .Options;
         return new BentaGoDbContext(options);
     }
