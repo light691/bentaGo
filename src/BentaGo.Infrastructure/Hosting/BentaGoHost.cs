@@ -41,11 +41,10 @@ public static class BentaGoHost
             sp.GetRequiredService<BentaGoDbContextFactory>());
         services.AddSingleton<DbInitializer>();
 
-        // TODO(bg001a-4): real implementations replace these placeholders.
-        services.AddSingleton<IPasswordHasher, PasswordHasherPlaceholder>();
-        services.AddSingleton<IAdminSeeder, AdminSeederPlaceholder>();
-        services.AddSingleton<IBackupService, BackupServicePlaceholder>();
-        services.AddSingleton<IRestoreService, RestoreServicePlaceholder>();
+        services.AddSingleton<IPasswordHasher, BCryptPasswordHasher>();
+        services.AddSingleton<IAdminSeeder, AdminSeeder>();
+        services.AddSingleton<IBackupService, BackupService>();
+        services.AddSingleton<IRestoreService, RestoreService>();
 
         extra?.Invoke(services);
 
@@ -60,29 +59,5 @@ public static class BentaGoHost
     public static ServiceProvider BuildForTests(string tempDataRoot)
     {
         return Build(development: true, dataRootOverride: tempDataRoot);
-    }
-
-    private sealed class PasswordHasherPlaceholder : IPasswordHasher
-    {
-        public string Hash(string password) => throw new NotSupportedException("Phase 4 pending");
-        public bool Verify(string password, string hash) => throw new NotSupportedException("Phase 4 pending");
-    }
-
-    private sealed class AdminSeederPlaceholder : IAdminSeeder
-    {
-        public Task SeedAsync(CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException("Phase 4 pending");
-    }
-
-    private sealed class BackupServicePlaceholder : IBackupService
-    {
-        public Task<BackupReceipt> CreateAsync(CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException("Phase 4 pending");
-    }
-
-    private sealed class RestoreServicePlaceholder : IRestoreService
-    {
-        public Task<RestoreReceipt> RestoreAsync(string backupPath, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException("Phase 4 pending");
     }
 }
