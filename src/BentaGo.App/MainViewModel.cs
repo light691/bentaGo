@@ -38,6 +38,7 @@ public sealed class MainViewModel : ViewModelBase
         _navigation = services.GetRequiredService<INavigationService>();
         _focus = services.GetRequiredService<IFocusService>();
         Login = services.GetRequiredService<LoginViewModel>();
+        Login.Authenticated += (_, _) => OnAuthenticated();
         HelpOverlay = services.GetRequiredService<HelpOverlayViewModel>();
 
         VersionText = "v" + (Assembly.GetEntryAssembly()?.GetName().Version?.ToString(3) ?? "1.0.0");
@@ -86,7 +87,13 @@ public sealed class MainViewModel : ViewModelBase
         _navigation.Navigate(ScreenKeys.Login);
     }
 
-    public LoginViewModel Login { get; }
+    public LoginViewModel Login
+    {
+        get => _login;
+        private set => SetProperty(ref _login, value);
+    }
+
+    private LoginViewModel _login = null!;
 
     public HelpOverlayViewModel HelpOverlay { get; }
 
@@ -195,6 +202,15 @@ public sealed class MainViewModel : ViewModelBase
     {
         Current = e.ViewModel;
         CurrentKey = e.ToKey;
+        // The shell authenticates through the login VM that is actually
+        // shown (the navigation-created, retained instance), not the ctor
+        // probe instance.
+        if (e.ViewModel is LoginViewModel login && !ReferenceEquals(login, Login))
+        {
+            Login = login;
+            login.Authenticated += (_, _) => OnAuthenticated();
+        }
+
         foreach (RailItemViewModel item in RailItems)
         {
             item.IsSelected = item.Key == e.ToKey;

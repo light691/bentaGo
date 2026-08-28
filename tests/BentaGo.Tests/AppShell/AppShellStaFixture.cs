@@ -106,6 +106,28 @@ public sealed class AppShellStaFixture : IDisposable
     /// </summary>
     public void PumpIdle() => Application.Dispatcher.Invoke(DispatcherPriority.ApplicationIdle, new Action(() => { }));
 
+    /// <summary>
+    /// Marshals an async action to the STA thread and awaits its completion
+    /// (live lanes run their whole flow on the STA dispatcher).
+    /// </summary>
+    public async Task RunAsync(Func<Task> action)
+    {
+        var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        _ = Application.Dispatcher.BeginInvoke(new Action(async () =>
+        {
+            try
+            {
+                await action();
+                completion.SetResult();
+            }
+            catch (Exception ex)
+            {
+                completion.SetException(ex);
+            }
+        }));
+        await completion.Task;
+    }
+
     public void Dispose()
     {
         try

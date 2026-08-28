@@ -31,6 +31,7 @@ public sealed class LoginViewModel : ValidatableViewModelBase
             if (SetValidatedField(ref _username, value, v => string.IsNullOrWhiteSpace(v) ? "Username is required." : null))
             {
                 OnPropertyChanged(nameof(CanLogin));
+                (LoginCommand as RelayCommand)?.NotifyCanExecuteChanged();
             }
         }
     }
@@ -43,6 +44,7 @@ public sealed class LoginViewModel : ValidatableViewModelBase
             if (SetValidatedField(ref _password, value, v => string.IsNullOrEmpty(v) ? "Password is required." : null))
             {
                 OnPropertyChanged(nameof(CanLogin));
+                (LoginCommand as RelayCommand)?.NotifyCanExecuteChanged();
             }
         }
     }
