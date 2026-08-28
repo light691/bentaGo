@@ -11,3 +11,4 @@ One row per human gate: question, options, default on no answer, status. A gate 
 | Computer Use | UI live lanes need a control path for WPF | GUI harness on this machine vs blocked lanes | Blocked lanes fail closed with a documented deviation; screen-capture harness is the replacement | OPEN. Harness at orchestrate/bentago/scripts/bg001-live.ps1. Video lane blocked (no recorder); screenshot-sequence adaptation |
 | Client real CSV samples | Real exports before release | From client | v1 fixtures slide in cleanly via versioned contract | OPEN. Release gate only |
 
+
