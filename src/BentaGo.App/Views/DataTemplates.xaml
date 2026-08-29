@@ -5,6 +5,7 @@
                     xmlns:sales="clr-namespace:BentaGo.App.Features.Sales"
                     xmlns:stock="clr-namespace:BentaGo.App.Features.Stock"
                     xmlns:recon="clr-namespace:BentaGo.App.Features.Reconciliation"
+                    xmlns:admin="clr-namespace:BentaGo.App.Features.Admin"
                     xmlns:payment="clr-namespace:BentaGo.App.Dialogs.Payment"
                     xmlns:confirm="clr-namespace:BentaGo.App.Dialogs.Confirm">
 
@@ -29,6 +30,15 @@
     </DataTemplate>
     <DataTemplate DataType="{x:Type recon:ReconciliationViewModel}">
         <recon:ReconciliationView />
+    </DataTemplate>
+    <DataTemplate DataType="{x:Type admin:UserManagementViewModel}">
+        <admin:UserManagementView />
+    </DataTemplate>
+    <DataTemplate DataType="{x:Type admin:CatalogImportViewModel}">
+        <admin:CatalogImportView />
+    </DataTemplate>
+    <DataTemplate DataType="{x:Type admin:AdminOverviewViewModel}">
+        <admin:AdminOverviewView />
     </DataTemplate>
 
     <!-- Dialogs are hosted by DialogHost through the same map. -->

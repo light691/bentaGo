@@ -14,6 +14,14 @@ public static class ScreenKeys
     public const string Stock = "stock";
     public const string Reconciliation = "reconciliation";
 
+    // Admin (BG-005d-ui): Admin-role rail entries. The keys are registered
+    // (navigable post-auth) but the rail, the Alt+6/7/8 shell command, and
+    // each admin view model gate on RoleExtensions.CanManageUsers, so a
+    // non-admin session can never reach them.
+    public const string AdminUsers = "admin-users";
+    public const string AdminImport = "admin-import";
+    public const string AdminOverview = "admin-overview";
+
     // Reserved for BG-005; catalogued so the help overlay renders them greyed.
     public const string Transactions = "transactions";
     public const string Returns = "returns";

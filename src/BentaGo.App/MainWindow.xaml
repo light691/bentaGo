@@ -79,23 +79,32 @@
                 <ItemsControl Grid.Row="2" ItemsSource="{Binding RailItems}" Margin="8,0,8,16">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
-                        <Button Style="{StaticResource NavRailItemStyle}"
-                                Command="{Binding DataContext.NavigateCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                CommandParameter="{Binding Key}"
-                                IsEnabled="{Binding IsEnabled}"
-                                ui:FocusTarget.Id="{Binding FocusTargetId}">
-                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Stretch">
-                                <TextBlock Text="{Binding Label}"
-                                           Style="{StaticResource NavRailTextStyle}"
-                                           VerticalAlignment="Center" />
-                                <!-- Navy-tinted keycap chips: readable on the
-                                     dark rail (round-4). -->
-                                <Border Style="{StaticResource NavRailKeyCapStyle}" Margin="8,0,0,0">
-                                    <TextBlock Text="{Binding KeyCap}"
-                                               Style="{StaticResource NavRailKeyCapTextStyle}" />
-                                </Border>
-                            </StackPanel>
-                        </Button>
+                        <!-- Admin section divider: the first admin rail entry
+                             (BG-005d) draws a 1px navy rule above itself so the
+                             role-gated group reads as one section. -->
+                        <StackPanel>
+                            <Border Height="1"
+                                    Margin="20,10,20,2"
+                                    Background="{DynamicResource Brush.Brand.Rail.Border}"
+                                    Visibility="{Binding IsAdminSection, Converter={StaticResource BoolToVisibility}}" />
+                            <Button Style="{StaticResource NavRailItemStyle}"
+                                    Command="{Binding DataContext.NavigateCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                    CommandParameter="{Binding Key}"
+                                    IsEnabled="{Binding IsEnabled}"
+                                    ui:FocusTarget.Id="{Binding FocusTargetId}">
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Stretch">
+                                    <TextBlock Text="{Binding Label}"
+                                               Style="{StaticResource NavRailTextStyle}"
+                                               VerticalAlignment="Center" />
+                                    <!-- Navy-tinted keycap chips: readable on the
+                                         dark rail (round-4). -->
+                                    <Border Style="{StaticResource NavRailKeyCapStyle}" Margin="8,0,0,0">
+                                        <TextBlock Text="{Binding KeyCap}"
+                                                   Style="{StaticResource NavRailKeyCapTextStyle}" />
+                                    </Border>
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
                 </ItemsControl>

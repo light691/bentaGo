@@ -1,0 +1,177 @@
+<UserControl x:Class="BentaGo.App.Features.Admin.CatalogImportView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="clr-namespace:BentaGo.App.Ui">
+    <!-- Catalog import (BG-005d): keyboard-first admin screen. Focus lands on
+         the file path box on arrival; Enter in the path box runs the preview
+         (F5 re-runs it), the confirm action in the parked/enabled bottom bar
+         commits the valid rows. Preview/import states are bound VM flags. -->
+    <Grid Margin="{StaticResource ScreenPadding}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0">
+            <TextBlock Text="ADMIN · CATALOG" Style="{StaticResource PageEyebrowTextStyle}" />
+            <TextBlock Text="Catalog Import" Style="{StaticResource HeaderTextStyle}" />
+            <TextBlock Text="Preview a product CSV, review the derived SKUs and errors, then confirm."
+                       Style="{StaticResource StatusTextStyle}" />
+        </StackPanel>
+
+        <!-- Path + actions (Enter in the box = preview; F5 re-runs it). -->
+        <Border Grid.Row="1" Style="{StaticResource ActionPanelStyle}" Margin="{StaticResource Thickness.RowGap}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <TextBlock Text="Product CSV file" Style="{StaticResource FieldLabelStyle}" />
+                <Grid Grid.Row="1" Margin="{StaticResource Thickness.XS}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBox Grid.Column="0"
+                             Text="{Binding FilePath, UpdateSourceTrigger=PropertyChanged}"
+                             Style="{StaticResource StockSearchEditorStyle}"
+                             ui:Watermark.Text="Enter the path or browse for a CSV file"
+                             ui:FocusTarget.Id="Admin.Import.FilePath">
+                        <TextBox.InputBindings>
+                            <KeyBinding Key="Enter" Command="{Binding PreviewCommand}" />
+                            <KeyBinding Key="F5" Command="{Binding PreviewCommand}" />
+                        </TextBox.InputBindings>
+                    </TextBox>
+                    <Button Grid.Column="1"
+                            Content="Browse…"
+                            Style="{StaticResource Button.SecondaryStyle}"
+                            Command="{Binding BrowseCommand}"
+                            Margin="{StaticResource Thickness.ColumnGap}"
+                            ui:FocusTarget.Id="Admin.Import.Browse" />
+                    <Button Grid.Column="2"
+                            Content="Preview (F5)"
+                            Style="{StaticResource Button.PrimaryStyle}"
+                            Command="{Binding PreviewCommand}"
+                            Margin="{StaticResource Thickness.ColumnGap}"
+                            ui:FocusTarget.Id="Admin.Import.Preview" />
+                </Grid>
+            </Grid>
+        </Border>
+
+        <!-- File-level (header) errors: generic, never echoing file contents. -->
+        <Border Grid.Row="2"
+                Style="{StaticResource Banner.ErrorStyle}"
+                Margin="{StaticResource Thickness.M}"
+                Visibility="{Binding HasFileErrors, Converter={StaticResource BoolToVisibility}}">
+            <StackPanel>
+                <TextBlock Text="{Binding FileErrorText}" Style="{StaticResource BodyTextStyle}" />
+                <TextBlock Text="Check the file format and try again."
+                           Style="{StaticResource CaptionTextStyle}"
+                           Margin="{StaticResource Thickness.XS}" />
+            </StackPanel>
+        </Border>
+
+        <!-- Preview summary / guidance. -->
+        <Border Grid.Row="3"
+                Style="{StaticResource Banner.InfoBgStyle}"
+                Margin="{StaticResource Thickness.M}"
+                Visibility="{Binding HasPreview, Converter={StaticResource BoolToVisibility}}">
+            <StackPanel>
+                <TextBlock Text="{Binding SummaryText}" Style="{StaticResource BodyTextStyle}" />
+                <TextBlock Text="Valid rows import by SKU (re-imports update in place); rows with errors are skipped."
+                           Style="{StaticResource CaptionTextStyle}"
+                           Margin="{StaticResource Thickness.XS}" />
+            </StackPanel>
+        </Border>
+
+        <!-- Commit result. -->
+        <Border Grid.Row="4"
+                Style="{StaticResource Banner.SuccessStyle}"
+                Margin="{StaticResource Thickness.M}"
+                Visibility="{Binding ImportSucceeded, Converter={StaticResource BoolToVisibility}}">
+            <TextBlock Text="{Binding CommitText}" Style="{StaticResource BodyTextStyle}" />
+        </Border>
+
+        <!-- Preview rows: derived SKU always shown, per-row errors included. -->
+        <Border Grid.Row="5" Style="{StaticResource TableCardStyle}" Margin="{StaticResource Thickness.M}">
+            <Grid>
+                <DataGrid ItemsSource="{Binding PreviewRows}"
+                          RowStyle="{StaticResource DataGrid.RowStyle}"
+                          AutoGenerateColumns="False"
+                          MinHeight="160"
+                          Visibility="{Binding HasPreview, Converter={StaticResource BoolToVisibility}}">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Line" Binding="{Binding LineNumber}" Width="64" />
+                        <DataGridTextColumn Header="SKU" Binding="{Binding Sku}" Width="120" />
+                        <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="*" />
+                        <DataGridTextColumn Header="Unit" Binding="{Binding Unit}" Width="80" />
+                        <DataGridTextColumn Header="Retail" Binding="{Binding RetailText}" Width="100" />
+                        <DataGridTemplateColumn Header="Errors" Width="1.6*">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <StackPanel Orientation="Horizontal">
+                                        <Border Style="{StaticResource Tag.WarningStyle}"
+                                                Margin="{StaticResource Thickness.XS}"
+                                                Visibility="{Binding HasErrors, Converter={StaticResource BoolToVisibility}}">
+                                            <TextBlock Text="ERROR" Style="{StaticResource StatusWarningTextStyle}" />
+                                        </Border>
+                                        <TextBlock Text="{Binding ErrorsText}"
+                                                   Style="{StaticResource CaptionTextStyle}"
+                                                   TextWrapping="Wrap"
+                                                   VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                    </DataGrid.Columns>
+                </DataGrid>
+                <Border Style="{StaticResource EmptyStateStyle}"
+                        Margin="{StaticResource Thickness.L}"
+                        VerticalAlignment="Top"
+                        Visibility="{Binding HasPreview, Converter={StaticResource InvertedBoolToVisibility}}">
+                    <StackPanel>
+                        <TextBlock Text="No preview yet" Style="{StaticResource TitleTextStyle}" />
+                        <TextBlock Text="Choose a CSV file and run the preview to review the rows."
+                                   Style="{StaticResource CaptionTextStyle}"
+                                   Margin="{StaticResource Thickness.RowGap}" />
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Border>
+
+        <!-- Bottom parked/enabled action bar: confirm commits valid rows. -->
+        <Border Grid.Row="6" Style="{StaticResource ActionPanelStyle}" Margin="{StaticResource Thickness.RowGap}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <TextBlock Text="Import is available after a preview with valid rows and no header errors."
+                           Style="{StaticResource CaptionTextStyle}"
+                           Margin="{StaticResource Thickness.XS}" />
+                <Grid Grid.Row="1" Style="{StaticResource ActionBarGridStyle}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="12" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Button Grid.Column="0"
+                            Content="Import Valid Rows (Enter)"
+                            Style="{StaticResource Button.ActionBarStyle}"
+                            Command="{Binding ConfirmImportCommand}"
+                            ui:FocusTarget.Id="Admin.Import.Confirm" />
+                    <Button Grid.Column="2"
+                            Content="Reset"
+                            Style="{StaticResource Button.ActionBarOutlineStyle}"
+                            Command="{Binding ResetCommand}" />
+                </Grid>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

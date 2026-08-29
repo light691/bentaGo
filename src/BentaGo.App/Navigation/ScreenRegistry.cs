@@ -17,6 +17,10 @@ public sealed class ScreenRegistry
         new ScreenRegistration(ScreenKeys.Sales, typeof(BentaGo.App.Features.Sales.SalesViewModel), Ui.AutomationIds.SalesScanBox),
         new ScreenRegistration(ScreenKeys.Stock, typeof(BentaGo.App.Features.Stock.StockViewModel), Ui.AutomationIds.StockSearchBox),
         new ScreenRegistration(ScreenKeys.Reconciliation, typeof(BentaGo.App.Features.Reconciliation.ReconciliationViewModel), Ui.AutomationIds.ReconciliationActualCashBox),
+        // Admin (BG-005d-ui); reachability is role-gated (see ScreenKeys).
+        new ScreenRegistration(ScreenKeys.AdminUsers, typeof(BentaGo.App.Features.Admin.UserManagementViewModel), Ui.AutomationIds.AdminUsersUsername),
+        new ScreenRegistration(ScreenKeys.AdminImport, typeof(BentaGo.App.Features.Admin.CatalogImportViewModel), Ui.AutomationIds.AdminImportFilePath),
+        new ScreenRegistration(ScreenKeys.AdminOverview, typeof(BentaGo.App.Features.Admin.AdminOverviewViewModel), Ui.AutomationIds.AdminOverviewRefresh),
     ];
 
     public ScreenRegistry()

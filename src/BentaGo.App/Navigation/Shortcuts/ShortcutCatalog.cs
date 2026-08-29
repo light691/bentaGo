@@ -128,6 +128,12 @@ public static class ShortcutCatalog
           "Transactions", ShortcutStatus.Reserved, "docs/03 Alt+4"),
         E("nav-reconcile", "Alt+5", Key.D5, ModifierKeys.Alt, ScopeShell,
           "Close/reconcile", ShortcutStatus.Active, "docs/03 Alt+5"),
+        E("nav-admin-users", "Alt+6", Key.D6, ModifierKeys.Alt, ScopeShell,
+          "Open user management (admin)", ShortcutStatus.Active, "docs/03 Alt navigation"),
+        E("nav-admin-import", "Alt+7", Key.D7, ModifierKeys.Alt, ScopeShell,
+          "Open catalog import (admin)", ShortcutStatus.Active, "docs/03 Alt navigation"),
+        E("nav-admin-overview", "Alt+8", Key.D8, ModifierKeys.Alt, ScopeShell,
+          "Open admin overview (admin)", ShortcutStatus.Active, "docs/03 Alt navigation"),
 
         // ---- Admin chords (docs/03 §4) ----
         E("lock", "Ctrl+Alt+L", Key.L, ModifierKeys.Control | ModifierKeys.Alt, ScopeShell,
