@@ -15,6 +15,7 @@ public enum TripStatus
     Planned,
     Open,
     Closed,
+    Cancelled,
 }
 
 public sealed record TripState(TripStatus Status, DateTimeOffset? OpenedUtc, DateTimeOffset? ClosedUtc)
@@ -286,9 +287,29 @@ public sealed class LedgerState
                     return new DomainError("TRIP_NOT_CLOSED", $"trip {trip} is {status}; only a closed trip may be reopened");
                 }
             }
-            else if (status == TripStatus.Closed)
+            else if (movement is TripCancel)
             {
-                return new DomainError("TRIP_CLOSED", $"trip {trip} is closed; mutate it only after an authorized reopen");
+                // Cancellation is permitted only before sales, with an
+                // authorized reason (docs/01:45). The service/builder checks
+                // the phase first; this fold guard is the durable backstop.
+                if (status is TripStatus.Closed or TripStatus.Cancelled)
+                {
+                    return new DomainError(status == TripStatus.Closed ? "TRIP_CLOSED" : "TRIP_CANCELLED",
+                        $"trip {trip} is {status}; it cannot be cancelled");
+                }
+
+                foreach (Sale sale in _salesById.Values)
+                {
+                    if (sale.Trip == trip)
+                    {
+                        return new DomainError("TRIP_HAS_SALES", $"trip {trip} has sales and cannot be cancelled");
+                    }
+                }
+            }
+            else if (status is TripStatus.Closed or TripStatus.Cancelled)
+            {
+                return new DomainError(status == TripStatus.Closed ? "TRIP_CLOSED" : "TRIP_CANCELLED",
+                    $"trip {trip} is {status}; mutate it only after an authorized reopen");
             }
         }
 
@@ -312,6 +333,7 @@ public sealed class LedgerState
                 ? null
                 : new DomainError("TRIP_NOT_OPEN", $"trip {m.TripId} is not open and cannot be closed"),
             TripReopen => null,
+            TripCancel => null, // legality (before sales, not closed/cancelled) is checked in the trip guard above
             _ => new DomainError("UNKNOWN_KIND", $"unhandled movement kind {movement.GetType().Name}"),
         };
     }
@@ -342,6 +364,7 @@ public sealed class LedgerState
             CountObserved => movement.Document is CountRef,
             TripClose => movement.Document is CloseRef,
             TripReopen => movement.Document is ReopenRef,
+            TripCancel => movement.Document is CancelRef,
             _ => true,
         };
 
@@ -579,12 +602,18 @@ public sealed class LedgerState
             case TripReopen m:
                 MarkTrip(m.TripId, TripStatus.Open, openedUtc: m.WhenUtc);
                 break;
+            case TripCancel m:
+                // Terminal without sales: the trip's loads (if any) were
+                // reverted by preceding movements in the same batch; the
+                // closed_utc column doubles as the terminal timestamp.
+                MarkTrip(m.TripId, TripStatus.Cancelled, closedUtc: m.WhenUtc);
+                break;
         }
     }
 
     private void OpenTripOnFirstActivity(Movement movement)
     {
-        if (movement is TripClose or TripReopen)
+        if (movement is TripClose or TripReopen or TripCancel)
         {
             return;
         }
@@ -635,6 +664,8 @@ public sealed class LedgerState
             case TripClose m:
                 return m.TripId;
             case TripReopen m:
+                return m.TripId;
+            case TripCancel m:
                 return m.TripId;
             case SaleIssue m:
                 return SaleTrip(((SaleRef)m.Document).Id);

@@ -78,6 +78,11 @@ public static class SaleBuilder
             return Result<SaleDraft>.Fail(new DomainError("TRIP_CLOSED", $"trip {cmd.Trip} is closed"));
         }
 
+        if (status == TripStatus.Cancelled)
+        {
+            return Result<SaleDraft>.Fail(new DomainError("TRIP_CANCELLED", $"trip {cmd.Trip} is cancelled"));
+        }
+
         var errors = new List<DomainError>();
         Money total = Money.Zero;
         var lines = new List<SaleLine>(cmd.Lines.Count);

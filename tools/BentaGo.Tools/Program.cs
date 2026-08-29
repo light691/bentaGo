@@ -291,7 +291,9 @@ static async Task<int> RunLedgerAsync(string[] args)
                             Money.FromPesos(decimal.TryParse(Opt(opts, "cost"), out decimal cost) ? cost : 0m)),
                         },
                         by, when);
-                    Result<LoadOutcome> result = host.GetRequiredService<ILoadService>().Load(command);
+                    Result<LoadOutcome> result = host.GetRequiredService<ILoadService>().Load(
+                        command,
+                        new PeddlerId(OptGuid(opts, "peddler", "peddler id (the load's trip must belong to it)")));
                     if (result.IsFailure)
                     {
                         Console.Error.WriteLine($"LOAD: FAIL ({string.Join("; ", result.Errors.Select(e => $"{e.Code}: {e.Message}"))})");

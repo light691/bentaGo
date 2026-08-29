@@ -239,6 +239,19 @@ public static class Moves
             Reason = Require(reason, nameof(reason)),
         };
 
+    public static TripCancel TripCancel(
+        long sequence, DateTimeOffset whenUtc, UserId actor, CancelRef document,
+        TripId tripId, string reason) =>
+        new()
+        {
+            Sequence = sequence,
+            WhenUtc = Utc(whenUtc),
+            ActorId = actor,
+            Document = document,
+            TripId = tripId,
+            Reason = Require(reason, nameof(reason)),
+        };
+
     private static DateTimeOffset Utc(DateTimeOffset whenUtc) =>
         whenUtc.Offset == TimeSpan.Zero
             ? whenUtc

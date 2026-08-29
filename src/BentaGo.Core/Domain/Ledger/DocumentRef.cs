@@ -23,4 +23,7 @@ public sealed record CloseRef(CloseId Id) : DocumentRef;
 
 public sealed record ReopenRef(TripId Trip) : DocumentRef;
 
+/// <summary>Document-less trip cancellation reference: the trip itself (BG-005c, mirrors ReopenRef).</summary>
+public sealed record CancelRef(TripId Trip) : DocumentRef;
+
 public sealed record TransferRef(TransferId Id) : DocumentRef;

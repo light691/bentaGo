@@ -90,7 +90,7 @@ public sealed class UniqueKeyTests : PersistenceTestBase
         Result<LoadOutcome> first = service.Load(new LoadCommand(
             new LoadId(Guid.NewGuid()), "LD-DUP", trip, storeLoc,
             new[] { new LoadLine(product, "SKU", "Product", Quantity.Of(1), Money.FromPesos(0m)) },
-            user, SeedWhen));
+            user, SeedWhen), peddler);
         Assert.True(first.IsFailure); // no stock at the store yet -> the append cannot transfer out
         Assert.Contains(first.Errors, e => e.Code == "STOCK_NEGATIVE");
 
@@ -103,13 +103,13 @@ public sealed class UniqueKeyTests : PersistenceTestBase
         Result<LoadOutcome> ok = service.Load(new LoadCommand(
             new LoadId(Guid.NewGuid()), "LD-DUP", trip, storeLoc,
             new[] { new LoadLine(product, "SKU", "Product", Quantity.Of(1), Money.FromPesos(0m)) },
-            user, SeedWhen));
+            user, SeedWhen), peddler);
         Assert.True(ok.IsSuccess, ok.Errors.FirstOrDefault()?.Code);
 
         Result<LoadOutcome> collision = service.Load(new LoadCommand(
             new LoadId(Guid.NewGuid()), "LD-DUP", trip, storeLoc,
             new[] { new LoadLine(product, "SKU", "Product", Quantity.Of(1), Money.FromPesos(0m)) },
-            user, SeedWhen));
+            user, SeedWhen), peddler);
         Assert.True(collision.IsFailure);
         Assert.Contains(collision.Errors, e => e.Code == "DUP_LOAD");
         Assert.Equal(2, await SqliteTest.CountAsync(DbPath(root), "StockLoads"));
