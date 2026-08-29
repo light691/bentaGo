@@ -37,4 +37,7 @@ public sealed class InMemoryUserAccountStore : IUserAccountStore
 
         return Task.CompletedTask;
     }
+
+    public Task<int> CountActiveAdminsAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult(_users.Count(u => u.Role == Role.Admin && u.DeactivatedUtc is null));
 }

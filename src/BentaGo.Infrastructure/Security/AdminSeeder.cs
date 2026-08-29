@@ -14,12 +14,15 @@ public interface IAdminSeeder
 
 /// <summary>
 /// Seeds the initial administrator (username 'admin', BCrypt hash of 'admin',
-/// Role.Admin) as a real Users row (BG-005a). Idempotent: a second run
-/// inserts nothing, and the hash is computed at most once per run even when
-/// both rows need it. The legacy AppSettings seed.* rows are ALSO kept
-/// (restore verification and bootstrap tests rely on them) but are no longer
-/// consulted by login — existing data roots that carry them keep working
-/// untouched, and a fresh root still satisfies the BG-001 first-run contract.
+/// Role.Admin) as a real Users row on FIRST RUN ONLY (BG-005a). The admin
+/// User row is created only when the Users table has NO rows at all — once
+/// any user exists the seeder never touches Users (a deactivated admin stays
+/// deactivated by design; F6). Idempotent: a second run inserts nothing, and
+/// the hash is computed at most once per run even when both rows need it. The
+/// legacy AppSettings seed.* rows are ALSO kept (restore verification and
+/// bootstrap tests rely on them) but are no longer consulted by login —
+/// existing data roots that carry them keep working untouched, and a fresh
+/// root still satisfies the BG-001 first-run contract.
 /// </summary>
 public sealed class AdminSeeder : IAdminSeeder
 {
@@ -51,9 +54,11 @@ public sealed class AdminSeeder : IAdminSeeder
             context.AppSettings.Add(new AppSettingKeyValue { Key = PasswordHashKey, Value = Hash() });
         }
 
-        bool hasAdminUser = await context.Users
-            .AnyAsync(u => u.Username == AdminUsername, cancellationToken);
-        if (!hasAdminUser)
+        // FIRST RUN ONLY (F6 decision): seed the admin account only when no
+        // Users rows exist. A deactivated admin row therefore stays
+        // deactivated — the seeder never resurrects accounts.
+        bool anyUsers = await context.Users.AnyAsync(cancellationToken);
+        if (!anyUsers)
         {
             context.Users.Add(new User
             {

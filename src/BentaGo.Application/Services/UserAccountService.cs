@@ -90,7 +90,34 @@ public sealed class UserAccountService(IUserAccountStore store, IPasswordHasher 
             return UserError("USER_UNKNOWN", "the target user does not exist");
         }
 
-        User updated = target with { DeactivatedUtc = cmd.Active ? null : cmd.NowUtc };
+        if (cmd.Active)
+        {
+            // Reactivation clears the auth state with the act itself: an admin
+            // brought back is unlocked and starts with a clean counter.
+            User reactivated = target with { DeactivatedUtc = null, FailedAttempts = 0, LockedUntilUtc = null };
+            await store.UpdateAsync(reactivated, cancellationToken);
+            return Result<User>.Ok(reactivated);
+        }
+
+        // Deactivation guards (F6): an admin cannot deactivate their own
+        // account, and the LAST active admin cannot be deactivated (the
+        // seeder only runs on first run, so a deactivated admin stays
+        // deactivated by design — no auto re-seed).
+        if (cmd.Id == cmd.By)
+        {
+            return UserError("AUTH_CANNOT_DEACTIVATE_SELF", "an admin cannot deactivate their own account");
+        }
+
+        if (target.Role == Role.Admin && target.DeactivatedUtc is null)
+        {
+            int activeAdmins = await store.CountActiveAdminsAsync(cancellationToken);
+            if (activeAdmins <= 1)
+            {
+                return UserError("AUTH_NEEDS_ADMIN", "cannot deactivate the last active admin");
+            }
+        }
+
+        User updated = target with { DeactivatedUtc = cmd.NowUtc };
         await store.UpdateAsync(updated, cancellationToken);
         return Result<User>.Ok(updated);
     }

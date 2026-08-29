@@ -186,11 +186,17 @@ public sealed class AuthenticationTests : IDisposable
         var users = host.GetRequiredService<IUserAccountService>();
         var admin = await accounts.FindByUsernameAsync("admin");
 
+        // A deactivated account must exist to try: create a peddler, then
+        // deactivate them (the admin cannot deactivate their own account, F6).
+        var created = await users.CreateUserAsync(new CreateUserCommand(
+            new UserId(Guid.NewGuid()), "peddie", "pw", Role.Peddler, PeddlerLink: null, admin!.Id, T0));
+        Assert.True(created.IsSuccess);
+
         var deact = await users.SetUserActiveAsync(new SetUserActiveCommand(
-            admin!.Id, Active: false, admin.Id, T0));
+            created.Value.Id, Active: false, admin.Id, T0));
         Assert.True(deact.IsSuccess);
 
-        AuthResult result = await auth.AuthenticateAsync("admin", "admin");
+        AuthResult result = await auth.AuthenticateAsync("peddie", "pw");
 
         // Generic InvalidCredentials — never a distinct "deactivated" reason,
         // so the failure text cannot reveal account state.
@@ -200,6 +206,34 @@ public sealed class AuthenticationTests : IDisposable
         var audit = host.GetRequiredService<SqliteLedgerStore>().Audits.Last();
         Assert.Equal(AuthenticationAudit.LoginFailureCategory, audit.Category);
         Assert.Equal(AuthenticationAudit.InvalidCredentialsMessage, audit.Message);
+    }
+
+    [Fact]
+    public async Task EmptyOrNullPassword_IsNotAnAttempt_NoAudit_NoCounterIncrement()
+    {
+        ServiceProvider host = await CreateHostAsync();
+        var auth = host.GetRequiredService<IAuthenticationService>();
+        var store = host.GetRequiredService<SqliteLedgerStore>();
+
+        AuthResult empty = await auth.AuthenticateAsync("admin", "");
+        AuthResult nul = await auth.AuthenticateAsync("admin", null!);
+        AuthResult blankUsername = await auth.AuthenticateAsync("", "admin");
+
+        Assert.Equal(AuthFailureReason.InvalidCredentials, empty.FailureReason);
+        Assert.Equal(AuthFailureReason.InvalidCredentials, nul.FailureReason);
+        Assert.Equal(AuthFailureReason.InvalidCredentials, blankUsername.FailureReason);
+        Assert.Empty(store.Audits); // blank submits are NOT attempts: no audit rows
+
+        // And the counter is untouched: exactly 4 real wrong-password failures
+        // must still leave the account unlocked (4 < 5).
+        for (int i = 0; i < 4; i++)
+        {
+            Assert.Equal(AuthFailureReason.InvalidCredentials,
+                (await auth.AuthenticateAsync("admin", "wrong-" + i)).FailureReason);
+        }
+
+        AuthResult good = await auth.AuthenticateAsync("admin", "admin");
+        Assert.True(good.Success, "blank submits must not count toward lockout");
     }
 
     [Fact]

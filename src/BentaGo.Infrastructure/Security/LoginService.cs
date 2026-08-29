@@ -27,6 +27,17 @@ public sealed class LoginService : IAuthenticationService, ILoginService
     private readonly ILedgerStore _ledger;
     private readonly Func<DateTimeOffset> _clock;
 
+    /// <summary>
+    /// F1: in-process serialization of the authentication critical section.
+    /// The read-verify-increment sequence must be atomic — a burst of
+    /// concurrent attempts that each READ the counter, verify, and write a
+    /// full-row snapshot could otherwise lose increments. The service is a
+    /// host singleton, so one gate serializes every attempt in the process;
+    /// each failure then reads the latest committed counter and writes its
+    /// own +1 (no lost updates, no extended locks).
+    /// </summary>
+    private readonly SemaphoreSlim _authGate = new(1, 1);
+
     public LoginService(IUserAccountStore store, IPasswordHasher passwordHasher, ILedgerStore ledger, Func<DateTimeOffset> clock)
     {
         _store = store;
@@ -51,9 +62,26 @@ public sealed class LoginService : IAuthenticationService, ILoginService
 
     private async Task<AuthResult> AuthenticateCoreAsync(string username, string password, CancellationToken cancellationToken)
     {
-        // Blank submits are not attempts: no audit, generic failure (the shell
-        // never sends them; they cannot leak anything).
-        if (string.IsNullOrWhiteSpace(username) || password is null)
+        // F1: every attempt runs through the process-wide gate, so the
+        // read-verify-increment sequence below is atomic (mutual exclusion).
+        await _authGate.WaitAsync(cancellationToken);
+        try
+        {
+            return await AuthenticateSerializedAsync(username, password, cancellationToken);
+        }
+        finally
+        {
+            _authGate.Release();
+        }
+    }
+
+    private async Task<AuthResult> AuthenticateSerializedAsync(string username, string password, CancellationToken cancellationToken)
+    {
+        // Blank/empty submits are NOT attempts: no audit, no counter change,
+        // generic failure. (IsNullOrEmpty covers null and "" so an empty
+        // password is treated like a missing one; the shell never sends these
+        // and they cannot leak anything.)
+        if (string.IsNullOrWhiteSpace(username) || string.IsNullOrEmpty(password))
         {
             return AuthResult.InvalidCredentials;
         }
@@ -63,6 +91,11 @@ public sealed class LoginService : IAuthenticationService, ILoginService
         User? user = await _store.FindByUsernameAsync(username, cancellationToken);
         if (user is null)
         {
+            // Timing-oracle guard: an unknown username still burns one BCrypt
+            // verify (against the fixed dummy hash) so this path costs the
+            // same as a real wrong-password attempt and cannot be timed to
+            // reveal account existence. The result is deliberately discarded.
+            VerifyDummy(password);
             AuditLogin(UserId.Anonymous, now,
                 AuthenticationAudit.LoginFailureCategory, AuthenticationAudit.InvalidCredentialsMessage);
             return AuthResult.InvalidCredentials;
@@ -70,16 +103,21 @@ public sealed class LoginService : IAuthenticationService, ILoginService
 
         if (AccountLockout.IsLocked(user, now))
         {
-            // Locked: refuse BEFORE any credential work; counter untouched.
+            // Locked: refuse BEFORE any credential work; counter untouched
+            // (AccountLockout no-extends while locked). The dummy verify keeps
+            // the BCrypt cost constant on this path too.
+            VerifyDummy(password);
             AuditLogin(user.Id, now,
                 AuthenticationAudit.LoginFailureCategory, AuthenticationAudit.AccountLockedMessage);
             return AuthResult.AccountLocked;
         }
 
         // A deactivated account can never sign in; the response stays generic
-        // so existence is not revealed through the failure text.
+        // so existence is not revealed through the failure text. Same dummy
+        // verify for constant BCrypt cost.
         if (user.DeactivatedUtc is not null)
         {
+            VerifyDummy(password);
             AuditLogin(user.Id, now,
                 AuthenticationAudit.LoginFailureCategory, AuthenticationAudit.InvalidCredentialsMessage);
             return AuthResult.InvalidCredentials;
@@ -87,6 +125,11 @@ public sealed class LoginService : IAuthenticationService, ILoginService
 
         if (!_passwordHasher.Verify(password, user.PasswordHash))
         {
+            // One failed attempt, derived from the counter read while holding
+            // the auth gate (F1): the pure policy computes the next snapshot
+            // (+1, lock at 5 until now+15, no-extend while locked, expiry
+            // resets the counter) and the full-row write then cannot race a
+            // concurrent attempt.
             User updated = AccountLockout.OnFailedAttempt(user, now);
             await _store.UpdateAsync(updated, cancellationToken);
             AuditLogin(user.Id, now,
@@ -99,6 +142,16 @@ public sealed class LoginService : IAuthenticationService, ILoginService
         AuditLogin(user.Id, now,
             AuthenticationAudit.LoginSuccessCategory, AuthenticationAudit.LoginSuccessMessage);
         return AuthResult.Ok(user.Id, user.Role);
+    }
+
+    /// <summary>
+    /// Burns one BCrypt verify against the fixed dummy hash (F2 timing-oracle
+    /// guard). The result is discarded on purpose: it is never allowed to
+    /// change the response.
+    /// </summary>
+    private void VerifyDummy(string password)
+    {
+        _passwordHasher.Verify(password, AuthenticationAudit.DummyPasswordHash);
     }
 
     /// <summary>One audit row per attempt, in its own tiny transaction (lane-9 style).</summary>

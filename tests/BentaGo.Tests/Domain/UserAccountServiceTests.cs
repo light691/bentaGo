@@ -24,6 +24,25 @@ public sealed class UserAccountServiceTests
         public bool Verify(string password, string hash) => hash == $"hash:{password}";
     }
 
+    /// <summary>Delegating store double that forces the active-admin count (F6 last-admin guard test).</summary>
+    private sealed class ForcedActiveAdminCountStore(IUserAccountStore inner, int count) : IUserAccountStore
+    {
+        public Task<User?> FindByIdAsync(UserId id, CancellationToken cancellationToken = default) =>
+            inner.FindByIdAsync(id, cancellationToken);
+
+        public Task<User?> FindByUsernameAsync(string username, CancellationToken cancellationToken = default) =>
+            inner.FindByUsernameAsync(username, cancellationToken);
+
+        public Task AddAsync(User user, CancellationToken cancellationToken = default) =>
+            inner.AddAsync(user, cancellationToken);
+
+        public Task UpdateAsync(User user, CancellationToken cancellationToken = default) =>
+            inner.UpdateAsync(user, cancellationToken);
+
+        public Task<int> CountActiveAdminsAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(count);
+    }
+
     private readonly InMemoryUserAccountStore _store = new();
     private readonly UserAccountService _service;
 
@@ -134,7 +153,7 @@ public sealed class UserAccountServiceTests
     public async Task Admin_Deactivate_SetsDeactivatedUtc_AndReactivateClearsIt()
     {
         User admin = Actor(Role.Admin);
-        User target = Actor(Role.Peddler);
+        User target = Actor(Role.Peddler) with { FailedAttempts = 3, LockedUntilUtc = T0 };
         await _store.AddAsync(admin);
         await _store.AddAsync(target);
 
@@ -142,11 +161,62 @@ public sealed class UserAccountServiceTests
             new SetUserActiveCommand(target.Id, Active: false, admin.Id, T0));
         Assert.True(deactivated.IsSuccess);
         Assert.Equal(T0, deactivated.Value.DeactivatedUtc);
+        Assert.Equal(3, deactivated.Value.FailedAttempts); // deactivation itself leaves auth state
 
         Result<User> reactivated = await _service.SetUserActiveAsync(
             new SetUserActiveCommand(target.Id, Active: true, admin.Id, T0.AddHours(1)));
         Assert.True(reactivated.IsSuccess);
         Assert.Null(reactivated.Value.DeactivatedUtc);
+        Assert.Equal(0, reactivated.Value.FailedAttempts);    // reactivation clears auth state (F6)
+        Assert.Null(reactivated.Value.LockedUntilUtc);
+    }
+
+    [Fact]
+    public async Task Admin_DeactivateSelf_Rejected()
+    {
+        User admin = Actor(Role.Admin);
+        await _store.AddAsync(admin);
+
+        Result<User> result = await _service.SetUserActiveAsync(
+            new SetUserActiveCommand(admin.Id, Active: false, admin.Id, T0));
+
+        Assert.True(result.IsFailure);
+        Assert.Equal("AUTH_CANNOT_DEACTIVATE_SELF", result.Errors[0].Code);
+        Assert.Null((await _store.FindByIdAsync(admin.Id))!.DeactivatedUtc); // nothing happened
+    }
+
+    [Fact]
+    public async Task DeactivateLastActiveAdmin_Rejected()
+    {
+        // The store reports only ONE active admin (F6 defensive guard: with a
+        // live count == 1, the last active admin can never be deactivated).
+        var store = new ForcedActiveAdminCountStore(_store, 1);
+        var service = new UserAccountService(store, new FakeHasher());
+        User actor = Actor(Role.Admin);
+        User otherAdmin = Actor(Role.Admin);
+        await _store.AddAsync(actor);
+        await _store.AddAsync(otherAdmin);
+
+        Result<User> result = await service.SetUserActiveAsync(
+            new SetUserActiveCommand(otherAdmin.Id, Active: false, actor.Id, T0));
+
+        Assert.True(result.IsFailure);
+        Assert.Equal("AUTH_NEEDS_ADMIN", result.Errors[0].Code);
+    }
+
+    [Fact]
+    public async Task Admin_DeactivateAnotherAdmin_WhenTwoActiveAdmins_Succeeds()
+    {
+        User actor = Actor(Role.Admin);
+        User otherAdmin = Actor(Role.Admin);
+        await _store.AddAsync(actor);
+        await _store.AddAsync(otherAdmin);
+
+        Result<User> result = await _service.SetUserActiveAsync(
+            new SetUserActiveCommand(otherAdmin.Id, Active: false, actor.Id, T0));
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(T0, result.Value.DeactivatedUtc);
     }
 
     [Fact]

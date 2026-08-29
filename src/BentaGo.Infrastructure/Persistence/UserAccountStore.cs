@@ -39,4 +39,11 @@ public sealed class UserAccountStore(IDbContextFactory<BentaGoDbContext> factory
         context.Users.Update(user);
         await context.SaveChangesAsync(cancellationToken);
     }
+
+    public async Task<int> CountActiveAdminsAsync(CancellationToken cancellationToken = default)
+    {
+        await using var context = await factory.CreateDbContextAsync(cancellationToken);
+        return await context.Users.CountAsync(
+            u => u.Role == Role.Admin && u.DeactivatedUtc == null, cancellationToken);
+    }
 }

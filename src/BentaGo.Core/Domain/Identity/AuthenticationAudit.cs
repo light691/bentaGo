@@ -15,4 +15,15 @@ public static class AuthenticationAudit
     public const string LoginSuccessMessage = "sign-in succeeded";
     public const string InvalidCredentialsMessage = "invalid username or password";
     public const string AccountLockedMessage = "account is temporarily locked";
+
+    /// <summary>
+    /// Fixed BCrypt hash (work factor 12) of the literal "dummy". The
+    /// authentication service verifies the submitted password against it on
+    /// paths that cannot run a real credential check (unknown username,
+    /// locked account, deactivated account), so those paths cost the same
+    /// BCrypt round as a real wrong-password attempt and cannot be timed to
+    /// reveal whether an account exists (timing-oracle guard). The verify
+    /// result is deliberately discarded.
+    /// </summary>
+    public const string DummyPasswordHash = "$2a$12$tNzTFnziOK72YexWpoBdG.e/42KugZJ1VxUOa4iBFWgoEzyymyv8O";
 }

@@ -14,4 +14,7 @@ public interface IUserAccountStore
     Task<User?> FindByUsernameAsync(string username, CancellationToken cancellationToken = default);
     Task AddAsync(User user, CancellationToken cancellationToken = default);
     Task UpdateAsync(User user, CancellationToken cancellationToken = default);
+
+    /// <summary>Count of currently active (not deactivated) Admin accounts.</summary>
+    Task<int> CountActiveAdminsAsync(CancellationToken cancellationToken = default);
 }
