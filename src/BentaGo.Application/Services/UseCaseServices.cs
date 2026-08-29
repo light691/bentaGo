@@ -5,6 +5,7 @@ using BentaGo.Core.Domain.Builders;
 using BentaGo.Core.Domain.Commands;
 using BentaGo.Core.Domain.Documents;
 using BentaGo.Core.Domain.Ledger;
+using BentaGo.Core.Domain.Trips;
 
 namespace BentaGo.Application.Services;
 
@@ -13,6 +14,14 @@ namespace BentaGo.Application.Services;
 /// builder -> Register* (stage) -> Bind -> Append(AppendBatch) with one
 /// attached audit event. The store's Append transaction IS the use case's
 /// transaction, so staging then failing to build commits nothing.
+///
+/// F12 terminal/reason plumbing (BG-005d): every use-case audit sets Terminal
+/// to Environment.MachineName — the same source the login rows use
+/// (docs/01:77) — because the terminal is knowable at call time. Reason is
+/// set where the command carries one (void, adjustment, reopen, cancel).
+/// Audits that are NOT use-case actions keep both null — the scenario
+/// diagnostics (LANE9 rows recording rejected operations) and batch-style
+/// rows — because no single terminal performed them.
 /// </summary>
 public sealed class OpenTripService(ILedgerStore store) : IOpenTripService
 {
@@ -28,14 +37,12 @@ public sealed class OpenTripService(ILedgerStore store) : IOpenTripService
         store.RegisterTrip(draft.Value.Document);
 
         // Every trip transition is audited (brief line 6). docs/02:100 names
-        // "closes" among audited actions and there is no TRIP.* category set;
-        // per the brief's fallback we reuse the closest EXISTING category:
-        // REOPEN for the open transition (both make the trip usable) and CLOSE
-        // for cancellation (both end the trip) — documented in the BG-005c
-        // report; BG-005d owns a proper TRIP.* set.
+        // "closes" among audited actions; trip lifecycle events use the
+        // canonical TRIP.* set (BG-005d): TRIP.OPEN here.
         store.RecordAudit(new AuditEvent(
-            -1, cmd.By, cmd.NowUtc, "REOPEN",
-            $"trip {cmd.Id.Value:N} opened for peddler {cmd.Peddler.Value:N}", new ReopenRef(cmd.Id)));
+            -1, cmd.By, cmd.NowUtc, TripAudit.TripOpenCategory,
+            $"trip {cmd.Id.Value:N} opened for peddler {cmd.Peddler.Value:N}", new ReopenRef(cmd.Id),
+            Terminal: Environment.MachineName));
         return Result<Trip>.Ok(draft.Value.Document);
     }
 }
@@ -67,8 +74,11 @@ public sealed class LoadService(ILedgerStore store) : ILoadService
             draft.Value.Movements,
             Audits: new[]
             {
+                // LOAD stays the load category (it IS the load event): the
+                // canonical trip set only covers lifecycle transitions.
                 new AuditEvent(-1, cmd.By, cmd.NowUtc, "LOAD",
-                    $"load {cmd.LoadNumber} committed", new LoadRef(cmd.Id)),
+                    $"load {cmd.LoadNumber} committed", new LoadRef(cmd.Id),
+                    Terminal: Environment.MachineName),
             }));
         if (outcome.IsFailure)
         {
@@ -114,7 +124,8 @@ public sealed class CheckoutService(ILedgerStore store) : ICheckoutService
             Audits: new[]
             {
                 new AuditEvent(-1, cmd.By, cmd.NowUtc, "SALE",
-                    $"receipt {reference.ReceiptNumber} committed", new SaleRef(draft.Value.Document.Id)),
+                    $"receipt {reference.ReceiptNumber} committed", new SaleRef(draft.Value.Document.Id),
+                    Terminal: Environment.MachineName),
             },
             Idempotency: new IdempotencyMapping(keyText, reference.ToPayloadString())));
 
@@ -162,7 +173,8 @@ public sealed class VoidService(ILedgerStore store) : IVoidService
             Audits: new[]
             {
                 new AuditEvent(-1, cmd.By, cmd.NowUtc, "VOID",
-                    $"sale {cmd.Sale} voided: {cmd.Reason}", new VoidRef(cmd.Id)),
+                    $"sale {cmd.Sale} voided: {cmd.Reason}", new VoidRef(cmd.Id),
+                    Terminal: Environment.MachineName, Reason: cmd.Reason),
             }));
         if (outcome.IsFailure)
         {
@@ -190,8 +202,11 @@ public sealed class ReturnService(ILedgerStore store) : IReturnService
             draft.Value.Movements,
             Audits: new[]
             {
+                // No top-level reason on ReturnCommand (reasons live per line);
+                // the reason column stays null on purpose.
                 new AuditEvent(-1, cmd.By, cmd.NowUtc, "RETURN",
-                    $"return {cmd.Id} on sale {cmd.OriginalSale} committed", new ReturnRef(cmd.Id)),
+                    $"return {cmd.Id} on sale {cmd.OriginalSale} committed", new ReturnRef(cmd.Id),
+                    Terminal: Environment.MachineName),
             }));
         if (outcome.IsFailure)
         {
@@ -220,7 +235,8 @@ public sealed class AdjustmentService(ILedgerStore store) : IAdjustmentService
             Audits: new[]
             {
                 new AuditEvent(-1, cmd.By, cmd.NowUtc, "ADJUSTMENT",
-                    $"adjustment {cmd.Id} committed", new AdjustmentRef(cmd.Id)),
+                    $"adjustment {cmd.Id} committed", new AdjustmentRef(cmd.Id),
+                    Terminal: Environment.MachineName, Reason: cmd.Reason),
             }));
         if (outcome.IsFailure)
         {
@@ -249,7 +265,8 @@ public sealed class CountService(ILedgerStore store) : ICountService
             Audits: new[]
             {
                 new AuditEvent(-1, cmd.By, cmd.NowUtc, "COUNT",
-                    $"count {cmd.Id} committed", new CountRef(cmd.Id)),
+                    $"count {cmd.Id} committed", new CountRef(cmd.Id),
+                    Terminal: Environment.MachineName),
             }));
         if (outcome.IsFailure)
         {
@@ -277,8 +294,9 @@ public sealed class CloseService(ILedgerStore store) : ICloseService
             draft.Value.Movements,
             Audits: new[]
             {
-                new AuditEvent(-1, cmd.By, cmd.NowUtc, "CLOSE",
-                    $"trip {cmd.Trip} closed (counted {draft.Value.Document.CountedCash.ToPesos():0.00})", new CloseRef(cmd.Id)),
+                new AuditEvent(-1, cmd.By, cmd.NowUtc, TripAudit.TripCloseCategory,
+                    $"trip {cmd.Trip} closed (counted {draft.Value.Document.CountedCash.ToPesos():0.00})", new CloseRef(cmd.Id),
+                    Terminal: Environment.MachineName),
             }));
         if (outcome.IsFailure)
         {
@@ -305,8 +323,9 @@ public sealed class ReopenService(ILedgerStore store) : IReopenService
             draft.Value.Movements,
             Audits: new[]
             {
-                new AuditEvent(-1, cmd.By, cmd.NowUtc, "REOPEN",
-                    $"trip {cmd.Trip} reopened: {cmd.Reason}", new ReopenRef(cmd.Trip)),
+                new AuditEvent(-1, cmd.By, cmd.NowUtc, TripAudit.TripReopenCategory,
+                    $"trip {cmd.Trip} reopened: {cmd.Reason}", new ReopenRef(cmd.Trip),
+                    Terminal: Environment.MachineName, Reason: cmd.Reason),
             }));
         if (outcome.IsFailure)
         {
@@ -321,9 +340,8 @@ public sealed class ReopenService(ILedgerStore store) : IReopenService
 /// Trip cancellation (BG-005c): the trip belongs to the acting peddler, the
 /// pure state machine allows a pre-sales cancel, and any issued loads revert
 /// in the SAME append transaction as the TripCancel marker (one unit of
-/// work — brief). No new audit category exists (docs/02:100); the closest
-/// existing category "CLOSE" is reused for the trip-ending transition
-/// (documented; the message says cancelled).
+/// work — brief). The transition audits under the canonical trip category
+/// TRIP.CANCEL (BG-005d), with the command's reason in the Reason column.
 /// </summary>
 public sealed class CancelTripService(ILedgerStore store) : ICancelTripService
 {
@@ -354,8 +372,9 @@ public sealed class CancelTripService(ILedgerStore store) : ICancelTripService
             draft.Value.Movements,
             Audits: new[]
             {
-                new AuditEvent(-1, cmd.By, cmd.NowUtc, "CLOSE",
-                    $"trip {cmd.Trip.Value:N} cancelled: {cmd.Reason} (loads reverted)", new CancelRef(cmd.Trip)),
+                new AuditEvent(-1, cmd.By, cmd.NowUtc, TripAudit.TripCancelCategory,
+                    $"trip {cmd.Trip.Value:N} cancelled: {cmd.Reason} (loads reverted)", new CancelRef(cmd.Trip),
+                    Terminal: Environment.MachineName, Reason: cmd.Reason),
             }));
         if (outcome.IsFailure)
         {

@@ -25,6 +25,10 @@ public sealed record ScenarioReport(string Text);
 /// The deterministic two-peddler business day: fixed ids, fixed clock, same
 /// append order — the printed report is byte-identical across runs (lane 10)
 /// and the balances are produced by the same folds the app uses.
+///
+/// The single LANE9 row is a scenario diagnostic recording a REJECTED
+/// post-close sale — not a user action on a terminal, so Terminal/Reason
+/// stay null (F12: batch/diagnostic audits keep null).
 /// </summary>
 public static class TwoPeddlersScenario
 {
