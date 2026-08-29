@@ -4,7 +4,8 @@
         Style="{StaticResource DialogWindowStyle}"
         Title="Payment"
         WindowStartupLocation="CenterOwner"
-        SizeToContent="WidthAndHeight">
+        SizeToContent="WidthAndHeight"
+        MinWidth="{DynamicResource DialogHost.MaxWidth}">
     <!-- Esc closes only the top dialog: this modal window owns its own input
          scope, so Esc can never reach MainWindow (bg-004-synthesis §7.2). -->
     <Window.InputBindings>
