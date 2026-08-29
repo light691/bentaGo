@@ -56,8 +56,8 @@ public sealed class MigrationTests : IDisposable
         await using var context = await host.GetRequiredService<IDbContextFactory<BentaGoDbContext>>()
             .CreateDbContextAsync();
         string[] applied = (await context.Database.GetAppliedMigrationsAsync()).ToArray();
-        Assert.Equal(5, applied.Length); // InitialCreate + BG003_01 + BG003_02 + BG005_01 + BG005b_01
-        Assert.EndsWith("BG005b_01_AddProductCatalog", applied[^1]);
+        Assert.Equal(6, applied.Length); // InitialCreate + BG003_01 + BG003_02 + BG005_01 + BG005b_01 + BG005c_01
+        Assert.EndsWith("BG005c_01_AddTripCancel", applied[^1]);
 
         await using var connection = new SqliteConnection($"Data Source={DbPath(root)};Mode=ReadOnly;Pooling=False");
         await connection.OpenAsync();
@@ -86,7 +86,7 @@ public sealed class MigrationTests : IDisposable
 
         // A second migrate converges.
         await initializer.EnsureCreatedOrMigrateAsync();
-        Assert.Equal(5, (await context.Database.GetAppliedMigrationsAsync()).Count());
+        Assert.Equal(6, (await context.Database.GetAppliedMigrationsAsync()).Count());
 
         await connection.CloseAsync();
     }
@@ -120,7 +120,7 @@ public sealed class MigrationTests : IDisposable
         var initializer = host.GetRequiredService<DbInitializer>();
         await initializer.EnsureCreatedOrMigrateAsync();
 
-        Assert.Equal(5, await CountRowsAsync(dbPath, "__EFMigrationsHistory"));
+        Assert.Equal(6, await CountRowsAsync(dbPath, "__EFMigrationsHistory"));
         Assert.True(await TableExistsAsync(dbPath, "IdempotencyKeys"));
         Assert.True(await TableExistsAsync(dbPath, "Users"));
         Assert.True(await TableExistsAsync(dbPath, "Peddlers"));
@@ -137,7 +137,7 @@ public sealed class MigrationTests : IDisposable
         await using var context = await host.GetRequiredService<IDbContextFactory<BentaGoDbContext>>()
             .CreateDbContextAsync();
         string[] applied = (await context.Database.GetAppliedMigrationsAsync()).ToArray();
-        Assert.EndsWith("BG005b_01_AddProductCatalog", applied[^1]);
+        Assert.EndsWith("BG005c_01_AddTripCancel", applied[^1]);
     }
 
     private static async Task<bool> TableExistsAsync(SqliteConnection connection, string name)

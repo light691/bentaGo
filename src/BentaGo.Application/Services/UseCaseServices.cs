@@ -35,7 +35,7 @@ public sealed class OpenTripService(ILedgerStore store) : IOpenTripService
         // report; BG-005d owns a proper TRIP.* set.
         store.RecordAudit(new AuditEvent(
             -1, cmd.By, cmd.NowUtc, "REOPEN",
-            $"trip {cmd.Id} opened for peddler {cmd.Peddler}", new ReopenRef(cmd.Id)));
+            $"trip {cmd.Id.Value:N} opened for peddler {cmd.Peddler.Value:N}", new ReopenRef(cmd.Id)));
         return Result<Trip>.Ok(draft.Value.Document);
     }
 }
@@ -355,7 +355,7 @@ public sealed class CancelTripService(ILedgerStore store) : ICancelTripService
             Audits: new[]
             {
                 new AuditEvent(-1, cmd.By, cmd.NowUtc, "CLOSE",
-                    $"trip {cmd.Trip} cancelled: {cmd.Reason} (loads reverted)", new CancelRef(cmd.Trip)),
+                    $"trip {cmd.Trip.Value:N} cancelled: {cmd.Reason} (loads reverted)", new CancelRef(cmd.Trip)),
             }));
         if (outcome.IsFailure)
         {
@@ -381,7 +381,7 @@ public sealed class TripReadService(ILedgerStore store) : ITripReadService
         return Result<IReadOnlyList<Trip>>.Ok(store.Context.Trips
             .Where(t => t.Peddler == peddler)
             .OrderBy(t => t.CreatedUtc)
-            .ThenBy(t => t.Id)
+            .ThenBy(t => t.Id.Value)
             .ToList());
     }
 
@@ -450,7 +450,7 @@ public sealed class TripReadService(ILedgerStore store) : ITripReadService
         }
 
         var rows = new List<OnHandRow>(products.Count);
-        foreach (ProductId product in products.OrderBy(p => p))
+        foreach (ProductId product in products.OrderBy(p => p.Value))
         {
             int total = 0;
             foreach (LocationId location in LocationsOf(peddler))

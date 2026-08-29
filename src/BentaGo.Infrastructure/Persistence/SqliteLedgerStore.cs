@@ -646,7 +646,10 @@ public sealed partial class SqliteLedgerStore : ILedgerStore, IDisposable, IAsyn
     /// Re-folds the persisted stream into the hot state and reloads the
     /// document sets and mirrors. Runs INSIDE the append transaction (after
     /// BEGIN IMMEDIATE), so the re-fold sees every movement committed before
-    /// the write lock was acquired (BG-003 §6).
+    /// the write lock was acquired (BG-003 §6). Also called by the cold sync,
+    /// so the context snapshot is rebuilt here too (BG-005c: a reopened
+    /// store's <see cref="Context"/> must expose the reloaded documents, not
+    /// the constructor-time empty sets).
     /// </summary>
     private void RefreshFromDatabase(SqliteConnection connection, long lastSeq, long docsVersion)
     {
@@ -667,6 +670,7 @@ public sealed partial class SqliteLedgerStore : ILedgerStore, IDisposable, IAsyn
         _docsVoids = docs.Voids;
         _headLastSequence = lastSeq;
         _headDocumentsVersion = docsVersion;
+        Context = RefreshContext();
     }
 
     private void RefreshDocumentSets(SqliteConnection connection)

@@ -30,7 +30,7 @@ try
     return commandLine[0] switch
     {
         "status" => RunStatus(),
-        "scenario" when commandLine.Length > 1 && commandLine[1] == "two-peddlers" => await RunScenarioAsync(commandLine.Skip(2).ToArray()),
+        "scenario" when commandLine.Length > 1 && (commandLine[1] is "two-peddlers" or "trip-lifecycle") => await RunScenarioAsync(commandLine[1], commandLine.Skip(2).ToArray()),
         "ledger" when commandLine.Length > 1 => await RunLedgerAsync(commandLine.Skip(1).ToArray()),
         "lane8-crash-worker" => await RunLane8CrashWorkerAsync(commandLine.Skip(1).ToArray()),
         "lanes" when commandLine.Length > 1 && commandLine[1] == "bg-003" => await RunLanesAsync(commandLine.Skip(2).ToArray()),
@@ -56,11 +56,18 @@ static void PrintHelp()
 
         Commands:
           status                         Print data root, database path, schema version, database sha256.
-          scenario two-peddlers          Print the deterministic two-peddler business day (orders, balances).
-                                          Options: --persist (run against SQLite), --data-root <dir>
-          ledger load|checkout|void|return|adjustment|count|close|reopen|rebuild [options]
+          scenario two-peddlers|trip-lifecycle
+                                         Print the deterministic business day.
+                                           two-peddlers: the BG-002/3 two-peddler day.
+                                           trip-lifecycle: BG-005c open -> load -> sell -> close
+                                           plus a cancel-bearing variant (loads revert) and the
+                                           peddler-scoped on-hand read model.
+                                           Options: --persist (run against SQLite), --data-root <dir>
+          ledger load|checkout|void|return|adjustment|count|close|reopen|cancel|rebuild [options]
                                          Run one business operation against the SQLite ledger. Common
                                          options: --data-root <dir>, --by <user-id>, --when <utc-iso>.
+                                         load also needs --peddler (scope guard). cancel needs
+                                         --trip <id> --peddler <id> --reason <text>.
                                          checkout extra options: --key <checkout-key> --trip <id> --receipt <n>
                                            --product <id> --qty <n> --price <pesos> --method <Cash|Gcash|Maya|BankTransfer|Credit>
                                            --fail-before-commit (L3 seam) --crash-after-write (L8 seam)
@@ -83,15 +90,22 @@ static void PrintHelp()
         """);
 }
 
-static async Task<int> RunScenarioAsync(string[] args)
+static async Task<int> RunScenarioAsync(string scenarioName, string[] args)
 {
     bool persist = args.Contains("--persist", StringComparer.Ordinal);
     string root = ResolveDataRoot(args);
 
+    Func<ILedgerStore, ScenarioReport> run = scenarioName == "two-peddlers"
+        ? TwoPeddlersScenario.Run
+        : TripLifecycleScenario.Run;
+    Func<ILedgerStore, ScenarioReport> render = scenarioName == "two-peddlers"
+        ? TwoPeddlersScenario.Render
+        : TripLifecycleScenario.Render;
+
     if (!persist)
     {
         var store = new InMemoryLedgerStore();
-        ScenarioReport report = TwoPeddlersScenario.Run(store);
+        ScenarioReport report = run(store);
         Console.Write(report.Text);
         return 0;
     }
@@ -104,13 +118,13 @@ static async Task<int> RunScenarioAsync(string[] args)
 
         // Run the full deterministic day against SQLite.
         var store1 = host.GetRequiredService<SqliteLedgerStore>();
-        ScenarioReport report1 = TwoPeddlersScenario.Run(store1);
+        ScenarioReport report1 = run(store1);
         Console.Write(report1.Text);
         Console.WriteLine();
 
         // Byte-identity with the in-memory golden (C14).
         var memory = new InMemoryLedgerStore();
-        string inMemory = TwoPeddlersScenario.Run(memory).Text;
+        string inMemory = run(memory).Text;
         bool goldenIdentical = report1.Text == inMemory;
         Console.WriteLine($"GOLDEN_IDENT:   {(goldenIdentical ? "PASS" : "FAIL")} (persisted vs in-memory)");
 
@@ -119,13 +133,13 @@ static async Task<int> RunScenarioAsync(string[] args)
         store1.Close();
         var paths = host.GetRequiredService<IDataPathProvider>();
         var store2 = new SqliteLedgerStore(paths, host.GetRequiredService<DebugOptions>());
-        string afterRestart = TwoPeddlersScenario.Render(store2).Text;
+        string afterRestart = render(store2).Text;
         bool restartOk = afterRestart == report1.Text;
         Console.WriteLine($"RESTART:        {(restartOk ? "PASS" : "FAIL")} (render after reopen == first run)");
 
         // Rebuild: full fold + projection rewrite; render must stay identical.
         RebuildReceipt rebuilt = await store2.RebuildAsync();
-        bool rebuildOk = TwoPeddlersScenario.Render(store2).Text == report1.Text;
+        bool rebuildOk = render(store2).Text == report1.Text;
         Console.WriteLine($"REBUILD:        {(rebuildOk ? "PASS" : "FAIL")} (head {rebuilt.LastSequence}, {rebuilt.MovementCount} movements, {rebuilt.DocumentCount} documents)");
 
         return goldenIdentical && restartOk && rebuildOk ? 0 : 1;
@@ -208,7 +222,7 @@ static async Task<int> RunLedgerAsync(string[] args)
 {
     if (args.Length == 0 || string.IsNullOrWhiteSpace(args[0]))
     {
-        Console.Error.WriteLine("usage: ledger load|checkout|void|return|adjustment|count|close|reopen|rebuild [options]");
+        Console.Error.WriteLine("usage: ledger load|checkout|void|return|adjustment|count|close|reopen|cancel|rebuild [options]");
         return 1;
     }
 
@@ -447,6 +461,24 @@ static async Task<int> RunLedgerAsync(string[] args)
                     }
 
                     Console.WriteLine($"REOPEN:    ok seq {result.Value.FirstSequence}-{result.Value.LastSequence}");
+                    return 0;
+                }
+
+            case "cancel":
+                {
+                    Result<CancelOutcome> result = host.GetRequiredService<ICancelTripService>().Cancel(
+                        new CancelTripCommand(
+                            new TripId(OptGuid(opts, "trip", "trip id")),
+                            RequireOpt(opts, "reason"),
+                            by, when),
+                        new PeddlerId(OptGuid(opts, "peddler", "peddler id (the load's trip must belong to it)")));
+                    if (result.IsFailure)
+                    {
+                        Console.Error.WriteLine($"CANCEL: FAIL ({string.Join("; ", result.Errors.Select(e => $"{e.Code}: {e.Message}"))})");
+                        return 1;
+                    }
+
+                    Console.WriteLine($"CANCEL:    ok seq {result.Value.Receipt.FirstSequence}-{result.Value.Receipt.LastSequence}");
                     return 0;
                 }
 

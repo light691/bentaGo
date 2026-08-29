@@ -165,6 +165,9 @@ public sealed partial class SqliteLedgerStore
                 "TripReopen" => Moves.TripReopen(sequence, whenUtc, actor, RequireRef<ReopenRef>(kind, document),
                     new TripId(ParseGuid(RequireColumn(kind, "trip_id", trip))),
                     RequireColumn(kind, "reason", reason)),
+                "TripCancel" => Moves.TripCancel(sequence, whenUtc, actor, RequireRef<CancelRef>(kind, document),
+                    new TripId(ParseGuid(RequireColumn(kind, "trip_id", trip))),
+                    RequireColumn(kind, "reason", reason)),
                 _ => throw new LedgerCorruptException($"unknown movement kind '{kind}' at sequence {sequence}"),
             };
         }
@@ -304,6 +307,12 @@ public sealed partial class SqliteLedgerStore
                 product = location = saleLine = paymentLine = method = null;
                 quantity = amount = reverses = observed = null;
                 break;
+            case TripCancel m:
+                trip = D(m.TripId);
+                reason = m.Reason;
+                product = location = saleLine = paymentLine = method = null;
+                quantity = amount = reverses = observed = null;
+                break;
             default:
                 throw new LedgerCorruptException($"unknown movement kind '{movement.GetType().Name}'");
         }
@@ -319,6 +328,7 @@ public sealed partial class SqliteLedgerStore
         CountRef => "Count",
         CloseRef => "Close",
         ReopenRef => "Reopen",
+        CancelRef => "Cancel",
         TransferRef => "Transfer",
         _ => throw new LedgerCorruptException($"unknown document reference '{reference.GetType().Name}'"),
     };
@@ -333,6 +343,7 @@ public sealed partial class SqliteLedgerStore
         CountRef r => D(r.Id),
         CloseRef r => D(r.Id),
         ReopenRef r => D(r.Trip),
+        CancelRef r => D(r.Trip),
         TransferRef r => D(r.Id),
         _ => throw new LedgerCorruptException($"unknown document reference '{reference.GetType().Name}'"),
     };
@@ -350,6 +361,7 @@ public sealed partial class SqliteLedgerStore
             "Count" => new CountRef(new CountId(id)),
             "Close" => new CloseRef(new CloseId(id)),
             "Reopen" => new ReopenRef(new TripId(id)),
+            "Cancel" => new CancelRef(new TripId(id)),
             "Transfer" => new TransferRef(new TransferId(id)),
             _ => throw new LedgerCorruptException($"unknown document kind '{docKind}'"),
         };

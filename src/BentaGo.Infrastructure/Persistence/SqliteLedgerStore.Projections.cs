@@ -96,6 +96,9 @@ public sealed partial class SqliteLedgerStore
                 case TripReopen m:
                     trips.Add(m.TripId);
                     break;
+                case TripCancel m:
+                    trips.Add(m.TripId);
+                    break;
             }
         }
 

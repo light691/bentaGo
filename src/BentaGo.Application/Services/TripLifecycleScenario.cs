@@ -197,7 +197,7 @@ public static class TripLifecycleScenario
             seen.Add(trip.Peddler);
         }
 
-        return seen.OrderBy(p => p);
+        return seen.OrderBy(p => p.Value);
     }
 
     private static void Require<T>(Result<T> result, string what)
