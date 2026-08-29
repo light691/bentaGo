@@ -7,9 +7,11 @@ namespace BentaGo.Application.Contracts;
 
 /// <summary>
 /// User account use cases (BG-005a). Every command carries By (acting user)
-/// and NowUtc per convention, and every case gates the actor's capability
-/// through the <see cref="RoleExtensions"/> predicates. A failure result
-/// means nothing was persisted.
+/// and NowUtc per convention, and every case derives the acting user from the
+/// SESSION <see cref="IActorContext"/> and enforces By == CurrentUserId
+/// (AUTH_ACTOR_MISMATCH, BG-005d F8) before gating the capability through the
+/// <see cref="RoleExtensions"/> predicates. A failure result means nothing was
+/// persisted.
 /// </summary>
 public interface IUserAccountService
 {

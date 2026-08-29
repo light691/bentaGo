@@ -186,10 +186,16 @@ public sealed class AuthenticationTests : IDisposable
         var users = host.GetRequiredService<IUserAccountService>();
         var admin = await accounts.FindByUsernameAsync("admin");
 
+        // The account use cases act as the SESSION actor (F8, BG-005d): sign
+        // the seeded admin into the context first — the same seam the login
+        // path sets on success.
+        var contexts = host.GetRequiredService<IActorContext>();
+        contexts.Set(admin!.Id);
+
         // A deactivated account must exist to try: create a peddler, then
         // deactivate them (the admin cannot deactivate their own account, F6).
         var created = await users.CreateUserAsync(new CreateUserCommand(
-            new UserId(Guid.NewGuid()), "peddie", "pw", Role.Peddler, PeddlerLink: null, admin!.Id, T0));
+            new UserId(Guid.NewGuid()), "peddie", "pw", Role.Peddler, PeddlerLink: null, admin.Id, T0));
         Assert.True(created.IsSuccess);
 
         var deact = await users.SetUserActiveAsync(new SetUserActiveCommand(
@@ -246,6 +252,10 @@ public sealed class AuthenticationTests : IDisposable
         Assert.False(await legacy.AuthenticateAsync("admin", "wrong-password"));
         Assert.False(await legacy.AuthenticateAsync("", "admin"));
     }
+
+    // Session-actor lifecycle coverage (login sets / failure unchanged /
+    // fresh-host cleared) lives in SessionActorLifecycleTests — it exercises
+    // the LoginService wiring that lands with the BG-005d Infrastructure slice.
 
     public void Dispose()
     {
