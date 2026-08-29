@@ -385,6 +385,44 @@ public sealed class Bg006SalesLanes
         });
     }
 
+    // ------- Lane 11: F12 checkout opens the real payment modal -------
+
+    [Fact]
+    public async Task L11_F12CheckoutKeyOpensPaymentModal()
+    {
+        if (!LiveLanesEnabled)
+            return;
+        await _sta.RunAsync(async () =>
+        {
+            using var session = await SalesLaneSession.OpenAsync();
+            await session.OpenSalesAsync();
+
+            TypeScan(session, Sardines);
+            await WaitUntilAsync(() => session.Sales.HasCartItems);
+
+            // Real WM_KEYDOWN into the app's HwndSource (the WPF input path):
+            // the window F12 KeyBinding must open the payment modal while the
+            // scan box holds focus (the scanner-typical state).
+            IntPtr hwnd = new System.Windows.Interop.WindowInteropHelper(session.Window).Handle;
+            RealInput.PostKey(hwnd, 0x7B); // VK_F12
+            await WaitUntilAsync(() => session.Dialogs.IsOpen);
+
+            session.ShotOfCurrent("bg-006-f12-checkout.png");
+            bool opened = session.Dialogs.IsOpen;
+
+            // Esc closes the real modal (the binding's cancel path).
+            RealInput.PostKey(hwnd, 0x1B);
+            await WaitUntilAsync(() => !session.Dialogs.IsOpen);
+
+            bool pass = opened && !session.Sales.HasReceipt && session.Sales.Cart.Count == 1;
+            await Bg006LaneEvidence.WriteVerdictAsync(
+                "bg-006-l11", "L11 F12 checkout key",
+                pass ? Bg006LaneEvidence.VerdictPass : Bg006LaneEvidence.VerdictFail,
+                $"opened={opened} closed=True cart={session.Sales.Cart.Count}",
+                "bg-006-f12-checkout.png");
+        });
+    }
+
     // ------- Lane 9: oversell refused, cart recoverable -------
 
     [Fact]
