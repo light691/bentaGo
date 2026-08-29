@@ -30,7 +30,10 @@
                 <TextBlock Text="Payment" Style="{StaticResource TitleTextStyle}" VerticalAlignment="Center" />
                 <TextBlock Text="TOTAL " Style="{StaticResource LabelTextStyle}" VerticalAlignment="Center"
                            Margin="{StaticResource Thickness.M}" />
-                <TextBlock Text="{Binding TotalText}" Style="{StaticResource DisplayTextStyle}" VerticalAlignment="Center" />
+                <!-- Title-sized here (round-5 D1: the 40px Display total lives
+                     in the Order summary card so the dialog fits the 600 cap
+                     without the ScrollViewer bar). -->
+                <TextBlock Text="{Binding TotalText}" Style="{StaticResource TitleTextStyle}" VerticalAlignment="Center" />
             </StackPanel>
             <Border Grid.Row="1"
                     BorderThickness="0,1,0,0"
