@@ -10,7 +10,7 @@ Derived from units.tsv and ledger.tsv at each drain. Do not hand-maintain.
 | BG-002 | domain | MERGED | main | 1e82759 | 43/43, 2 audit rounds, golden scenario |
 | BG-003 | persist | MERGED | main | b65469a | 59/59 + verify PASS |
 | BG-004 | shell | MERGED | main | 2e0b54b | 127/127; review pack PASS rail-gated; squash-merged #4 at operator click |
-| BG-005 | admin | NEXT | bg-005 | - | auth, catalog, trips, loads, CSV exchange; slices a-d prepared (queue/bg-005-brief.md) |
+| BG-005 | admin | NEXT | bg-005 | 76511d0 (a) | slice a MERGED #5 76511d0: 201/201, auth audit PASS 0 major, findings 3+4 closed; b dispatched, c/d queued |
 | BG-006 | sales | pending | bg-006 | - | - |
 | BG-007 | hardware | pending | bg-007 | - | - |
 | BG-008 | close | pending | bg-008 | - | - |
@@ -24,6 +24,8 @@ Dependency graph (docs/05): BG-002 and BG-004 after BG-001. BG-003 after BG-002.
 2. Hardware: standard PH picks locked (Zebra DS2208, Epson TM-T82 80mm); client confirmation pending before BG-007 release lanes.
 3. Client CSV samples: SATISFIED 2026-08-29 (Product.csv, 5,560 products) -> BG-005+ product-import unit; full file stays out of Git; schema-sampled fixture ships with the unit.
 4. Live-lane control path: adapter in production (keyboard SendInput harness + verify-bentago skill; docs/05 "Computer Use" lanes run via keyboard driver); flag for strategy check before BG-005/006 lane rounds.
-5. BG-004 interaction-change gate: open, waiting operator click (Codex UI rework in progress).
+5. BG-004 interaction-change gate: CLOSED (operator click, squash-merged #4).
+6. ui-rework (Luna design pass, 7145207 + palette decision): HELD by operator for further UI improvements — NOT merged; do not rebase/commit/lane .wt\ui until operator says done; re-verify (build+tests+pack+palette) before any merge.
+7. Autoroute: BG-005a merge delegated to coordinator (squash #5 done 2026-08-29); BG-005b/c domain slices delegated; BG-005d admin views + any UI-touching slice stops at operator gate.
 
 > 2026-08-29: Client catalog CSV received (Downloads\Product.csv, 5,560 products). Gate 3 satisfied. Full file stays out of Git (stand order 14) - a schema-sampled fixture ships with the unit.

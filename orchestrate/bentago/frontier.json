@@ -1,5 +1,5 @@
 {
-  "generation": 4,
+  "generation": 5,
   "stack": [
     {
       "id": "BG-001",
@@ -34,12 +34,20 @@
       "notes": "WPF shell + design system; interaction-change review passed (operator click); squash-merged #4. Rebase patch-proof 8FE43208. Post-merge: one semantic merge-break (ScenarioDataSource used pre-BG-003 InventoryBreakdown.Quantity API) fixed forward + verified before this frontier update."
     },
     {
+      "id": "BG-005a",
+      "branch": "main",
+      "state": "MERGED",
+      "mergeCommit": "76511d0",
+      "mergedAt": "2026-08-29T22:20:00+08:00",
+      "notes": "BG-005 slice a: identity+auth+audit (User/Role/Peddler, BCrypt, lockout 5/15, per-attempt AUTH.* audits, EF Users table + AuditEvents identity rebuild, AdminSeeder first-run, LoginService dual-interface). 201/201 on branch + merged main; independent adversarial auth audit PASS (0 major; F1 atomic lockout / F2 timing oracle / F6 admin guards / F10 blank-password fixed in fix2 70226a5); BG-001 deferred findings 3+4 CLOSED (auth core); follow-ups F3-F12 owned in queue/bg-005a-audit-followups.md. Merge delegated to coordinator."
+    },
+    {
       "id": "BG-005",
       "branch": "bg-005",
       "state": "NEXT",
-      "dependsOn": ["BG-003", "BG-004"],
-      "notes": "Auth + audit + catalog + trips + stock loads + CSV exchange; carries deferred BG-001 audit findings 3+4 (auth/audit logging) + client Product.csv v2-contract import unit. Slices a-d per queue/bg-005-brief.md. Blueprint: docs/05 lines 287+."
+      "dependsOn": ["BG-003", "BG-004", "BG-005a"],
+      "notes": "Remaining slices: b catalog+CSV v2 (dispatched, queue/bg-005b-brief.md), c trips/stock-loads/peddler-isolation, d admin views + actor wiring (F8 binding mandatory; interaction-change gate). ui-rework 7145207 HELD by operator (further UI improvements; palette #0A2E4F approved 2026-08-29) - becomes its own PR, never merged while held."
     }
   ],
-  "note": "Frontier recomputed after BG-004 merge at operator click. Operator UI rework (Codex, uncommitted in root checkout on verify-bentago-skill) not part of this merge; must land as its own branch/PR (ui-rework worktree), never on main. BG-005a research done (gaps: BCrypt-vs-PBKDF2, lockout numbers, role set, AuditEvent shape, session actor supply); brief drafting next."
+  "note": "Frontier gen 5 after BG-005a merge (delegated). 201 tests green on merged main. ui-rework parked by operator instruction (hold in decisions.tsv d503a09). BG-005b brief committed; dispatch next."
 }

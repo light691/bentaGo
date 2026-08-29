@@ -1,9 +1,9 @@
-﻿id	track	state	branch	pr	head	brief
+id	track	state	branch	pr	head	brief
 BG-001	foundation	MERGED	main	#1	716c95f	Package A foundation, pinned SDK, backups, login shell; squash-merged, 12/12 + foundation verify
 BG-002	domain	MERGED	main	#2	1e82759	Domain model, invariants, scenario builder; 2 audit rounds, 43/43, golden scenario
 BG-003	persist	MERGED	main	#3	b65469a	SQLite persist the ledger + atomic ops behind widened ILedgerStore; 59/59 + verify
 BG-004	shell	MERGED	main	#4	2e0b54b	WPF shell + design system; squash-merged #4 after operator click. 127/127, review pack rail-gated PASS; post-merge build+test green, foundation verify pending.
-BG-005	admin	NEXT	bg-005	-	-	Auth, catalog, trips, stock loads, CSV exchange (docs/05 287-339). After BG-004 merge. Carries BG-001 deferred audit findings 3+4 (auth/audit logging) + client Product.csv v2-contract import unit.
+BG-005	admin	NEXT	bg-005	#5a	76511d0	Auth, catalog, trips, stock loads, CSV exchange (docs/05 287-339). Slice a (identity+auth+audit) MERGED #5 76511d0, 201/201, audit PASS 0 major, findings 3+4 closed (auth core); b dispatched (queue/bg-005b-brief.md); c+d queued. Docs/01-05 deferred audit findings + client Product.csv v2-contract import unit carried here.
 BG-006	sales	pending	bg-006	-	-	Search, scanner, cart, payments, checkout
 BG-007	hardware	pending	bg-007	-	-	Receipts, ESC/POS, diagnostics, corrections
 BG-008	close	pending	bg-008	-	-	Close, counts, variance, reports, exports
