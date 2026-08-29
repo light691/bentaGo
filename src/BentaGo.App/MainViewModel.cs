@@ -233,7 +233,12 @@ public sealed class MainViewModel : ViewModelBase
         StatusText = "Ready";
         _navigation.Unlock();
         await LoadSessionRoleAsync();
-        RefreshRailEnablement();
+        // Rebuild the rail now that the session role is known: BuildRail
+        // emits the admin entries only when SessionRole can manage users
+        // (startup built the 5-item base rail while the role was null;
+        // never rebuilding left the admin entries absent even though the
+        // Alt+6/7/8 commands gate live and work).
+        BuildRail();
         _navigation.Navigate(ScreenKeys.Home);
     }
 
