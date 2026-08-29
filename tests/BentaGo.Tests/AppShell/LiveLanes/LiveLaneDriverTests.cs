@@ -505,6 +505,24 @@ public sealed class LiveLaneDriverTests
         return null;
     }
 
+    private static void EnsureDefaultTheme()
+    {
+        if (System.Windows.Application.Current is null)
+        {
+            return;
+        }
+
+        var merged = System.Windows.Application.Current.Resources.MergedDictionaries;
+        for (int i = merged.Count - 1; i >= 0; i--)
+        {
+            string? source = merged[i].Source?.ToString();
+            if (source is not null && source.EndsWith("Theme.HighContrast.xaml", StringComparison.OrdinalIgnoreCase))
+            {
+                merged.RemoveAt(i);
+            }
+        }
+    }
+
     private static void WaitFor(Func<bool> condition)
     {
         DateTime deadline = DateTime.UtcNow.AddSeconds(10);
@@ -550,6 +568,13 @@ public sealed class LiveLaneDriverTests
 
         public static async Task<LaneSession> OpenAsync(int width, int height, bool login = true)
         {
+            // Lane order is not guaranteed within the collection: if the L9
+            // high-contrast lane ran first (or left the swap installed in a
+            // prior process), every capture in this session would render in
+            // system-colour high contrast. Start every lane on the default
+            // theme so captures show the real brand (round-5 A).
+            EnsureDefaultTheme();
+
             string temp = Path.Combine(Path.GetTempPath(), "bentago-lane-" + Guid.NewGuid().ToString("N"));
             var services = BentaGoHost.Build(
                 development: true,

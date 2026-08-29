@@ -90,6 +90,16 @@ public sealed class HighContrastManager : IDisposable
         }
 
         _disposed = true;
+
+        // Restore the default palette: the high-contrast dictionary must be
+        // removed or every later render in the process (and any following
+        // capture in a shared test host) stays system-colour collapsed.
+        if (_installed)
+        {
+            _application.Resources.MergedDictionaries.Remove(_highContrast);
+            _installed = false;
+        }
+
         if (_attachSystemEvents)
         {
             try
