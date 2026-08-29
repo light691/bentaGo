@@ -49,6 +49,12 @@ public static class BentaGoHost
             sp.GetRequiredService<LoginService>());
         services.AddSingleton<BentaGo.Application.Contracts.IAuthenticationService>(sp =>
             sp.GetRequiredService<LoginService>());
+        // Session actor (BG-005d F8 wiring): the singleton IActorContext is
+        // consumed by LoginService (set on login success only — see its class
+        // doc for the lifetime semantics: failure leaves it unchanged, host
+        // start begins cleared as a fresh singleton, sign-out is the future
+        // BG-005d-ui Clear call) and by UserAccountService (actor binding:
+        // cmd.By must equal CurrentUserId).
         services.AddSingleton<BentaGo.Application.Contracts.IActorContext, BentaGo.Application.Services.ActorContext>();
         services.AddSingleton<BentaGo.Application.Contracts.IUserAccountStore, UserAccountStore>();
         services.AddSingleton<BentaGo.Application.Contracts.IUserAccountService, BentaGo.Application.Services.UserAccountService>();

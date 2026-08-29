@@ -131,7 +131,17 @@ public interface ILedgerStore
     /// style) and returns the PERSISTED identity sequence (BG-005a: the
     /// AuditEvents PK on Sequence is assigned by the store — the caller's
     /// <c>-1</c> placeholder is replaced by the DB identity; the in-memory
-    /// store assigns the next incremental sequence).
+    /// store assigns the next incremental sequence; RecordAudit itself never
+    /// stores -1).
+    ///
+    /// Identity rule for BATCH audits (F4, BG-005d): an
+    /// <see cref="AppendBatch"/> audit is committed with a REAL sequence
+    /// inside the batch transaction by the SQLite store; the in-memory mirror
+    /// stages batch audits VERBATIM — the -1 placeholder survives there (only
+    /// RecordAudit assigns on the in-memory store). That divergence is the
+    /// deliberate staging semantics this contract pins (see the F4 parity
+    /// test), not a store bug: audit rendering is message-only, so neither
+    /// mirror's sequence granularity affects reports.
     /// </summary>
     long RecordAudit(AuditEvent audit);
 
