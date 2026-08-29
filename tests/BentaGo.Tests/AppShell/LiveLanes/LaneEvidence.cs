@@ -44,15 +44,42 @@ internal static class LaneEvidence
         encoder.Save(stream);
     }
 
-    public static void SaveReviewPng(string fileName, int widthPx, int heightPx, Visual visual)
+    /// <summary>
+/// Saves a review-pack PNG and returns whether the rail pixel at (10,400)
+/// rendered the brand navy (#01274F) - the rail must never silently ship
+/// light (a mounted high-contrast dictionary collapses it to the system
+/// control colour). Dialog captures (no rail) pass verifyRail: false.
+/// </summary>
+    public static bool SaveReviewPng(string fileName, int widthPx, int heightPx, Visual visual, bool verifyRail = true)
     {
         Directory.CreateDirectory(ReviewDir);
         var bitmap = new RenderTargetBitmap(widthPx, heightPx, 96, 96, PixelFormats.Pbgra32);
         bitmap.Render(visual);
+
+        bool railNavy = true;
+        if (verifyRail && widthPx > 40 && heightPx > 420)
+        {
+            railNavy = SampleBgra(bitmap, 10, 400, out byte r, out byte g, out byte b)
+                && Math.Abs(r - 0x01) <= 12
+                && Math.Abs(g - 0x27) <= 12
+                && Math.Abs(b - 0x4F) <= 12;
+        }
+
         var encoder = new PngBitmapEncoder();
         encoder.Frames.Add(BitmapFrame.Create(bitmap));
         using FileStream stream = File.Create(Path.Combine(ReviewDir, fileName));
         encoder.Save(stream);
+        return railNavy;
+    }
+
+    private static bool SampleBgra(RenderTargetBitmap bitmap, int x, int y, out byte r, out byte g, out byte b)
+    {
+        var pixel = new byte[4];
+        bitmap.CopyPixels(new Int32Rect(x, y, 1, 1), pixel, 4, 0);
+        b = pixel[0];
+        g = pixel[1];
+        r = pixel[2];
+        return true;
     }
 
     public static async Task WriteVerdictAsync(string lane, string name, string verdict, string reason, string? evidenceFile = null)

@@ -366,13 +366,20 @@ public sealed class LiveLaneDriverTests
             session.ViewModel.Login.Username = "admin";
             session.ViewModel.Login.Password = "admin";
             _sta.PumpIdle();
-            LaneEvidence.SaveReviewPng("bg-004-login-1366.png", 1366, 768, session.Window);
+
+            // Every shell capture MUST render the brand navy rail; a mounted
+            // high-contrast dictionary would collapse it to the system light
+            // grey. Reset the theme right before each capture so no state can
+            // leak into the PNG, and verify the rail pixel after saving.
+            EnsureDefaultTheme();
+            bool railNavy = LaneEvidence.SaveReviewPng("bg-004-login-1366.png", 1366, 768, session.Window);
 
             // Log in and capture the remaining five screens.
             session.ViewModel.Login.LoginCommand.Execute(null);
             WaitFor(() => session.Navigation.CurrentKey == ScreenKeys.Home);
             _sta.PumpIdle();
-            LaneEvidence.SaveReviewPng("bg-004-peddler-home.png", 1366, 768, session.Window);
+            EnsureDefaultTheme();
+            railNavy &= LaneEvidence.SaveReviewPng("bg-004-peddler-home.png", 1366, 768, session.Window);
 
             var sales = session.Services.GetRequiredService<SalesViewModel>();
             session.Navigation.Navigate(ScreenKeys.Sales);
@@ -381,7 +388,8 @@ public sealed class LiveLaneDriverTests
             sales.ScanBoxText = "Kopi";
             sales.ScanCommand.Execute(null);
             _sta.PumpIdle();
-            LaneEvidence.SaveReviewPng("bg-004-sales.png", 1366, 768, session.Window);
+            EnsureDefaultTheme();
+            railNavy &= LaneEvidence.SaveReviewPng("bg-004-sales.png", 1366, 768, session.Window);
 
             // Payment: stage the dialog window with a cash tender ready.
             var payment = session.Services.GetRequiredService<PaymentDialogViewModel>();
@@ -396,22 +404,27 @@ public sealed class LiveLaneDriverTests
             };
             dialogHost.Show();
             _sta.PumpIdle();
-            LaneEvidence.SaveReviewPng("bg-004-payment.png", 1366, 768, dialogHost);
+            // The dialog is a modal without a rail; the rail check is skipped.
+            _ = LaneEvidence.SaveReviewPng("bg-004-payment.png", 1366, 768, dialogHost, verifyRail: false);
             dialogHost.Close();
 
             session.Navigation.Navigate(ScreenKeys.Stock);
             _sta.PumpIdle();
-            LaneEvidence.SaveReviewPng("bg-004-stock.png", 1366, 768, session.Window);
+            EnsureDefaultTheme();
+            railNavy &= LaneEvidence.SaveReviewPng("bg-004-stock.png", 1366, 768, session.Window);
 
             session.Navigation.Navigate(ScreenKeys.Reconciliation);
             session.Services.GetRequiredService<ReconciliationViewModel>().ActualCashText = "284";
             _sta.PumpIdle();
-            LaneEvidence.SaveReviewPng("bg-004-reconciliation.png", 1366, 768, session.Window);
+            EnsureDefaultTheme();
+            railNavy &= LaneEvidence.SaveReviewPng("bg-004-reconciliation.png", 1366, 768, session.Window);
 
             await LaneEvidence.WriteVerdictAsync(
                 "bg-004-review-pack", "review pack (6 screenshots @1366x768)",
-                LaneEvidence.VerdictPass,
-                "bg-004-login-1366.png, bg-004-peddler-home.png, bg-004-sales.png, bg-004-payment.png, bg-004-stock.png, bg-004-reconciliation.png",
+                railNavy ? LaneEvidence.VerdictPass : LaneEvidence.VerdictFail,
+                railNavy
+                    ? "bg-004-login-1366.png, bg-004-peddler-home.png, bg-004-sales.png, bg-004-payment.png, bg-004-stock.png, bg-004-reconciliation.png; rail verified navy on all five shell captures"
+                    : "a shell capture rendered the rail WITHOUT the brand navy (#01274F) - a high-contrast dictionary was mounted during the review pack",
                 null);
         });
     }

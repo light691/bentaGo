@@ -26,7 +26,8 @@
         </Grid.ColumnDefinitions>
 
         <!-- Left rail: BG-004 shell navigation (Alt+1..5 shell-scoped). -->
-        <Border Grid.Row="0"
+        <Border x:Name="RailChrome"
+                Grid.Row="0"
                 Grid.Column="0"
                 Background="{DynamicResource Brush.Brand.Rail}"
                 BorderBrush="{DynamicResource Brush.Brand.Rail.Border}"
