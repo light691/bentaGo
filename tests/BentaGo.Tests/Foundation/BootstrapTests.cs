@@ -115,8 +115,8 @@ public sealed class BootstrapTests : IDisposable
         await using var context = await host.GetRequiredService<IDbContextFactory<BentaGoDbContext>>()
             .CreateDbContextAsync();
         string[] applied = (await context.Database.GetAppliedMigrationsAsync()).ToArray();
-        Assert.Equal(4, applied.Length); // InitialCreate + BG003_01 + BG003_02 + BG005_01
-        Assert.EndsWith("BG005_01_AddIdentityAndAudit", applied[^1]);
+        Assert.Equal(5, applied.Length); // InitialCreate + BG003_01 + BG003_02 + BG005_01 + BG005b_01
+        Assert.EndsWith("BG005b_01_AddProductCatalog", applied[^1]);
     }
 
     [Fact]
