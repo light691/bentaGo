@@ -24,3 +24,5 @@ Dependency graph (docs/05): BG-002 and BG-004 after BG-001. BG-003 after BG-002.
 2. Real hardware facts before BG-007 release lanes.
 3. Client CSV samples before release.
 4. Computer Use control path for WPF live lanes. Blocked lanes fail closed.
+
+> 2026-08-29: Client catalog CSV received (Downloads\Product.csv, 5,560 products). Gate 3 (CSV samples before release) satisfied; scoped as a BG-005+ product-import unit. Full file stays out of Git (stand order 14) - a schema-sampled fixture ships with the unit.
