@@ -28,14 +28,18 @@ public sealed class SalesUxTests : IDisposable
     public void Dispose() => _host.Dispose();
 
     [Fact]
-    public void CartShowsMeaningfulEmptyStateUntilItemsAreAdded()
+    public async Task CartShowsMeaningfulEmptyStateUntilItemsAreAdded()
     {
+        SalesSeed.Seed(_host.Services);
         var sales = _host.Services.GetRequiredService<SalesViewModel>();
+        await sales.OnActivatedAsync();
+        Assert.True(sales.IsSessionReady);
         Assert.False(sales.HasCartItems);
         Assert.Equal("Cart is empty - scan to add items", sales.CartEmptyText);
 
-        sales.ScanBoxText = "Sardines";
+        sales.ScanBoxText = SalesSeed.SardinesSku;
         sales.ScanCommand.Execute(null);
+        await Task.Delay(150);
         Assert.True(sales.HasCartItems);
 
         sales.ClearCartCommand.Execute(null);
@@ -43,27 +47,36 @@ public sealed class SalesUxTests : IDisposable
     }
 
     [Fact]
-    public void SearchResultsEmptyStateDistinguishesNoMatchFromNoCatalog()
+    public async Task SearchResultsEmptyStateDistinguishesNoMatchFromNoCatalog()
     {
+        SalesSeed.Seed(_host.Services);
         var sales = _host.Services.GetRequiredService<SalesViewModel>();
+        await sales.OnActivatedAsync();
+
         sales.SearchQuery = "zzz-nothing";
         sales.ProductSearchCommand.Execute(null);
+        await Task.Delay(150);
 
         Assert.False(sales.HasSearchResults);
-        Assert.Equal("No matching products. Try the product name or SKU.", sales.SearchResultsEmptyText);
+        Assert.Equal("No matching products. Try the product name, SKU, or barcode.", sales.SearchResultsEmptyText);
     }
 
     [Fact]
-    public void PerRowStepperAdjustsExactlyItsLine()
+    public async Task PerRowStepperAdjustsExactlyItsLine()
     {
+        SalesSeed.Seed(_host.Services);
         var sales = _host.Services.GetRequiredService<SalesViewModel>();
-        sales.ScanBoxText = "Sardines";
-        sales.ScanCommand.Execute(null);
-        sales.ScanBoxText = "Kopi";
-        sales.ScanCommand.Execute(null);
+        await sales.OnActivatedAsync();
 
-        CartLineDraft sardines = sales.Cart.Single(line => line.Offer.Sku == "Sardines");
-        CartLineDraft kopi = sales.Cart.Single(line => line.Offer.Sku == "Kopi");
+        sales.ScanBoxText = SalesSeed.SardinesSku;
+        sales.ScanCommand.Execute(null);
+        await Task.Delay(150);
+        sales.ScanBoxText = SalesSeed.KopiSku;
+        sales.ScanCommand.Execute(null);
+        await Task.Delay(150);
+
+        CartLineDraft sardines = sales.Cart.Single(line => line.ItemText == "Sardines");
+        CartLineDraft kopi = sales.Cart.Single(line => line.ItemText == "Kopi");
 
         sales.IncreaseLineCommand.Execute(sardines);
         sales.IncreaseLineCommand.Execute(sardines);
@@ -104,7 +117,9 @@ public sealed class SalesUxStaTests
                     development: true,
                     dataRootOverride: temp,
                     extra: ObservableObjectFactory.RegisterAppServices);
+                SalesSeed.Seed(services);
                 var viewModel = services.GetRequiredService<SalesViewModel>();
+                viewModel.OnActivatedAsync().GetAwaiter().GetResult();
                 var view = new SalesView { DataContext = viewModel };
 
                 using var probe = new ProbeHost(view, 1092, 614);
@@ -116,12 +131,14 @@ public sealed class SalesUxStaTests
 
                 // Empty states render instead of voids.
                 Assert.NotNull(FindTextBlock(view, "Cart is empty - scan to add items"));
-                Assert.NotNull(FindTextBlock(view, "No matching products. Try the product name or SKU."));
+                Assert.NotNull(FindTextBlock(view, "No matching products. Try the product name, SKU, or barcode."));
 
                 // The per-row stepper exists; after an item is added the
                 // stepper buttons are present and adjust the row quantity.
-                viewModel.ScanBoxText = "Sardines";
+                viewModel.ScanBoxText = SalesSeed.SardinesSku;
                 viewModel.ScanCommand.Execute(null);
+                _sta.PumpIdle();
+                System.Threading.Thread.Sleep(150);
                 _sta.PumpIdle();
                 Assert.True(FindButtons(view).Count >= 4); // Search + stepper pair + Remove + CANCEL + CHECKOUT
             }

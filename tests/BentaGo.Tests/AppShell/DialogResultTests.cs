@@ -4,6 +4,10 @@ using BentaGo.App.Dialogs.Payment;
 using BentaGo.App.Features.Sales;
 using BentaGo.App.Navigation;
 using BentaGo.App.Ui;
+using BentaGo.Application.Contracts;
+using BentaGo.Core.Common;
+using BentaGo.Core.Domain;
+using BentaGo.Core.Domain.Payments;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
@@ -37,33 +41,45 @@ public sealed class DialogResultTests : IDisposable
     [Fact]
     public async Task PaymentConfirmRaisesTypedResultAndCompletesReceipt()
     {
+        SalesSeed.Seed(_host.Services);
         var sales = _host.Services.GetRequiredService<SalesViewModel>();
-        sales.ScanBoxText = "Sardines";
+        await sales.OnActivatedAsync();
+        Assert.True(sales.IsSessionReady);
+
+        sales.ScanBoxText = SalesSeed.SardinesSku;
         sales.ScanCommand.Execute(null);
+        await Task.Delay(150);
+        Assert.True(sales.HasCartItems, "scan should add the product");
+
         _dialogs.CannedResult = new PaymentDialogResult(
-            new[] { new PaymentLineDraft(BentaGo.Core.Domain.Payments.PaymentMethod.Cash, BentaGo.Core.Domain.Money.FromPesos(135m), "") },
-            BentaGo.Core.Domain.Money.Zero);
+            new[] { new PaymentLineDraft(PaymentMethod.Cash, Money.FromPesos(45m), null) },
+            Money.Zero);
 
         sales.CheckoutCommand.Execute(null);
-        await Task.Delay(100);
+        await Task.Delay(300);
 
         var show = Assert.Single(_dialogs.Shows);
         Assert.Equal(typeof(PaymentDialogResult), show.ResultType);
         Assert.Equal(AutomationIds.SalesScanBox, show.FocusAfterClose);
         Assert.True(sales.HasReceipt);
         Assert.Empty(sales.Cart);
+        Assert.Contains("complete", sales.ReceiptText);
     }
 
     [Fact]
     public async Task EscCancelReturnsNullAndLeavesCartUntouched()
     {
+        SalesSeed.Seed(_host.Services);
         var sales = _host.Services.GetRequiredService<SalesViewModel>();
-        sales.ScanBoxText = "Sardines";
+        await sales.OnActivatedAsync();
+
+        sales.ScanBoxText = SalesSeed.SardinesSku;
         sales.ScanCommand.Execute(null);
+        await Task.Delay(150);
         _dialogs.CannedResult = null; // Esc/cancel
 
         sales.CheckoutCommand.Execute(null);
-        await Task.Delay(100);
+        await Task.Delay(300);
 
         Assert.False(sales.HasReceipt);
         Assert.Single(sales.Cart);

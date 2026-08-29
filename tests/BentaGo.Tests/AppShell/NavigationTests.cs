@@ -97,11 +97,11 @@ public sealed class NavigationTests : IDisposable
         var navigation = _host.Services.GetRequiredService<INavigationService>();
         Assert.True(navigation.CanNavigate(ScreenKeys.Login), "login must be reachable pre-auth");
         Assert.False(navigation.CanNavigate(ScreenKeys.Home), "home must be gated pre-auth");
-        Assert.False(navigation.CanNavigate(ScreenKeys.Transactions), "unregistered keys are never navigable");
+        Assert.False(navigation.CanNavigate(ScreenKeys.Returns), "unregistered keys are never navigable");
 
         navigation.Unlock();
         Assert.True(navigation.CanNavigate(ScreenKeys.Home));
-        Assert.False(navigation.CanNavigate(ScreenKeys.Transactions));
+        Assert.False(navigation.CanNavigate(ScreenKeys.Returns));
     }
 
     [Fact]

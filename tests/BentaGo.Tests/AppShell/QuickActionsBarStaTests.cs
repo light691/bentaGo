@@ -22,8 +22,9 @@ public sealed class QuickActionsBarStaTests
 
     /// <summary>
     /// Round-4: the Quick Actions (Keyboard First) chip bar renders on Home
-    /// and Sales with F2/F12 live (bound to existing commands) and F8/F11
-    /// parked: visible-disabled with NO command - exactly the Alt+4 pattern.
+    /// and Sales with live chips bound to existing commands and parked chips
+    /// visible-disabled with NO command - exactly the Alt+4 pattern. BG-006b:
+    /// Sales trades the parked F8 Pay chip for a live F7 Discount chip.
     /// </summary>
     [Fact]
     public void QuickActionsBarRendersLiveAndParkedChipsOnHomeAndSales()
@@ -57,29 +58,56 @@ public sealed class QuickActionsBarStaTests
 
     private void VerifyScreen(IServiceProvider services, FrameworkElement view, object viewModel, string screen)
     {
+        if (screen == "Sales")
+        {
+            // BG-006b: the Discount chip is live but gated on a selected cart
+            // row, so give the session + a row for the enablement assert.
+            SalesSeed.Seed((Microsoft.Extensions.DependencyInjection.ServiceProvider)services);
+            var sales = (SalesViewModel)viewModel;
+            sales.OnActivatedAsync().GetAwaiter().GetResult();
+            sales.ScanBoxText = SalesSeed.SardinesSku;
+            sales.ScanCommand.Execute(null);
+            Thread.Sleep(200);
+            _sta.PumpIdle();
+            sales.SelectedLine = sales.Cart.FirstOrDefault();
+        }
+
         view.DataContext = viewModel;
         using var probe = new ProbeHost((UserControl)view, 1092, 700);
         _sta.PumpIdle();
 
         Button scan = FindById(view, screen + ".QuickAction.Scan")
             ?? throw new Xunit.Sdk.XunitException($"{screen} Quick Action Scan chip not found");
-        Button pay = FindById(view, screen + ".QuickAction.Pay")
-            ?? throw new Xunit.Sdk.XunitException($"{screen} Quick Action Pay chip not found");
+        Button? pay = FindById(view, screen + ".QuickAction.Pay");
         Button print = FindById(view, screen + ".QuickAction.Print")
             ?? throw new Xunit.Sdk.XunitException($"{screen} Quick Action Print chip not found");
+        Button? discount = FindById(view, screen + ".QuickAction.Discount");
 
         Assert.True(scan.IsEnabled, $"{screen} F2 Scan chip must be live");
         Assert.NotNull(scan.Command); // bound to an existing VM command
-        Assert.False(pay.IsEnabled, $"{screen} F8 Pay chip must be parked (disabled)");
-        Assert.Null(pay.Command); // never bound - the Alt+4 pattern
+        if (screen == "Sales")
+        {
+            // BG-006b: F8 Pay retired from the bar; F7 Discount is live.
+            Assert.Null(pay);
+            Assert.NotNull(discount);
+            Assert.True(discount.IsEnabled, $"{screen} F7 Discount chip must be live");
+            Assert.NotNull(discount.Command);
+        }
+        else
+        {
+            Assert.False(pay!.IsEnabled, $"{screen} F8 Pay chip must be parked (disabled)");
+            Assert.Null(pay.Command); // never bound - the Alt+4 pattern
+            Assert.Null(discount);    // Home has no discount action
+        }
         Assert.False(print.IsEnabled, $"{screen} F11 Print chip must be parked (disabled)");
         Assert.Null(print.Command); // never bound - the Alt+4 pattern
 
+        Button tall = (screen == "Sales" ? discount : pay)!;
         // Round-5 C: one Quick Actions row must show identical geometry -
         // enabled and parked chips differ only in colour/foreground.
         Assert.True(
-            Math.Abs(scan.ActualHeight - pay.ActualHeight) <= 2,
-            $"{screen} enabled chip {scan.ActualHeight:F1}px vs parked chip {pay.ActualHeight:F1}px differ > 2px");
+            Math.Abs(scan.ActualHeight - tall!.ActualHeight) <= 2,
+            $"{screen} enabled chip {scan.ActualHeight:F1}px vs parked chip {tall.ActualHeight:F1}px differ > 2px");
         Assert.True(
             Math.Abs(scan.ActualHeight - print.ActualHeight) <= 2,
             $"{screen} enabled chip {scan.ActualHeight:F1}px vs parked chip {print.ActualHeight:F1}px differ > 2px");

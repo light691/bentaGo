@@ -62,7 +62,7 @@ public sealed class NavigationFocusRealInputTests
     {
         _sta.Run(() =>
         {
-            using var session = RealSession.Open(_sta);
+            using var session = RealSession.Open(_sta, username: SalesSeed.SellerUsername, password: SalesSeed.SellerPassword);
             session.Activate();
             _sta.PumpIdle();
             WaitFor(() => session.FocusedElementId() == AutomationIds.HomeNewSaleButton);
@@ -216,7 +216,7 @@ public sealed class NavigationFocusRealInputTests
 
         public IntPtr Handle => new System.Windows.Interop.WindowInteropHelper(Window).Handle;
 
-        public static RealSession Open(AppShellStaFixture sta, bool login = true)
+        public static RealSession Open(AppShellStaFixture sta, bool login = true, string username = "admin", string password = "admin")
         {
             string temp = Path.Combine(Path.GetTempPath(), "bentago-realin-" + Guid.NewGuid().ToString("N"));
             var services = BentaGoHost.Build(
@@ -225,6 +225,7 @@ public sealed class NavigationFocusRealInputTests
                 extra: ObservableObjectFactory.RegisterAppServices);
             services.GetRequiredService<DbInitializer>().EnsureCreatedOrMigrateAsync().GetAwaiter().GetResult();
             services.GetRequiredService<IAdminSeeder>().SeedAsync().GetAwaiter().GetResult();
+            SalesSeed.Seed(services, signIn: false);
 
             var viewModel = services.GetRequiredService<MainViewModel>();
             var window = new MainWindow(viewModel)
@@ -241,8 +242,8 @@ public sealed class NavigationFocusRealInputTests
 
             if (login)
             {
-                viewModel.Login.Username = "admin";
-                viewModel.Login.Password = "admin";
+                viewModel.Login.Username = username;
+                viewModel.Login.Password = password;
                 viewModel.Login.LoginCommand.Execute(null);
                 sta.PumpIdle();
             }

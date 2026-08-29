@@ -43,7 +43,8 @@
                              Text="{Binding ScanBoxText, UpdateSourceTrigger=PropertyChanged}"
                              ui:Watermark.Text="Scan barcode or type a product name, then Enter"
                              ui:FocusTarget.Id="Sales.ScanBox"
-                             ui:FocusTarget.IsInitial="True">
+                             ui:FocusTarget.IsInitial="True"
+                             IsEnabled="{Binding IsSessionReady}">
                         <TextBox.InputBindings>
                             <!-- Scanner Enter submits only the focused scan field. -->
                             <KeyBinding Key="Enter" Command="{Binding ScanCommand}" />
@@ -62,7 +63,8 @@
                                  Style="{StaticResource FieldEditorTallStyle}"
                                  Text="{Binding SearchQuery, UpdateSourceTrigger=PropertyChanged}"
                                  ui:Watermark.Text="Type a product name or SKU"
-                                 ui:FocusTarget.Id="Sales.SearchBox" />
+                                 ui:FocusTarget.Id="Sales.SearchBox"
+                                 IsEnabled="{Binding IsSessionReady}" />
                         <Button Grid.Column="1"
                                 Content="Search"
                                 Style="{StaticResource Button.SecondaryStyle}"
@@ -109,7 +111,8 @@
                                                 <TextBlock Text="{Binding Name}" Style="{StaticResource BodyTextStyle}" />
                                                 <TextBlock Style="{StaticResource CaptionTextStyle}">
                                                     <Run Text="{Binding Sku, Mode=OneWay}" /><Run Text="  " />
-                                                    <Run Text="{Binding PriceText, Mode=OneWay}" />
+                                                    <Run Text="{Binding PriceText, Mode=OneWay}" /><Run Text="  " />
+                                                    <Run Text="{Binding OnHandText, Mode=OneWay}" />
                                                 </TextBlock>
                                             </StackPanel>
                                             <Button Grid.Column="1"
@@ -145,18 +148,39 @@
                                    Margin="{StaticResource Thickness.XS}" />
                     </StackPanel>
 
-                    <Border Grid.Row="1"
-                            Style="{StaticResource EmptyStateStyle}"
-                            Margin="{StaticResource Thickness.RowGap}"
-                            Visibility="{Binding HasCartItems, Converter={StaticResource InvertedBoolToVisibility}}">
-                        <StackPanel>
-                            <TextBlock Text="Ready to add products" Style="{StaticResource TitleTextStyle}" />
-                            <TextBlock Text="{Binding CartEmptyText}"
-                                       Style="{StaticResource CaptionTextStyle}"
+                    <StackPanel Grid.Row="1" Margin="{StaticResource Thickness.RowGap}">
+                        <Border Style="{StaticResource EmptyStateStyle}"
+                                Margin="{StaticResource Thickness.RowGap}"
+                                Visibility="{Binding HasSessionStateMessage, Converter={StaticResource BoolToVisibility}}">
+                            <StackPanel>
+                                <TextBlock Text="No sale session available" Style="{StaticResource TitleTextStyle}" />
+                                <TextBlock Text="{Binding SessionStateMessage}"
+                                           Style="{StaticResource CaptionTextStyle}"
+                                           TextWrapping="Wrap"
+                                           Margin="{StaticResource Thickness.RowGap}" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource EmptyStateStyle}"
+                                Margin="{StaticResource Thickness.RowGap}"
+                                Visibility="{Binding HasActionError, Converter={StaticResource BoolToVisibility}}">
+                            <TextBlock Text="{Binding ActionError}" Style="{StaticResource BodyTextStyle}"
                                        TextWrapping="Wrap"
-                                       Margin="{StaticResource Thickness.RowGap}" />
-                        </StackPanel>
-                    </Border>
+                                       ui:FocusTarget.Id="Sales.ErrorBanner" />
+                        </Border>
+
+                        <Border Style="{StaticResource EmptyStateStyle}"
+                                Margin="{StaticResource Thickness.RowGap}"
+                                Visibility="{Binding HasCartItems, Converter={StaticResource InvertedBoolToVisibility}}">
+                            <StackPanel>
+                                <TextBlock Text="Ready to add products" Style="{StaticResource TitleTextStyle}" />
+                                <TextBlock Text="{Binding CartEmptyText}"
+                                           Style="{StaticResource CaptionTextStyle}"
+                                           TextWrapping="Wrap"
+                                           Margin="{StaticResource Thickness.RowGap}" />
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
 
                     <Border Grid.Row="2"
                             Style="{StaticResource TableCardStyle}"
@@ -191,6 +215,16 @@
                                         </DataTemplate>
                                     </DataGridTemplateColumn.CellTemplate>
                                 </DataGridTemplateColumn>
+                                <DataGridTemplateColumn Header="Disc" Width="84">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding DiscountText}"
+                                                       Style="{StaticResource CaptionTextStyle}"
+                                                       HorizontalAlignment="Center"
+                                                       Visibility="{Binding HasDiscount, Converter={StaticResource BoolToVisibility}}" />
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
                                 <DataGridTextColumn Header="Total" Binding="{Binding LineTotalText}" Width="90" />
                                 <DataGridTemplateColumn Header="Remove" Width="72">
                                     <DataGridTemplateColumn.CellTemplate>
@@ -217,7 +251,8 @@
                                 <TextBlock Text="{Binding SubtotalText}" Style="{StaticResource MoneyTextStyle}" />
                                 <TextBlock Text="Discount" Style="{StaticResource LabelTextStyle}"
                                            Margin="{StaticResource Thickness.RowGap}" />
-                                <TextBlock Text="₱0.00" Style="{StaticResource MoneyTextStyle}" />
+                                <TextBlock Text="{Binding DiscountText}" Style="{StaticResource MoneyTextStyle}"
+                                           ui:FocusTarget.Id="Sales.DiscountText" />
                             </StackPanel>
                             <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                 <TextBlock Text="TOTAL" Style="{StaticResource FieldLabelStyle}"
@@ -256,11 +291,10 @@
                     Style="{StaticResource Button.ActionBarStyle}"
                     Command="{Binding FocusScanCommand}"
                     ui:FocusTarget.Id="Sales.QuickAction.Scan" />
-            <Button Grid.Column="2" Content="F8 Pay"
+            <Button Grid.Column="2" Content="F7 Discount"
                     Style="{StaticResource Button.ActionBarStyle}"
-                    IsEnabled="False"
-                    ToolTip="Payment shortcut will be enabled in a future release."
-                    ui:FocusTarget.Id="Sales.QuickAction.Pay" />
+                    Command="{Binding ApplyDiscountCommand}"
+                    ui:FocusTarget.Id="Sales.QuickAction.Discount" />
             <Button Grid.Column="4" Content="F11 Print"
                     Style="{StaticResource Button.ActionBarStyle}"
                     IsEnabled="False"

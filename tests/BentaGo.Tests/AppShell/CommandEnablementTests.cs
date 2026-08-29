@@ -31,14 +31,17 @@ public sealed class CommandEnablementTests : IDisposable
     private SalesViewModel Sales() => _host.Services.GetRequiredService<SalesViewModel>();
 
     [Fact]
-    public void EmptyCartDisablesCheckout()
+    public async Task EmptyCartDisablesCheckout()
     {
+        SalesSeed.Seed(_host.Services);
         var sales = Sales();
+        await sales.OnActivatedAsync();
         Assert.Empty(sales.Cart);
         Assert.False(sales.CheckoutCommand.CanExecute(null));
 
         sales.ScanBoxText = "Sardines";
         sales.ScanCommand.Execute(null);
+        await Task.Delay(150);
         Assert.Single(sales.Cart);
         Assert.True(sales.CheckoutCommand.CanExecute(null));
 

@@ -5,6 +5,7 @@
                     xmlns:sales="clr-namespace:BentaGo.App.Features.Sales"
                     xmlns:stock="clr-namespace:BentaGo.App.Features.Stock"
                     xmlns:recon="clr-namespace:BentaGo.App.Features.Reconciliation"
+                    xmlns:tx="clr-namespace:BentaGo.App.Features.Transactions"
                     xmlns:admin="clr-namespace:BentaGo.App.Features.Admin"
                     xmlns:payment="clr-namespace:BentaGo.App.Dialogs.Payment"
                     xmlns:confirm="clr-namespace:BentaGo.App.Dialogs.Confirm">
@@ -30,6 +31,9 @@
     </DataTemplate>
     <DataTemplate DataType="{x:Type recon:ReconciliationViewModel}">
         <recon:ReconciliationView />
+    </DataTemplate>
+    <DataTemplate DataType="{x:Type tx:TransactionsViewModel}">
+        <tx:TransactionsView />
     </DataTemplate>
     <DataTemplate DataType="{x:Type admin:UserManagementViewModel}">
         <admin:UserManagementView />
