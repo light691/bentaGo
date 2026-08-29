@@ -1,6 +1,7 @@
+using System.Collections.Generic;
 using System.Reflection;
+using System.Threading.Tasks;
 using System.Windows.Input;
-using BentaGo.App.Data;
 using BentaGo.App.Features.Help;
 using BentaGo.App.Features.Login;
 using BentaGo.App.Features.Reconciliation;
@@ -9,6 +10,9 @@ using BentaGo.App.Features.Stock;
 using BentaGo.App.Mvvm;
 using BentaGo.App.Navigation;
 using BentaGo.App.Ui;
+using BentaGo.Application.Contracts;
+using BentaGo.Core.Domain;
+using BentaGo.Core.Domain.Identity;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace BentaGo.App;
@@ -24,6 +28,8 @@ public sealed class MainViewModel : ViewModelBase
 {
     private readonly INavigationService _navigation;
     private readonly IFocusService _focus;
+    private readonly IActorContext _actorContext;
+    private readonly IUserAccountStore _userStore;
     private readonly IReadOnlyDictionary<string, (ICommand Command, object? Parameter)> _gestureMap;
     private ViewModelBase? _current;
     private string? _currentKey;
@@ -32,11 +38,14 @@ public sealed class MainViewModel : ViewModelBase
     private string? _lastFocusTarget;
     private string? _helpRestoreTarget;
     private string _statusText = "BentaGo";
+    private Role? _sessionRole;
 
     public MainViewModel(IServiceProvider services)
     {
         _navigation = services.GetRequiredService<INavigationService>();
         _focus = services.GetRequiredService<IFocusService>();
+        _actorContext = services.GetRequiredService<IActorContext>();
+        _userStore = services.GetRequiredService<IUserAccountStore>();
         Login = services.GetRequiredService<LoginViewModel>();
         Login.Authenticated += (_, _) => OnAuthenticated();
         HelpOverlay = services.GetRequiredService<HelpOverlayViewModel>();
@@ -53,6 +62,12 @@ public sealed class MainViewModel : ViewModelBase
             parameter => parameter is string key && _navigation.CanNavigate(key));
         HelpCommand = new RelayCommand(_ => ToggleHelp());
         EscapeCommand = new RelayCommand(_ => OnEscape());
+        // Admin rail navigation (BG-005d): role-gated at the command, so the
+        // Alt+6/7/8 window bindings are inert for non-admin sessions even
+        // though the keys are registered post-auth.
+        AdminNavigateCommand = new RelayCommand(
+            parameter => _navigation.Navigate((string)parameter!),
+            parameter => SessionRole?.CanManageUsers() == true);
         CheckoutCommand = new RelayCommand(_ => ForwardTo<SalesViewModel>(vm => vm.CheckoutCommand.Execute(null)));
         FocusScanCommand = new RelayCommand(_ => ForwardTo<SalesViewModel>(vm => vm.FocusScanCommand.Execute(null)));
         ProductSearchCommand = new RelayCommand(_ => ForwardTo<SalesViewModel>(vm => vm.ProductSearchCommand.Execute(null)));
@@ -125,6 +140,24 @@ public sealed class MainViewModel : ViewModelBase
         private set => SetProperty(ref _isHelpOpen, value);
     }
 
+    /// <summary>
+    /// The signed-in session role (BG-005d): learned from the actor's Users
+    /// row after authentication (the shell reads the session actor's own row
+    /// — no cross-account surface — and drives the admin rail entries).
+    /// Role gating uses <see cref="RoleExtensions.CanManageUsers"/>.
+    /// </summary>
+    public Role? SessionRole
+    {
+        get => _sessionRole;
+        private set
+        {
+            if (SetProperty(ref _sessionRole, value))
+            {
+                BuildRail();
+            }
+        }
+    }
+
     public string StatusText
     {
         get => _statusText;
@@ -136,6 +169,8 @@ public sealed class MainViewModel : ViewModelBase
     public ICommand HelpCommand { get; }
 
     public ICommand EscapeCommand { get; }
+
+    public ICommand AdminNavigateCommand { get; }
 
     public ICommand CheckoutCommand { get; }
 
@@ -185,17 +220,42 @@ public sealed class MainViewModel : ViewModelBase
             ["nav-sale"] = (NavigateCommand, ScreenKeys.Sales),
             ["nav-stock"] = (NavigateCommand, ScreenKeys.Stock),
             ["nav-reconcile"] = (NavigateCommand, ScreenKeys.Reconciliation),
+            ["nav-admin-users"] = (AdminNavigateCommand, ScreenKeys.AdminUsers),
+            ["nav-admin-import"] = (AdminNavigateCommand, ScreenKeys.AdminImport),
+            ["nav-admin-overview"] = (AdminNavigateCommand, ScreenKeys.AdminOverview),
         };
         return map;
     }
 
-    private void OnAuthenticated()
+    private async void OnAuthenticated()
     {
         IsAuthenticated = true;
         StatusText = "Ready";
         _navigation.Unlock();
+        await LoadSessionRoleAsync();
         RefreshRailEnablement();
         _navigation.Navigate(ScreenKeys.Home);
+    }
+
+    /// <summary>
+    /// Learns the session role from the actor's own Users row (the shell
+    /// needs only its own account; the admin rail entries and the Alt+6/7/8
+    /// command gate on it). Fail-closed: when the read fails the role stays
+    /// unknown and no admin entries appear — the authenticated shell stays
+    /// usable.
+    /// </summary>
+    private async Task LoadSessionRoleAsync()
+    {
+        try
+        {
+            UserId? id = _actorContext.CurrentUserId;
+            User? actor = id is null ? null : await _userStore.FindByIdAsync(id.Value);
+            SessionRole = actor?.Role;
+        }
+        catch
+        {
+            SessionRole = null;
+        }
     }
 
     private void OnNavigated(object? sender, NavigationEventArgs e)
@@ -219,14 +279,26 @@ public sealed class MainViewModel : ViewModelBase
 
     private void BuildRail()
     {
-        RailItems =
-        [
-            new RailItemViewModel(ScreenKeys.Home, "Home", "Alt+1", "Rail.Home"),
-            new RailItemViewModel(ScreenKeys.Sales, "New Sale", "Alt+2", "Rail.Sales"),
-            new RailItemViewModel(ScreenKeys.Stock, "Stock", "Alt+3", "Rail.Stock"),
-            new RailItemViewModel(ScreenKeys.Transactions, "Transactions", "Alt+4", "Rail.Transactions"),
-            new RailItemViewModel(ScreenKeys.Reconciliation, "Close / Reconcile", "Alt+5", "Rail.Reconciliation"),
-        ];
+        var items = new List<RailItemViewModel>
+        {
+            new(ScreenKeys.Home, "Home", "Alt+1", "Rail.Home"),
+            new(ScreenKeys.Sales, "New Sale", "Alt+2", "Rail.Sales"),
+            new(ScreenKeys.Stock, "Stock", "Alt+3", "Rail.Stock"),
+            new(ScreenKeys.Transactions, "Transactions", "Alt+4", "Rail.Transactions"),
+            new(ScreenKeys.Reconciliation, "Close / Reconcile", "Alt+5", "Rail.Reconciliation"),
+        };
+
+        // Admin entries (BG-005d): visible only for the Admin role (the
+        // RoleExtensions capability predicate); the first entry carries the
+        // group divider so the rail reads as one section.
+        if (SessionRole?.CanManageUsers() == true)
+        {
+            items.Add(new RailItemViewModel(ScreenKeys.AdminUsers, "Users", "Alt+6", AutomationIds.RailAdminUsers, isAdminSection: true));
+            items.Add(new RailItemViewModel(ScreenKeys.AdminImport, "Catalog Import", "Alt+7", AutomationIds.RailAdminImport));
+            items.Add(new RailItemViewModel(ScreenKeys.AdminOverview, "Admin Overview", "Alt+8", AutomationIds.RailAdminOverview));
+        }
+
+        RailItems = items;
         RefreshRailEnablement();
     }
 
@@ -297,12 +369,13 @@ public sealed class RailItemViewModel : ViewModelBase
     private bool _isSelected;
     private bool _isEnabled;
 
-    public RailItemViewModel(string key, string label, string keyCap, string focusTargetId)
+    public RailItemViewModel(string key, string label, string keyCap, string focusTargetId, bool isAdminSection = false)
     {
         Key = key;
         Label = label;
         KeyCap = keyCap;
         FocusTargetId = focusTargetId;
+        IsAdminSection = isAdminSection;
     }
 
     public string Key { get; }
@@ -312,6 +385,9 @@ public sealed class RailItemViewModel : ViewModelBase
     public string KeyCap { get; }
 
     public string FocusTargetId { get; }
+
+    /// <summary>True on the first admin rail entry: the shell renders a divider above it (rail grouping).</summary>
+    public bool IsAdminSection { get; }
 
     public bool IsSelected
     {

@@ -1,0 +1,197 @@
+<UserControl x:Class="BentaGo.App.Features.Admin.AdminOverviewView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="clr-namespace:BentaGo.App.Ui">
+    <!-- Admin overview / trips (BG-005d): read-mostly per-peddler view.
+         Keyboard first: F5 refreshes, the peddler picker is a chip strip
+         (Tab to navigate, Enter to choose, same selection contract as the
+         payment method strip), the on-hand table is keyboard-navigable. -->
+    <UserControl.InputBindings>
+        <KeyBinding Key="F5" Command="{Binding RefreshCommand}" />
+    </UserControl.InputBindings>
+
+    <Grid Margin="{StaticResource ScreenPadding}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0">
+            <TextBlock Text="ADMIN · OVERVIEW" Style="{StaticResource PageEyebrowTextStyle}" />
+            <TextBlock Text="Trips &amp; Sales" Style="{StaticResource HeaderTextStyle}" />
+            <TextBlock Text="Per-peddler trip and sales summary (read-mostly)."
+                       Style="{StaticResource StatusTextStyle}" />
+        </StackPanel>
+
+        <Border Grid.Row="1" Style="{StaticResource ActionPanelStyle}" Margin="{StaticResource Thickness.RowGap}">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel VerticalAlignment="Center">
+                    <TextBlock Text="Peddler overviews" Style="{StaticResource TitleTextStyle}" />
+                    <TextBlock Text="Select a peddler to inspect their trips and today's route."
+                               Style="{StaticResource StatusTextStyle}"
+                               Margin="{StaticResource Thickness.XS}" />
+                </StackPanel>
+                <Button Grid.Column="1"
+                        Content="Refresh (F5)"
+                        Style="{StaticResource Button.SecondaryStyle}"
+                        Command="{Binding RefreshCommand}"
+                        MinWidth="160"
+                        VerticalAlignment="Center"
+                        ui:FocusTarget.Id="Admin.Overview.Refresh" />
+            </Grid>
+        </Border>
+
+        <!-- Error banner (e.g. role gate or load failure). -->
+        <Border Grid.Row="2"
+                Style="{StaticResource Banner.ErrorStyle}"
+                Margin="{StaticResource Thickness.M}"
+                Visibility="{Binding ErrorMessage, Converter={StaticResource StringToVisibility}}">
+            <TextBlock Text="{Binding ErrorMessage}" Style="{StaticResource BodyTextStyle}" />
+        </Border>
+
+        <!-- Peddler picker (per-peddler selection; empty state when none). -->
+        <Grid Grid.Row="3" Margin="{StaticResource Thickness.RowGap}">
+            <StackPanel Visibility="{Binding HasPeddlers, Converter={StaticResource BoolToVisibility}}">
+                <TextBlock Text="PEDDLER" Style="{StaticResource FieldLabelStyle}" />
+                <ItemsControl ItemsSource="{Binding Tabs}"
+                              Margin="{StaticResource Thickness.XS}"
+                              ui:FocusTarget.Id="Admin.Overview.PeddlerTabs">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Orientation="Horizontal" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Button Style="{StaticResource MethodTabButtonStyle}"
+                                    Content="{Binding Label}"
+                                    Command="{Binding SelectCommand}"
+                                    Margin="{StaticResource Thickness.XS}" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+            <Border Style="{StaticResource EmptyStateStyle}"
+                    Margin="{StaticResource Thickness.XS}"
+                    Visibility="{Binding HasPeddlers, Converter={StaticResource InvertedBoolToVisibility}}">
+                <StackPanel>
+                    <TextBlock Text="No peddlers yet" Style="{StaticResource TitleTextStyle}" />
+                    <TextBlock Text="Peddler accounts and trips appear here once they exist."
+                               Style="{StaticResource CaptionTextStyle}"
+                               Margin="{StaticResource Thickness.RowGap}" />
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- Selected peddler's overview: KPI row + trip summary + on-hand table. -->
+        <Grid Grid.Row="4" Margin="{StaticResource Thickness.RowGap}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Border Grid.Column="0" Style="{StaticResource KpiCardStyle}">
+                <Grid>
+                    <Border Style="{StaticResource KpiAccentStripeStyle}" />
+                    <StackPanel Margin="{StaticResource Thickness.Inline.L}">
+                        <TextBlock Text="Today's Sales" Style="{StaticResource LabelTextStyle}" />
+                        <TextBlock Text="{Binding SelectedOverview.TodaySalesText, Mode=OneWay}"
+                                   Style="{StaticResource MoneyTextStyle}" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+            <Border Grid.Column="2" Style="{StaticResource KpiCardStyle}">
+                <Grid>
+                    <Border Style="{StaticResource KpiBrandStripeStyle}" />
+                    <StackPanel Margin="{StaticResource Thickness.Inline.L}">
+                        <TextBlock Text="Transactions" Style="{StaticResource LabelTextStyle}" />
+                        <TextBlock Text="{Binding SelectedOverview.TodayTransactionsText, Mode=OneWay}"
+                                   Style="{StaticResource MoneyTextStyle}" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+            <Border Grid.Column="4" Style="{StaticResource KpiCardStyle}">
+                <Grid>
+                    <Border Style="{StaticResource KpiAccentStripeStyle}" />
+                    <StackPanel Margin="{StaticResource Thickness.Inline.L}">
+                        <TextBlock Text="On Hand" Style="{StaticResource LabelTextStyle}" />
+                        <TextBlock Text="{Binding SelectedOverview.OnHandSummaryText, Mode=OneWay}"
+                                   Style="{StaticResource MoneyTextStyle}" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- Trip summary + on-hand by product. -->
+        <Grid Grid.Row="5" Margin="{StaticResource Thickness.RowGap}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="1.6*" />
+            </Grid.ColumnDefinitions>
+
+            <Border Grid.Column="0" Style="{StaticResource CardStyle}">
+                <StackPanel>
+                    <TextBlock Text="TRIP SUMMARY" Style="{StaticResource PageEyebrowTextStyle}" />
+                    <TextBlock Text="{Binding SelectedOverviewName}" Style="{StaticResource TitleTextStyle}" />
+                    <Grid Margin="{StaticResource Thickness.M}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="Active trip" Style="{StaticResource LabelTextStyle}" />
+                        <TextBlock Grid.Column="1" Text="{Binding SelectedOverview.ActiveTripText, Mode=OneWay}"
+                                   Style="{StaticResource BodyTextStyle}"
+                                   HorizontalAlignment="Right" />
+                    </Grid>
+                    <Grid Margin="{StaticResource Thickness.RowGap}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="Trips" Style="{StaticResource LabelTextStyle}" />
+                        <TextBlock Grid.Column="1" Text="{Binding SelectedOverview.TripsCountText, Mode=OneWay}"
+                                   Style="{StaticResource BodyTextStyle}"
+                                   HorizontalAlignment="Right" />
+                    </Grid>
+                    <TextBlock Text="Active trip shows the phase and route location of the most recent open trip."
+                               Style="{StaticResource CaptionTextStyle}"
+                               Margin="{StaticResource Thickness.M}" />
+                </StackPanel>
+            </Border>
+
+            <Border Grid.Column="2" Style="{StaticResource TableCardStyle}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <StackPanel Grid.Row="0" Margin="{StaticResource CardPadding}">
+                        <TextBlock Text="ON-HAND BY PRODUCT" Style="{StaticResource PageEyebrowTextStyle}" />
+                        <TextBlock Text="Products on hand (derived from movements)" Style="{StaticResource TitleTextStyle}" />
+                    </StackPanel>
+                    <DataGrid Grid.Row="1"
+                              ItemsSource="{Binding SelectedOverview.OnHandRows, Mode=OneWay}"
+                              RowStyle="{StaticResource DataGrid.RowStyle}"
+                              AutoGenerateColumns="False"
+                              MinHeight="120">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="SKU" Binding="{Binding Sku}" Width="*" />
+                            <DataGridTextColumn Header="Units" Binding="{Binding UnitsText}" Width="100" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>

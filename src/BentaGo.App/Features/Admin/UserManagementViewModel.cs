@@ -130,7 +130,7 @@ public sealed class UserManagementViewModel : ValidatableViewModelBase, IRetaina
         get => _changePasswordNew;
         set
         {
-            if (SetValidatedField(ref _changePasswordNew, value, v => string.IsNullOrEmpty(v) ? "Password is required." : null))
+            if (SetProperty(ref _changePasswordNew, value))
             {
                 OnPropertyChanged(nameof(CanChangePassword));
                 (ChangePasswordCommand as RelayCommand)?.NotifyCanExecuteChanged();
@@ -251,16 +251,9 @@ public sealed class UserManagementViewModel : ValidatableViewModelBase, IRetaina
     private async Task ChangePasswordAsync() => await RunAsync(async () =>
     {
         UserRow? target = SelectedRow;
-        if (target is null)
+        if (target is null || string.IsNullOrEmpty(ChangePasswordNew))
         {
-            SetFieldError(nameof(ChangePasswordNew), "Select a user first.");
-            return;
-        }
-
-        if (string.IsNullOrEmpty(ChangePasswordNew))
-        {
-            SetFieldError(nameof(ChangePasswordNew), "Password is required.");
-            return;
+            return; // gated by CanChangePassword; defensive no-op
         }
 
         UserId? by = _actorContext.CurrentUserId;
@@ -313,7 +306,9 @@ public sealed class UserManagementViewModel : ValidatableViewModelBase, IRetaina
         user.Id == sessionId,
         user.LockedUntilUtc is not null,
         user.LockedUntilUtc is null ? "-" : "Locked until " + ManilaDisplay.DateTime(user.LockedUntilUtc.Value),
-        ManilaDisplay.DateTime(user.CreatedUtc));
+        ManilaDisplay.DateTime(user.CreatedUtc),
+        user.DeactivatedUtc is null ? "Deactivate" : "Activate",
+        user.Id != sessionId);
 
     private void NotifyCreateGate()
     {
@@ -364,7 +359,11 @@ public sealed class UserManagementViewModel : ValidatableViewModelBase, IRetaina
     };
 }
 
-/// <summary>One account row (immutable snapshot; the list is refreshed after each write).</summary>
+/// <summary>
+/// One account row (immutable snapshot; the list is refreshed after each
+/// write). ToggleLabel/CanToggle drive the per-row activate/deactivate
+/// action: the signed-in user's own row is read-only except password change.
+/// </summary>
 public sealed record UserRow(
     UserId Id,
     string Username,
@@ -374,7 +373,9 @@ public sealed record UserRow(
     bool IsSelf,
     bool IsLocked,
     string LockText,
-    string CreatedText);
+    string CreatedText,
+    string ToggleLabel,
+    bool CanToggle);
 
 /// <summary>One role chip in the create form (selectable, keyboard-first).</summary>
 public sealed class RoleChip : ViewModelBase

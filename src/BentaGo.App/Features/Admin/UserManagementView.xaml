@@ -1,0 +1,241 @@
+<UserControl x:Class="BentaGo.App.Features.Admin.UserManagementView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="clr-namespace:BentaGo.App.Ui">
+    <!-- User management (BG-005d): keyboard-first admin screen. Focus lands on
+         the create-user username field on arrival (ScreenRegistry initial
+         target); F5 refreshes, F6 creates, F7 sets the selected user's
+         password, Enter inside a form field confirms that form (element-level
+         bindings, SalesView precedent). Every state flag is a bound VM
+         property; the zero-literal rule holds (tokens + styles only). -->
+    <UserControl.InputBindings>
+        <KeyBinding Key="F5" Command="{Binding RefreshCommand}" />
+        <KeyBinding Key="F6" Command="{Binding CreateUserCommand}" />
+        <KeyBinding Key="F7" Command="{Binding ChangePasswordCommand}" />
+    </UserControl.InputBindings>
+
+    <Grid Margin="{StaticResource ScreenPadding}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0">
+            <TextBlock Text="ADMIN · USERS" Style="{StaticResource PageEyebrowTextStyle}" />
+            <TextBlock Text="User Management" Style="{StaticResource HeaderTextStyle}" />
+            <TextBlock Text="Create accounts, manage access, and reset passwords."
+                       Style="{StaticResource StatusTextStyle}" />
+        </StackPanel>
+
+        <!-- Create-user form + change-password form (parked/enabled states via
+             command gates; busy disables both). -->
+        <Border Grid.Row="1" Style="{StaticResource ActionPanelStyle}" Margin="{StaticResource Thickness.RowGap}">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="24" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="CREATE USER" Style="{StaticResource PageEyebrowTextStyle}" />
+                    <TextBlock Text="Username"
+                               Style="{StaticResource FieldLabelStyle}"
+                               Margin="{StaticResource Thickness.M}" />
+                    <TextBox Text="{Binding NewUsername, UpdateSourceTrigger=PropertyChanged}"
+                             MinHeight="{StaticResource Control.Height.Default}"
+                             ui:FocusTarget.Id="Admin.Users.Username">
+                        <TextBox.InputBindings>
+                            <KeyBinding Key="Enter" Command="{Binding CreateUserCommand}" />
+                        </TextBox.InputBindings>
+                    </TextBox>
+
+                    <TextBlock Text="Password"
+                               Style="{StaticResource FieldLabelStyle}"
+                               Margin="{StaticResource Thickness.M}" />
+                    <PasswordBox x:Name="NewPasswordBox"
+                                 MinHeight="{StaticResource Control.Height.Default}"
+                                 ui:FocusTarget.Id="Admin.Users.Password">
+                        <PasswordBox.InputBindings>
+                            <KeyBinding Key="Enter" Command="{Binding CreateUserCommand}" />
+                        </PasswordBox.InputBindings>
+                    </PasswordBox>
+
+                    <TextBlock Text="Role"
+                               Style="{StaticResource FieldLabelStyle}"
+                               Margin="{StaticResource Thickness.M}" />
+                    <ItemsControl ItemsSource="{Binding RoleChips}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Button Style="{StaticResource MethodTabButtonStyle}"
+                                        Content="{Binding Label}"
+                                        Command="{Binding SelectCommand}"
+                                        Margin="{StaticResource Thickness.XS}" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <Button Content="Create User (F6)"
+                            Style="{StaticResource Button.PrimaryStyle}"
+                            Command="{Binding CreateUserCommand}"
+                            Margin="{StaticResource Thickness.M}"
+                            MinWidth="200"
+                            HorizontalAlignment="Left"
+                            ui:FocusTarget.Id="Admin.Users.Create" />
+                </StackPanel>
+
+                <StackPanel Grid.Column="2">
+                    <TextBlock Text="CHANGE PASSWORD" Style="{StaticResource PageEyebrowTextStyle}" />
+                    <TextBlock Text="{Binding SelectedTargetText}"
+                               Style="{StaticResource TitleTextStyle}"
+                               Margin="{StaticResource Thickness.XS}" />
+                    <TextBlock Text="Select a row, then enter the new password. Admins can reset any password; every user can change their own."
+                               Style="{StaticResource StatusTextStyle}"
+                               Margin="{StaticResource Thickness.XS}" />
+                    <TextBlock Text="New password"
+                               Style="{StaticResource FieldLabelStyle}"
+                               Margin="{StaticResource Thickness.M}" />
+                    <PasswordBox x:Name="ChangePasswordBox"
+                                 MinHeight="{StaticResource Control.Height.Default}"
+                                 ui:FocusTarget.Id="Admin.Users.ChangePassword">
+                        <PasswordBox.InputBindings>
+                            <KeyBinding Key="Enter" Command="{Binding ChangePasswordCommand}" />
+                        </PasswordBox.InputBindings>
+                    </PasswordBox>
+                    <Button Content="Set Password (F7)"
+                            Style="{StaticResource Button.SecondaryStyle}"
+                            Command="{Binding ChangePasswordCommand}"
+                            Margin="{StaticResource Thickness.M}"
+                            MinWidth="200"
+                            HorizontalAlignment="Left" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Status / error banner between the forms and the table. -->
+        <StackPanel Grid.Row="2">
+            <Border Style="{StaticResource Banner.SuccessStyle}"
+                    Margin="{StaticResource Thickness.M}"
+                    Visibility="{Binding StatusMessage, Converter={StaticResource StringToVisibility}}">
+                <TextBlock Text="{Binding StatusMessage}" Style="{StaticResource BodyTextStyle}" />
+            </Border>
+            <Border Style="{StaticResource Banner.ErrorStyle}"
+                    Margin="{StaticResource Thickness.M}"
+                    Visibility="{Binding ErrorMessage, Converter={StaticResource StringToVisibility}}">
+                <TextBlock Text="{Binding ErrorMessage}" Style="{StaticResource BodyTextStyle}" />
+            </Border>
+        </StackPanel>
+
+        <!-- Accounts table. -->
+        <Border Grid.Row="3" Style="{StaticResource TableCardStyle}" Margin="{StaticResource Thickness.M}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+                <StackPanel Grid.Row="0" Margin="{StaticResource CardPadding}">
+                    <TextBlock Text="ACCOUNTS" Style="{StaticResource PageEyebrowTextStyle}" />
+                    <TextBlock Text="All local accounts" Style="{StaticResource TitleTextStyle}" />
+                </StackPanel>
+                <DataGrid Grid.Row="1"
+                          ItemsSource="{Binding Users}"
+                          RowStyle="{StaticResource DataGrid.RowStyle}"
+                          SelectedItem="{Binding SelectedRow}"
+                          SelectionMode="Single"
+                          MinHeight="160">
+                    <DataGrid.Columns>
+                        <DataGridTemplateColumn Header="Username" Width="1.4*">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="{Binding Username}"
+                                                   Style="{StaticResource BodyTextStyle}"
+                                                   VerticalAlignment="Center" />
+                                        <Border Style="{StaticResource KeyCapStyle}"
+                                                Margin="{StaticResource Thickness.XS}"
+                                                Visibility="{Binding IsSelf, Converter={StaticResource BoolToVisibility}}">
+                                            <TextBlock Text="You" Style="{StaticResource CaptionTextStyle}" />
+                                        </Border>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTextColumn Header="Role" Binding="{Binding RoleLabel}" Width="110" />
+                        <DataGridTemplateColumn Header="Status" Width="130">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Border Style="{StaticResource KeyCapStyle}"
+                                            HorizontalAlignment="Left">
+                                        <TextBlock Text="{Binding StatusLabel}"
+                                                   Style="{StaticResource LabelTextStyle}" />
+                                    </Border>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn Header="Lock state" Width="170">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <StackPanel Orientation="Horizontal">
+                                        <Border Style="{StaticResource Tag.WarningStyle}"
+                                                Margin="{StaticResource Thickness.XS}"
+                                                Visibility="{Binding IsLocked, Converter={StaticResource BoolToVisibility}}">
+                                            <TextBlock Text="LOCKED" Style="{StaticResource StatusWarningTextStyle}" />
+                                        </Border>
+                                        <TextBlock Text="{Binding LockText}"
+                                                   Style="{StaticResource CaptionTextStyle}"
+                                                   VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTextColumn Header="Created" Binding="{Binding CreatedText}" Width="140" />
+                        <DataGridTemplateColumn Header="Actions" Width="140">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Button Content="{Binding ToggleLabel}"
+                                            Style="{StaticResource Button.QuietStyle}"
+                                            Command="{Binding DataContext.SetActiveCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                            CommandParameter="{Binding}"
+                                            Visibility="{Binding CanToggle, Converter={StaticResource BoolToVisibility}}" />
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </Grid>
+        </Border>
+
+        <!-- Bottom action bar: refresh + keyboard-first keycap note. -->
+        <Border Grid.Row="4" Style="{StaticResource ActionPanelStyle}" Margin="{StaticResource Thickness.RowGap}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <TextBlock Text="F5 refresh · F6 create · F7 set password · Enter confirms a form"
+                           Style="{StaticResource CaptionTextStyle}"
+                           Margin="{StaticResource Thickness.XS}" />
+                <Grid Grid.Row="1" Style="{StaticResource ActionBarGridStyle}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Button Grid.Column="0"
+                            Content="Refresh List (F5)"
+                            Style="{StaticResource Button.ActionBarOutlineStyle}"
+                            Command="{Binding RefreshCommand}"
+                            HorizontalAlignment="Left"
+                            MinWidth="180"
+                            ui:FocusTarget.Id="Admin.Users.Refresh" />
+                </Grid>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>
