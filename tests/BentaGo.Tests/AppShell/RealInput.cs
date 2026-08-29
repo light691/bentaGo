@@ -55,12 +55,16 @@ internal static class RealInput
     /// </summary>
     public static void PostChord(IntPtr hwnd, bool control, bool alt, ushort vk)
     {
-        if (control) PostKeyDown(hwnd, VkControl, control: true, alt: false);
-        if (alt) PostKeyDown(hwnd, VkMenu, control: false, alt: true);
+        if (control)
+            PostKeyDown(hwnd, VkControl, control: true, alt: false);
+        if (alt)
+            PostKeyDown(hwnd, VkMenu, control: false, alt: true);
         PostKeyDown(hwnd, vk, control, alt: false);
         PostKeyUp(hwnd, vk, control, alt: false);
-        if (alt) PostKeyUp(hwnd, VkMenu, control: false, alt: true);
-        if (control) PostKeyUp(hwnd, VkControl, control: true, alt: false);
+        if (alt)
+            PostKeyUp(hwnd, VkMenu, control: false, alt: true);
+        if (control)
+            PostKeyUp(hwnd, VkControl, control: true, alt: false);
     }
 
     public static void PostKeyDown(IntPtr hwnd, ushort vk, bool control = false, bool alt = false)
@@ -91,12 +95,16 @@ internal static class RealInput
         {
             SetForegroundWindow(hwnd);
             Thread.Sleep(100);
-            if (control) SendKeyDown(VkControl, 0x1D);
-            if (alt) SendKeyDown(VkMenu, 0x38);
+            if (control)
+                SendKeyDown(VkControl, 0x1D);
+            if (alt)
+                SendKeyDown(VkMenu, 0x38);
             SendKeyDown(vk, ScanCodeOf(vk));
             SendKeyUp(vk);
-            if (alt) SendKeyUp(VkMenu);
-            if (control) SendKeyUp(VkControl);
+            if (alt)
+                SendKeyUp(VkMenu);
+            if (control)
+                SendKeyUp(VkControl);
         }
         finally
         {
@@ -191,7 +199,7 @@ internal static class RealInput
     [DllImport("user32.dll")] private static extern bool AttachThreadInput(uint idAttach, uint idAttachTo, bool fAttach);
     [DllImport("kernel32.dll")] private static extern uint GetCurrentThreadId();
     [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
-// removed: internal decl below
+    // removed: internal decl below
     [DllImport("user32.dll")] private static extern bool GetClientRect(IntPtr hWnd, out RECT rect);
     [DllImport("user32.dll")] private static extern bool ClientToScreen(IntPtr hWnd, ref POINT point);
     [DllImport("user32.dll")] private static extern bool SetCursorPos(int x, int y);

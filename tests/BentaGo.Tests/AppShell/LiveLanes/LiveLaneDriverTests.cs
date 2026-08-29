@@ -44,7 +44,8 @@ public sealed class LiveLaneDriverTests
     [Fact]
     public async Task L1_LoginFits1366WithoutScroll()
     {
-        if (!LiveLanesEnabled) return;
+        if (!LiveLanesEnabled)
+            return;
         await _sta.RunAsync(async () =>
         {
             using var session = await LaneSession.OpenAsync(1366, 768, login: false);
@@ -61,7 +62,8 @@ public sealed class LiveLaneDriverTests
     [Fact]
     public async Task L2_LoginFits1080WithoutExcessiveStretch()
     {
-        if (!LiveLanesEnabled) return;
+        if (!LiveLanesEnabled)
+            return;
         await _sta.RunAsync(async () =>
         {
             using var session = await LaneSession.OpenAsync(1920, 1080, login: false);
@@ -83,7 +85,8 @@ public sealed class LiveLaneDriverTests
     [Fact]
     public async Task L3_AltNavigationLandsFocusOnPrimaryControl()
     {
-        if (!LiveLanesEnabled) return;
+        if (!LiveLanesEnabled)
+            return;
         await _sta.RunAsync(async () =>
         {
             using var session = await LaneSession.OpenAsync(1366, 768);
@@ -123,7 +126,8 @@ public sealed class LiveLaneDriverTests
     [Fact]
     public async Task L4_F1HelpListsEveryCatalogEntry()
     {
-        if (!LiveLanesEnabled) return;
+        if (!LiveLanesEnabled)
+            return;
         await _sta.RunAsync(async () =>
         {
             using var session = await LaneSession.OpenAsync(1366, 768);
@@ -147,7 +151,8 @@ public sealed class LiveLaneDriverTests
     [Fact]
     public async Task L5_TabFocusOrderOnLoginIsLogical()
     {
-        if (!LiveLanesEnabled) return;
+        if (!LiveLanesEnabled)
+            return;
         await _sta.RunAsync(async () =>
         {
             using var session = await LaneSession.OpenAsync(1366, 768, login: false);
@@ -195,7 +200,8 @@ public sealed class LiveLaneDriverTests
     [Fact]
     public async Task L6_DialogEscClosesOnlyTopDialogAndRestoresFocus()
     {
-        if (!LiveLanesEnabled) return;
+        if (!LiveLanesEnabled)
+            return;
         await _sta.RunAsync(async () =>
         {
             using var session = await LaneSession.OpenAsync(1366, 768);
@@ -247,7 +253,8 @@ public sealed class LiveLaneDriverTests
     [Fact]
     public async Task L7_ValidationShowsColorAndCorrectiveCopy()
     {
-        if (!LiveLanesEnabled) return;
+        if (!LiveLanesEnabled)
+            return;
         await _sta.RunAsync(async () =>
         {
             using var session = await LaneSession.OpenAsync(1366, 768);
@@ -273,7 +280,8 @@ public sealed class LiveLaneDriverTests
     [Fact]
     public async Task L8_SixScreenSwitchNeverDuplicatesViewsNorRetainsDialogs()
     {
-        if (!LiveLanesEnabled) return;
+        if (!LiveLanesEnabled)
+            return;
         await _sta.RunAsync(async () =>
         {
             using var session = await LaneSession.OpenAsync(1366, 768);
@@ -301,7 +309,8 @@ public sealed class LiveLaneDriverTests
     [Fact]
     public async Task L9_HighContrastKeepsFocusStatusAndActionsDistinguishable()
     {
-        if (!LiveLanesEnabled) return;
+        if (!LiveLanesEnabled)
+            return;
         await _sta.RunAsync(async () =>
         {
             using var session = await LaneSession.OpenAsync(1366, 768);
@@ -340,7 +349,8 @@ public sealed class LiveLaneDriverTests
     [Fact]
     public async Task L10_Scaling125PercentRendersAtDevicePixelsWithoutClipping()
     {
-        if (!LiveLanesEnabled) return;
+        if (!LiveLanesEnabled)
+            return;
         await _sta.RunAsync(async () =>
         {
             using var session = await LaneSession.OpenAsync(1366, 768);
@@ -357,7 +367,8 @@ public sealed class LiveLaneDriverTests
     [Fact]
     public async Task ReviewPack_SixScreenshotsAt1366x768()
     {
-        if (!LiveLanesEnabled) return;
+        if (!LiveLanesEnabled)
+            return;
         await _sta.RunAsync(async () =>
         {
             using var session = await LaneSession.OpenAsync(1366, 768, login: false);
@@ -432,7 +443,8 @@ public sealed class LiveLaneDriverTests
     [Fact]
     public async Task Perf_P95NavigationStaysUnder150ms()
     {
-        if (!LiveLanesEnabled) return;
+        if (!LiveLanesEnabled)
+            return;
         await _sta.RunAsync(async () =>
         {
             using var session = await LaneSession.OpenAsync(1366, 768);

@@ -45,11 +45,11 @@ internal static class LaneEvidence
     }
 
     /// <summary>
-/// Saves a review-pack PNG and returns whether the rail pixel at (10,400)
-/// rendered the brand navy (#01274F) - the rail must never silently ship
-/// light (a mounted high-contrast dictionary collapses it to the system
-/// control colour). Dialog captures (no rail) pass verifyRail: false.
-/// </summary>
+    /// Saves a review-pack PNG and returns whether the rail pixel at (10,400)
+    /// rendered the brand navy (#01274F) - the rail must never silently ship
+    /// light (a mounted high-contrast dictionary collapses it to the system
+    /// control colour). Dialog captures (no rail) pass verifyRail: false.
+    /// </summary>
     public static bool SaveReviewPng(string fileName, int widthPx, int heightPx, Visual visual, bool verifyRail = true)
     {
         Directory.CreateDirectory(ReviewDir);
