@@ -45,7 +45,7 @@ public sealed class AuthAuditIdentityTests
 
         var second = new InMemoryLedgerStore();
         Assert.Equal(1, second.RecordAudit(NewAudit("b")));
-        Assert.Equal(3, first.RecordAudit(NewAudit("c"))); // first store keeps its own counter
+        Assert.Equal(2, first.RecordAudit(NewAudit("c"))); // first store keeps its own counter
     }
 
     [Fact]

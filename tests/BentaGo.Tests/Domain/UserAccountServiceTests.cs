@@ -66,7 +66,7 @@ public sealed class UserAccountServiceTests
         Assert.Null(created.DeactivatedUtc);
         Assert.Equal(admin.Id, created.CreatedBy);
         Assert.Equal(T0, created.CreatedUtc);
-        Assert.Single(_store.Users);
+        Assert.Equal(2, _store.Users.Count); // the actor + the created user
     }
 
     [Theory]
@@ -81,7 +81,7 @@ public sealed class UserAccountServiceTests
 
         Assert.True(result.IsFailure);
         Assert.Equal("FORBIDDEN", result.Errors[0].Code);
-        Assert.Empty(_store.Users); // nothing persisted
+        Assert.Single(_store.Users); // only the actor; nothing new persisted
     }
 
     [Fact]

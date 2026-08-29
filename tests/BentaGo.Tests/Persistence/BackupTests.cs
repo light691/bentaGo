@@ -32,7 +32,7 @@ public sealed class BackupTests : PersistenceTestBase
         Assert.True(File.Exists(receipt.BackupPath));
         Assert.Equal("ok", await SqliteTest.QuickCheckAsync(receipt.BackupPath));
         Assert.Equal(receipt.Sha256, await Task.Run(() => ReceiptSha256(receipt.BackupPath)));
-        Assert.EndsWith("BG003_02_AddCheckoutIdempotency", receipt.DatabaseVersion);
+        Assert.EndsWith("BG005_01_AddIdentityAndAudit", receipt.DatabaseVersion);
 
         // The backup is a full consistency point: a store over the backup
         // file renders the exact same day.

@@ -28,7 +28,7 @@ namespace BentaGo.Infrastructure.Persistence;
 /// inserting anything. Two competing appends therefore can never both
 /// validate against the same pre-commit state.
 /// </summary>
-public sealed partial class SqliteLedgerStore : ILedgerStore, IAsyncDisposable
+public sealed partial class SqliteLedgerStore : ILedgerStore, IDisposable, IAsyncDisposable
 {
     private const int BusyTimeoutMs = 5000;
     private const long DefaultDelayBeforeCommitMs = 3000;
@@ -529,6 +529,19 @@ public sealed partial class SqliteLedgerStore : ILedgerStore, IAsyncDisposable
     {
         Close();
         return ValueTask.CompletedTask;
+    }
+
+    /// <summary>
+    /// Synchronous dispose for the MS.DI sync ServiceProvider.Dispose() path.
+    /// LoginService (auth audits) depends on <see cref="ILedgerStore"/>, so the
+    /// store is instantiated inside the container whenever the login/account
+    /// chain is resolved; an IAsyncDisposable-ONLY type makes the container's
+    /// sync dispose throw. Identical work to <see cref="DisposeAsync"/>: close
+    /// the long-lived connection.
+    /// </summary>
+    public void Dispose()
+    {
+        Close();
     }
 
     private void EnsureOpen()

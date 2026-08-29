@@ -423,12 +423,23 @@ public sealed partial class SqliteLedgerStore
         return Convert.ToInt64(idCommand.ExecuteScalar());
     }
 
+    /// <summary>
+    /// Reads the audit stream. A store can be opened over a PRE-BG005 schema
+    /// (the lane-9 prior-schema fixture renders before the upgrade), where
+    /// AuditEvents has no identity PK and no terminal/reason columns — the
+    /// SELECT adapts to whichever shape the table actually has.
+    /// </summary>
     private List<AuditEvent> ReadAudits(SqliteConnection connection)
     {
+        bool hardened = TableHasColumn(connection, "AuditEvents", "terminal");
+        string columns = hardened
+            ? "\"sequence\", \"actor_id\", \"when_utc\", \"category\", \"message\", \"doc_kind\", \"doc_id\", \"terminal\", \"reason\""
+            : "\"sequence\", \"actor_id\", \"when_utc\", \"category\", \"message\", \"doc_kind\", \"doc_id\"";
+
         var audits = new List<AuditEvent>();
         using var command = connection.CreateCommand();
         command.CommandText =
-            "SELECT \"sequence\", \"actor_id\", \"when_utc\", \"category\", \"message\", \"doc_kind\", \"doc_id\", \"terminal\", \"reason\" FROM \"AuditEvents\" ORDER BY \"rowid\"";
+            $"SELECT {columns} FROM \"AuditEvents\" ORDER BY \"rowid\"";
         using SqliteDataReader reader = command.ExecuteReader();
         while (reader.Read())
         {
@@ -442,11 +453,20 @@ public sealed partial class SqliteLedgerStore
                 reader.GetString(3),
                 reader.GetString(4),
                 reference,
-                reader.IsDBNull(7) ? null : reader.GetString(7),
-                reader.IsDBNull(8) ? null : reader.GetString(8)));
+                hardened && !reader.IsDBNull(7) ? reader.GetString(7) : null,
+                hardened && !reader.IsDBNull(8) ? reader.GetString(8) : null));
         }
 
         return audits;
+    }
+
+    private static bool TableHasColumn(SqliteConnection connection, string table, string column)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT COUNT(1) FROM pragma_table_info($table) WHERE \"name\" = $column";
+        command.Parameters.AddWithValue("$table", table);
+        command.Parameters.AddWithValue("$column", column);
+        return Convert.ToInt64(command.ExecuteScalar()) == 1;
     }
 
     private static void InsertIdempotency(SqliteConnection connection, string key, string payload)

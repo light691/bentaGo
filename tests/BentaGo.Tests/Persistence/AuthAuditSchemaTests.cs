@@ -57,7 +57,7 @@ public sealed class AuthAuditSchemaTests : PersistenceTestBase
         Assert.True(reader.Read());
         Assert.Equal(one, reader.GetInt64(0));
         Assert.True(reader.Read());
-        Assert.Equal(two, reader.GetInt64(1));
+        Assert.Equal(two, reader.GetInt64(0));
         connection.Close();
     }
 
