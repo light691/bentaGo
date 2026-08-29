@@ -16,12 +16,21 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
+        <StackPanel Grid.Row="0">
+            <TextBlock Text="CHECKOUT" Style="{StaticResource PageEyebrowTextStyle}" />
+            <TextBlock Text="Complete payment" Style="{StaticResource HeaderTextStyle}" />
+            <TextBlock Text="Choose a tender, verify the amount, then confirm the sale."
+                       Style="{StaticResource StatusTextStyle}"
+                       Margin="{StaticResource Thickness.XS}" />
+        </StackPanel>
+
         <!-- Top row: TOTAL (left) + amount received / change (right). -->
-        <Grid Grid.Row="0">
+        <Grid Grid.Row="1" Margin="{StaticResource Thickness.RowGap}">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
@@ -54,12 +63,12 @@
             </StackPanel>
         </Grid>
 
-        <Border Grid.Row="1" BorderThickness="0,1,0,0"
+        <Border Grid.Row="2" BorderThickness="0,1,0,0"
                 BorderBrush="{DynamicResource Brush.Divider}"
                 Margin="{StaticResource Thickness.M}" />
 
         <!-- Middle: method list (left) + order summary (right). -->
-        <Grid Grid.Row="2">
+        <Grid Grid.Row="3">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="280" />
                 <ColumnDefinition Width="16" />
@@ -67,8 +76,10 @@
             </Grid.ColumnDefinitions>
 
             <!-- Stacked payment methods - full column width, 44 tall. -->
-            <StackPanel Grid.Column="0" ui:FocusTarget.Id="Payment.MethodTabs">
-                <ItemsControl ItemsSource="{Binding MethodOptions}">
+            <Border Grid.Column="0" Style="{StaticResource ActionPanelStyle}">
+                <StackPanel ui:FocusTarget.Id="Payment.MethodTabs">
+                    <TextBlock Text="PAYMENT METHOD" Style="{StaticResource PageEyebrowTextStyle}" />
+                    <ItemsControl ItemsSource="{Binding MethodOptions}">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
                             <StackPanel />
@@ -82,8 +93,9 @@
                                     Content="{Binding Label}" />
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
-                </ItemsControl>
-            </StackPanel>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
 
             <!-- Order summary card. -->
             <Border Grid.Column="2" Style="{StaticResource CardStyle}" VerticalAlignment="Stretch">
@@ -130,7 +142,7 @@
         <!-- Bottom action bar: full width, Complete Payment (green) / Cancel.
              The amount field keeps focus; Enter confirms via IsDefault, Esc
              cancels through the DialogHost input binding. -->
-        <Grid Grid.Row="3" Style="{StaticResource ActionBarGridStyle}" Margin="{StaticResource Thickness.M}">
+        <Grid Grid.Row="4" Style="{StaticResource ActionBarGridStyle}" Margin="{StaticResource Thickness.M}">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="11*" />
                 <ColumnDefinition Width="12" />

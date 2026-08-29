@@ -14,6 +14,7 @@
         </Grid.RowDefinitions>
 
         <StackPanel Grid.Row="0">
+            <TextBlock Text="INVENTORY" Style="{StaticResource PageEyebrowTextStyle}" />
             <TextBlock Text="My Stock" Style="{StaticResource HeaderTextStyle}" />
             <TextBlock Style="{StaticResource StatusTextStyle}">
                 <Run Text="Trip " /><Run Text="{Binding Session.TripNumber, Mode=OneWay}" />
@@ -24,7 +25,8 @@
              under a "Search" label (reference layout). The old
              Stretch+MaxWidth box centred itself mid-screen and the toggle
              floated without an anchor. -->
-        <Grid Grid.Row="1" Margin="{StaticResource Thickness.M}">
+        <Border Grid.Row="1" Style="{StaticResource ActionPanelFlushStyle}" Margin="{StaticResource Thickness.RowGap}">
+            <Grid>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
@@ -43,12 +45,13 @@
                     Command="{Binding ToggleLowOnlyCommand}"
                     VerticalAlignment="Bottom"
                     Margin="{StaticResource Thickness.XS}" />
-        </Grid>
+            </Grid>
+        </Border>
 
-        <DataGrid Grid.Row="2"
-                  ItemsSource="{Binding FilteredRows}"
-                  RowStyle="{StaticResource DataGrid.LowStockRowStyle}"
-                  AutoGenerateColumns="False">
+        <Border Grid.Row="2" Style="{StaticResource TableCardStyle}">
+            <DataGrid ItemsSource="{Binding FilteredRows}"
+                      RowStyle="{StaticResource DataGrid.LowStockRowStyle}"
+                      AutoGenerateColumns="False">
             <DataGrid.Columns>
                 <DataGridTemplateColumn Header="SKU" Width="110">
                     <DataGridTemplateColumn.CellTemplate>
@@ -74,11 +77,13 @@
                 <DataGridTextColumn Header="On hand" Binding="{Binding OnHand}" Width="70" />
                 <DataGridTextColumn Header="Last movement" Binding="{Binding LastMovementText}" Width="170" />
             </DataGrid.Columns>
-        </DataGrid>
+            </DataGrid>
+        </Border>
 
         <!-- Bottom parked stock-action row: equal widths, all disabled - no
              commands, no bindings (BG-005 wires these). -->
-        <Grid Grid.Row="3" Style="{StaticResource ActionBarGridStyle}" Margin="{StaticResource Thickness.M}">
+        <Border Grid.Row="3" Style="{StaticResource ActionPanelStyle}" Margin="{StaticResource Thickness.RowGap}">
+            <Grid Style="{StaticResource ActionBarGridStyle}">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="12" />
@@ -100,6 +105,7 @@
                     Style="{StaticResource Button.ActionBarStyle}" IsEnabled="False" />
             <Button Grid.Column="8" Content="Print (F11)"
                     Style="{StaticResource Button.ActionBarStyle}" IsEnabled="False" />
-        </Grid>
+            </Grid>
+        </Border>
     </Grid>
 </UserControl>
