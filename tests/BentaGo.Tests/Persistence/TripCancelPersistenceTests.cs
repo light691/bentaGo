@@ -72,7 +72,7 @@ public sealed class TripCancelPersistenceTests : PersistenceTestBase
 
         // Transitions are audited with EXISTING categories (documented reuse:
         // REOPEN for the open transition, CLOSE for the cancel — no TRIP.* set).
-        Assert.Contains(store.Audits, a => a.Category == "REOPEN" && a.Message.Contains($"trip {trip} opened"));
+        Assert.Contains(store.Audits, a => a.Category == "REOPEN" && a.Message.Contains($"trip {trip.Value:N} opened"));
         Assert.Contains(store.Audits, a => a.Category == "CLOSE" && a.Message.Contains("cancelled: route cancelled by admin"));
 
         // Reopen + rebuild: the fold replays TripCancel and keeps Cancelled.
