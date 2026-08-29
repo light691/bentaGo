@@ -69,7 +69,7 @@
         <Setter Property="MinHeight" Value="44" />
         <Setter Property="Padding" Value="20,0" />
         <Setter Property="Cursor" Value="Hand" />
-        <Setter Property="FocusVisualStyle" Value="{DynamicResource FocusVisual.Default}" />
+        <Setter Property="FocusVisualStyle" Value="{DynamicResource FocusVisual.Accent}" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
@@ -93,7 +93,7 @@
                             <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource Brush.Accent.Pressed}" />
                         </Trigger>
                         <Trigger Property="IsKeyboardFocused" Value="True">
-                            <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource Brush.Focus}" />
+                            <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource Brush.Focus.Accent}" />
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource Brush.State.Disabled.Bg}" />
@@ -277,6 +277,8 @@
 
     <Style x:Key="KeypadButton.AccentStyle" TargetType="Button" BasedOn="{StaticResource Button.KeypadStyle}">
         <Setter Property="Foreground" Value="{DynamicResource Brush.Text.OnAccent}" />
+        <!-- Accent keypad keys ring in the accent family (bg-004-p5 fix10). -->
+        <Setter Property="FocusVisualStyle" Value="{DynamicResource FocusVisual.Accent}" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">

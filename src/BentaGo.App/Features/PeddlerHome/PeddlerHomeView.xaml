@@ -33,7 +33,7 @@
                            VerticalAlignment="Center" />
             </StackPanel>
             <TextBlock Style="{StaticResource StatusTextStyle}">
-                <Run Text="Trip " /><Run Text="{Binding Session.TripNumber, Mode=OneWay}" />
+                <Run Text="{Binding Session.TripNumber, Mode=OneWay}" />
                 <Run Text="  ·  now " /><Run Text="{Binding Session.NowText, Mode=OneWay}" />
             </TextBlock>
         </StackPanel>
@@ -67,8 +67,11 @@
             </Border>
         </Grid>
 
-        <!-- Primary + secondary actions + quick actions. -->
-        <Grid Grid.Row="3" Margin="{StaticResource Thickness.M}">
+        <!-- Primary + secondary actions + quick actions. RowGap keeps the
+             12px vertical rhythm while every child stays on the content
+             origin (bg-004-p5 fix10: the old uniform M margin inset the
+             whole action area 12px right of the KPI cards). -->
+        <Grid Grid.Row="3" Margin="{StaticResource Thickness.RowGap}">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
@@ -84,18 +87,19 @@
                     MinWidth="200"
                     ui:FocusTarget.Id="Home.NewSaleButton" />
 
-            <!-- Action row: all 44 tall, aligned x=240, gaps 12. Off-scope
-                 items (BG-005) carry a Future tag and are parked. -->
-            <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="{StaticResource Thickness.M}">
+            <!-- Action row (bg-004-p5 fix10): one aligned band at the
+                 content origin - same left edge as NEW SALE and the KPI
+                 cards, shared Button.HomeActionStyle gives a uniform 140
+                 width floor, ColumnGap the 12px gaps. Off-scope items
+                 (BG-005) carry a Future tag and are parked. -->
+            <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="{StaticResource Thickness.RowGap}">
                 <Button Content="My Stock"
-                        Style="{StaticResource Button.ActionBarOutlineStyle}"
+                        Style="{StaticResource Button.HomeActionStyle}"
                         Command="{Binding StockCommand}"
-                        Margin="{StaticResource Thickness.M}"
                         ui:FocusTarget.Id="Home.StockButton" />
-                <Button Style="{StaticResource Button.ActionBarOutlineStyle}"
+                <Button Style="{StaticResource Button.HomeActionStyle}"
                         Command="{Binding TransactionsCommand}"
-                        IsEnabled="False"
-                        Margin="{StaticResource Thickness.M}">
+                        IsEnabled="False">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="Transactions" Style="{StaticResource PlaceholderTextStyle}" />
                         <Border Style="{StaticResource PlaceholderStyle}" >
@@ -103,10 +107,9 @@
                         </Border>
                     </StackPanel>
                 </Button>
-                <Button Style="{StaticResource Button.ActionBarOutlineStyle}"
+                <Button Style="{StaticResource Button.HomeActionStyle}"
                         Command="{Binding ReturnsCommand}"
-                        IsEnabled="False"
-                        Margin="{StaticResource Thickness.M}">
+                        IsEnabled="False">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="Returns" Style="{StaticResource PlaceholderTextStyle}" />
                         <Border Style="{StaticResource PlaceholderStyle}" >
@@ -115,7 +118,7 @@
                     </StackPanel>
                 </Button>
                 <Button Content="End Trip"
-                        Style="{StaticResource Button.ActionBarOutlineStyle}"
+                        Style="{StaticResource Button.HomeActionStyle}"
                         Command="{Binding EndTripCommand}"
                         ui:FocusTarget.Id="Home.EndTripButton" />
             </StackPanel>
@@ -124,8 +127,8 @@
                  the content width; F2/F12 live green, F8/F11 parked. -->
             <TextBlock Grid.Row="2" Text="Quick Actions (Keyboard First)"
                        Style="{StaticResource FieldLabelStyle}"
-                       Margin="{StaticResource Thickness.M}" />
-            <Grid Grid.Row="3" Margin="{StaticResource Thickness.S}">
+                       Margin="{StaticResource Thickness.RowGap}" />
+            <Grid Grid.Row="3" Margin="{StaticResource Thickness.RowGap}">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="*" />

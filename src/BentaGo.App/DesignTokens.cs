@@ -45,6 +45,7 @@ public static class DesignTokens
 
     // ---- Focus / disabled ----
     public const string FocusBrush = "Brush.Focus";
+    public const string FocusAccentBrush = "Brush.Focus.Accent";
     public const string StateDisabledBgBrush = "Brush.State.Disabled.Bg";
     public const string StateDisabledFgBrush = "Brush.State.Disabled.Fg";
     public const string StateDisabledBorderBrush = "Brush.State.Disabled.Border";
@@ -97,6 +98,7 @@ public static class DesignTokens
     public const string ThicknessXl = "Thickness.XL";
     public const string ThicknessXxl = "Thickness.XXL";
     public const string ThicknessRowGap = "Thickness.RowGap";
+    public const string ThicknessColumnGap = "Thickness.ColumnGap";
     public const string ScreenPadding = "ScreenPadding";
     public const string CardPadding = "CardPadding";
     public const string CornerS = "Corner.S";
@@ -106,6 +108,7 @@ public static class DesignTokens
     public const string ControlHeightDefault = "Control.Height.Default";
     public const string ControlHeightLarge = "Control.Height.Large";
     public const string ControlHeightField = "Control.Height.Field";
+    public const string ControlMinWidthAction = "Control.MinWidth.Action";
     public const string FieldWidthSearch = "Field.Width.Search";
     public const string FieldWidthCash = "Field.Width.Cash";
     public const string DialogHostMaxWidth = "DialogHost.MaxWidth";
@@ -113,6 +116,7 @@ public static class DesignTokens
 
     // ---- Shared templates / styles ----
     public const string FocusVisualDefault = "FocusVisual.Default";
+    public const string FocusVisualAccent = "FocusVisual.Accent";
     public const string ButtonPrimaryStyle = "Button.PrimaryStyle";
     public const string ButtonSecondaryStyle = "Button.SecondaryStyle";
     public const string ButtonDangerStyle = "Button.DangerStyle";
@@ -135,6 +139,7 @@ public static class DesignTokens
     public const string QuickActionKeyCapTextStyle = "QuickActionKeyCapTextStyle";
     public const string ButtonActionBarStyle = "Button.ActionBarStyle";
     public const string ButtonActionBarOutlineStyle = "Button.ActionBarOutlineStyle";
+    public const string ButtonHomeActionStyle = "Button.HomeActionStyle";
     public const string ButtonActionBarDangerOutlineStyle = "Button.ActionBarDangerOutlineStyle";
     public const string ActionBarGridStyle = "ActionBarGridStyle";
     public const string FieldEditorTallStyle = "FieldEditorTallStyle";
@@ -176,7 +181,7 @@ public static class DesignTokens
         BorderDefaultBrush, BorderStrongBrush, DividerBrush,
         StatusSuccessBrush, StatusWarningBrush, StatusErrorBrush, StatusInfoBrush,
         StatusSuccessBgBrush, StatusWarningBgBrush, StatusErrorBgBrush, StatusInfoBgBrush,
-        FocusBrush,
+        FocusBrush, FocusAccentBrush,
         StateDisabledBgBrush, StateDisabledFgBrush, StateDisabledBorderBrush,
         BrandRailBrush, BrandRailHoverBrush, BrandRailSelectedBrush, BrandRailBorderBrush,
         BrandRailKeycapBgBrush, BrandRailKeycapTextBrush, BrandSecondaryBrush,
@@ -185,19 +190,19 @@ public static class DesignTokens
         FontSizeDisplay, FontSizeHeader, FontSizeTitle, FontSizeBody, FontSizeLabel, FontSizeStatus, FontSizeCaption,
         FontWeightStrong, FontWeightSemi,
         DisplayTextStyle, HeaderTextStyle, TitleTextStyle, BodyTextStyle, LabelTextStyle, StatusTextStyle, CaptionTextStyle, MoneyTextStyle,
-        ThicknessXs, ThicknessS, ThicknessM, ThicknessL, ThicknessXl, ThicknessXxl, ThicknessRowGap,
+        ThicknessXs, ThicknessS, ThicknessM, ThicknessL, ThicknessXl, ThicknessXxl, ThicknessRowGap, ThicknessColumnGap,
         ScreenPadding, CardPadding,
         CornerS, CornerM, CornerL, CornerButton,
-        ControlHeightDefault, ControlHeightLarge, ControlHeightField,
+        ControlHeightDefault, ControlHeightLarge, ControlHeightField, ControlMinWidthAction,
         FieldWidthSearch, FieldWidthCash,
         DialogHostMaxWidth, DialogHostMaxHeight,
-        FocusVisualDefault,
+        FocusVisualDefault, FocusVisualAccent,
         ButtonPrimaryStyle, ButtonSecondaryStyle, ButtonDangerStyle, ButtonQuietStyle,
         ButtonKeypadStyle, KeypadButtonAccentStyle,
         CardStyle, BannerSuccessStyle, BannerWarningStyle, BannerErrorStyle, BannerInfoBgStyle,
         DataGridLowStockRowStyle, DataGridRowStyle, NavRailItemStyle, NavRailTextStyle, NavRailKeyCapStyle, NavRailKeyCapTextStyle,
         QuickActionChipStyle, QuickActionTextStyle, QuickActionKeyCapTextStyle,
-        ButtonActionBarStyle, ButtonActionBarOutlineStyle, ButtonActionBarDangerOutlineStyle, ActionBarGridStyle, FieldEditorTallStyle, KpiCardStyle,
+        ButtonActionBarStyle, ButtonActionBarOutlineStyle, ButtonHomeActionStyle, ButtonActionBarDangerOutlineStyle, ActionBarGridStyle, FieldEditorTallStyle, KpiCardStyle,
         StatusStripDotStyle,
         MoneyPositiveTextStyle, StatusSuccessTitleTextStyle, StatusBarLeadTextStyle, MethodTabButtonStyle,
         ScanEditorStyle, FieldLabelStyle, DialogWindowStyle, HelpOverlayStyle,

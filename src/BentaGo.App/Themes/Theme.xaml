@@ -60,6 +60,10 @@
 
     <!-- Focus / disabled -->
     <SolidColorBrush x:Key="Brush.Focus" Color="#0B57D0" />
+    <!-- Accent-family focus ring (bg-004-p5 fix10): green buttons ring in
+         the accent pressed dark instead of the focus blue; fields and
+         outlined controls keep Brush.Focus. -->
+    <SolidColorBrush x:Key="Brush.Focus.Accent" Color="#025C2D" />
     <SolidColorBrush x:Key="Brush.State.Disabled.Bg" Color="#F1F3F4" />
     <SolidColorBrush x:Key="Brush.State.Disabled.Fg" Color="#9AA0A6" />
     <SolidColorBrush x:Key="Brush.State.Disabled.Border" Color="#E4E7EB" />
@@ -162,6 +166,9 @@
          them share one 56px row height (was a view literal on
          FieldEditorTallStyle only, so companion buttons mis-sized). -->
     <sys:Double x:Key="Control.Height.Field">56</sys:Double>
+    <!-- bg-004-p5 fix10: shared width floor for the home secondary action
+         row so the four buttons read as one uniform band. -->
+    <sys:Double x:Key="Control.MinWidth.Action">140</sys:Double>
 
     <!-- Round-8: explicit field widths. Left-anchored + content-sized
          TextBoxes collapse to their caret width, so a fixed token width is
@@ -175,6 +182,10 @@
     <!-- Round-8: vertical-only stack rhythm. Uniform M margins on stacked
          summary rows staggered every row +12px to the right. -->
     <Thickness x:Key="Thickness.RowGap">0,12,0,0</Thickness>
+    <!-- bg-004-p5 fix10: horizontal counterpart - a 12px gap between buttons
+         of one action row, with no left inset (the row keeps the content
+         origin). -->
+    <Thickness x:Key="Thickness.ColumnGap">0,0,12,0</Thickness>
 
     <!-- ====================== Focus visual ====================== -->
     <!-- FocusVisualStyle is a Style-typed property: the shared focus ring is
@@ -190,6 +201,24 @@
                                RadiusX="4"
                                RadiusY="4"
                                Stroke="{DynamicResource Brush.Focus}"
+                               StrokeThickness="2"
+                               SnapsToDevicePixels="True" />
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Accent focus ring (bg-004-p5 fix10): same geometry as the default
+         ring, stroked with Brush.Focus.Accent; applied only to accent /
+         primary button styles. -->
+    <Style x:Key="FocusVisual.Accent" TargetType="Control">
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Control">
+                    <Rectangle Margin="-3"
+                               RadiusX="4"
+                               RadiusY="4"
+                               Stroke="{DynamicResource Brush.Focus.Accent}"
                                StrokeThickness="2"
                                SnapsToDevicePixels="True" />
                 </ControlTemplate>
@@ -254,7 +283,7 @@
         <Setter Property="Margin" Value="0,0,8,0" />
         <Setter Property="VerticalContentAlignment" Value="Center" />
         <Setter Property="Cursor" Value="Hand" />
-        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusVisual.Default}" />
+        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusVisual.Accent}" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
@@ -277,7 +306,7 @@
                             <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource Brush.Accent.Pressed}" />
                         </Trigger>
                         <Trigger Property="IsKeyboardFocused" Value="True">
-                            <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource Brush.Focus}" />
+                            <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource Brush.Focus.Accent}" />
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource Brush.State.Disabled.Bg}" />
@@ -331,7 +360,7 @@
         <Setter Property="Padding" Value="20,0" />
         <Setter Property="MinWidth" Value="96" />
         <Setter Property="Cursor" Value="Hand" />
-        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusVisual.Default}" />
+        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusVisual.Accent}" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
@@ -354,7 +383,7 @@
                             <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource Brush.Accent.Pressed}" />
                         </Trigger>
                         <Trigger Property="IsKeyboardFocused" Value="True">
-                            <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource Brush.Focus}" />
+                            <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource Brush.Focus.Accent}" />
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource Brush.State.Disabled.Bg}" />
@@ -409,6 +438,16 @@
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
+    </Style>
+
+    <!-- Home secondary action row (bg-004-p5 fix10): My Stock /
+         Transactions / Returns / End Trip share one style so the band is
+         uniform - same width floor, same 12px gap; the view keeps the row
+         at the content origin (no left inset on the row container). -->
+    <Style x:Key="Button.HomeActionStyle" TargetType="Button"
+           BasedOn="{StaticResource Button.ActionBarOutlineStyle}">
+        <Setter Property="MinWidth" Value="{StaticResource Control.MinWidth.Action}" />
+        <Setter Property="Margin" Value="{StaticResource Thickness.ColumnGap}" />
     </Style>
 
     <!-- Danger outline (round-6): CANCEL on the sales bottom bar. -->

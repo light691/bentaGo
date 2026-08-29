@@ -45,6 +45,9 @@
     <SolidColorBrush x:Key="Brush.Status.Info.Bg" Color="{DynamicResource {x:Static SystemColors.WindowColorKey}}" />
 
     <SolidColorBrush x:Key="Brush.Focus" Color="{DynamicResource {x:Static SystemColors.HighlightColorKey}}" />
+    <!-- Accent focus ring collapses to the system text colour in HC: it
+         stays visible against the highlight-filled accent buttons. -->
+    <SolidColorBrush x:Key="Brush.Focus.Accent" Color="{DynamicResource {x:Static SystemColors.WindowTextColorKey}}" />
 
     <SolidColorBrush x:Key="Brush.State.Disabled.Bg" Color="{DynamicResource {x:Static SystemColors.ControlColorKey}}" />
     <SolidColorBrush x:Key="Brush.State.Disabled.Fg" Color="{DynamicResource {x:Static SystemColors.GrayTextColorKey}}" />
