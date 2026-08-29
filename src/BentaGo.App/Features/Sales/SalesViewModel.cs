@@ -147,6 +147,12 @@ public sealed class SalesViewModel : ValidatableViewModelBase, IRetainableScreen
             ? "No products loaded - ask admin to import."
             : "No matching products. Try the product name or SKU.";
 
+    public string SearchResultCountText =>
+        SearchResults.Count == 0 ? "No results" : $"{SearchResults.Count} result(s)";
+
+    public string CartSummaryText =>
+        Cart.Count == 0 ? "No items" : $"{Cart.Count} item(s)";
+
     public Money Total
     {
         get
@@ -221,6 +227,7 @@ public sealed class SalesViewModel : ValidatableViewModelBase, IRetainableScreen
         OnPropertyChanged(nameof(SearchResults));
         OnPropertyChanged(nameof(HasSearchResults));
         OnPropertyChanged(nameof(SearchResultsEmptyText));
+        OnPropertyChanged(nameof(SearchResultCountText));
     }
 
     private void AddOfferAndClear(ProductOffer offer)
@@ -231,6 +238,7 @@ public sealed class SalesViewModel : ValidatableViewModelBase, IRetainableScreen
         OnPropertyChanged(nameof(SearchResults));
         OnPropertyChanged(nameof(HasSearchResults));
         OnPropertyChanged(nameof(SearchResultsEmptyText));
+        OnPropertyChanged(nameof(SearchResultCountText));
         _focus.Request(AutomationIds.SalesScanBox);
     }
 
@@ -290,7 +298,7 @@ public sealed class SalesViewModel : ValidatableViewModelBase, IRetainableScreen
         }
 
         var payment = _services.GetRequiredService<PaymentDialogViewModel>();
-        payment.Load(Total);
+        payment.Load(Total, Cart.Count);
         PaymentDialogResult? result = await _dialogs.ShowAsync(payment, focusAfterClose: AutomationIds.SalesScanBox);
         if (result is null)
         {
@@ -324,6 +332,7 @@ public sealed class SalesViewModel : ValidatableViewModelBase, IRetainableScreen
         OnPropertyChanged(nameof(SearchResults));
         OnPropertyChanged(nameof(HasSearchResults));
         OnPropertyChanged(nameof(SearchResultsEmptyText));
+        OnPropertyChanged(nameof(SearchResultCountText));
     }
 
     private void NotifyCartChanged()
@@ -333,6 +342,7 @@ public sealed class SalesViewModel : ValidatableViewModelBase, IRetainableScreen
         OnPropertyChanged(nameof(Total));
         OnPropertyChanged(nameof(HasCartItems));
         OnPropertyChanged(nameof(CartEmptyText));
+        OnPropertyChanged(nameof(CartSummaryText));
         NotifyCartCommands();
     }
 

@@ -38,6 +38,9 @@
                          Width="{StaticResource Field.Width.Search}"
                          HorizontalAlignment="Left"
                          ui:FocusTarget.Id="Stock.StockSearchBox" />
+                <TextBlock Text="{Binding FilteredCountText}"
+                           Style="{StaticResource CaptionTextStyle}"
+                           Margin="{StaticResource Thickness.XS}" />
             </StackPanel>
             <Button Grid.Column="1"
                     Content="{Binding LowOnlyLabel}"
@@ -49,9 +52,11 @@
         </Border>
 
         <Border Grid.Row="2" Style="{StaticResource TableCardStyle}">
-            <DataGrid ItemsSource="{Binding FilteredRows}"
-                      RowStyle="{StaticResource DataGrid.LowStockRowStyle}"
-                      AutoGenerateColumns="False">
+            <Grid>
+                <DataGrid ItemsSource="{Binding FilteredRows}"
+                          RowStyle="{StaticResource DataGrid.LowStockRowStyle}"
+                          AutoGenerateColumns="False"
+                          Visibility="{Binding HasFilteredRows, Converter={StaticResource BoolToVisibility}}">
             <DataGrid.Columns>
                 <DataGridTemplateColumn Header="SKU" Width="110">
                     <DataGridTemplateColumn.CellTemplate>
@@ -77,13 +82,33 @@
                 <DataGridTextColumn Header="On hand" Binding="{Binding OnHand}" Width="70" />
                 <DataGridTextColumn Header="Last movement" Binding="{Binding LastMovementText}" Width="170" />
             </DataGrid.Columns>
-            </DataGrid>
+                </DataGrid>
+                <Border Style="{StaticResource EmptyStateStyle}"
+                        Margin="{StaticResource Thickness.L}"
+                        VerticalAlignment="Top"
+                        Visibility="{Binding HasFilteredRows, Converter={StaticResource InvertedBoolToVisibility}}">
+                    <StackPanel>
+                        <TextBlock Text="No stock matches" Style="{StaticResource TitleTextStyle}" />
+                        <TextBlock Text="Try a different search or turn off the low-stock filter."
+                                   Style="{StaticResource CaptionTextStyle}"
+                                   Margin="{StaticResource Thickness.RowGap}" />
+                    </StackPanel>
+                </Border>
+            </Grid>
         </Border>
 
         <!-- Bottom parked stock-action row: equal widths, all disabled - no
              commands, no bindings (BG-005 wires these). -->
         <Border Grid.Row="3" Style="{StaticResource ActionPanelStyle}" Margin="{StaticResource Thickness.RowGap}">
-            <Grid Style="{StaticResource ActionBarGridStyle}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <TextBlock Text="Stock maintenance actions will be available in a future release."
+                           Style="{StaticResource CaptionTextStyle}"
+                           Margin="{StaticResource Thickness.XS}" />
+                <Grid Grid.Row="1" Style="{StaticResource ActionBarGridStyle}">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="12" />
@@ -96,15 +121,21 @@
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
             <Button Grid.Column="0" Content="Add Item (F6)"
-                    Style="{StaticResource Button.ActionBarStyle}" IsEnabled="False" />
+                    Style="{StaticResource Button.ActionBarStyle}" IsEnabled="False"
+                    ToolTip="Stock maintenance will be enabled in a future release." />
             <Button Grid.Column="2" Content="Edit (F7)"
-                    Style="{StaticResource Button.ActionBarStyle}" IsEnabled="False" />
+                    Style="{StaticResource Button.ActionBarStyle}" IsEnabled="False"
+                    ToolTip="Stock maintenance will be enabled in a future release." />
             <Button Grid.Column="4" Content="Adjust Stock (F8)"
-                    Style="{StaticResource Button.ActionBarStyle}" IsEnabled="False" />
+                    Style="{StaticResource Button.ActionBarStyle}" IsEnabled="False"
+                    ToolTip="Stock maintenance will be enabled in a future release." />
             <Button Grid.Column="6" Content="Price Update (F9)"
-                    Style="{StaticResource Button.ActionBarStyle}" IsEnabled="False" />
+                    Style="{StaticResource Button.ActionBarStyle}" IsEnabled="False"
+                    ToolTip="Price maintenance will be enabled in a future release." />
             <Button Grid.Column="8" Content="Print (F11)"
-                    Style="{StaticResource Button.ActionBarStyle}" IsEnabled="False" />
+                    Style="{StaticResource Button.ActionBarStyle}" IsEnabled="False"
+                    ToolTip="Printing will be enabled in a future release." />
+                </Grid>
             </Grid>
         </Border>
     </Grid>

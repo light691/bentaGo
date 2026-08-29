@@ -442,6 +442,8 @@
         <Setter Property="IsReadOnly" Value="True" />
         <Setter Property="SelectionUnit" Value="FullRow" />
         <Setter Property="AutoGenerateColumns" Value="False" />
+        <Setter Property="EnableRowVirtualization" Value="True" />
+        <Setter Property="EnableColumnVirtualization" Value="True" />
         <Setter Property="FocusVisualStyle" Value="{DynamicResource FocusVisual.Default}" />
     </Style>
 
@@ -602,6 +604,13 @@
         <Setter Property="BorderThickness" Value="0" />
     </Style>
 
+    <Style x:Key="EmptyStateStyle" TargetType="Border" BasedOn="{StaticResource ActionPanelStyle}">
+        <Setter Property="Background" Value="{DynamicResource Brush.Surface.Sunken}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Brush.Divider}" />
+        <Setter Property="Padding" Value="{DynamicResource Thickness.L}" />
+        <Setter Property="CornerRadius" Value="{DynamicResource Corner.M}" />
+    </Style>
+
     <Style x:Key="KpiAccentStripeStyle" TargetType="Border">
         <Setter Property="Width" Value="4" />
         <Setter Property="HorizontalAlignment" Value="Left" />
@@ -678,6 +687,19 @@
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="CornerRadius" Value="{DynamicResource Corner.M}" />
         <Setter Property="Padding" Value="12,6" />
+    </Style>
+
+    <Style x:Key="Banner.PendingStyle" TargetType="Border" BasedOn="{StaticResource Banner.InfoBgStyle}">
+        <Setter Property="Background" Value="{DynamicResource Brush.Surface.Sunken}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.Strong}" />
+        <Setter Property="Padding" Value="16,12" />
+    </Style>
+
+    <Style x:Key="StatusPendingTitleTextStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{DynamicResource Font.Family.Primary}" />
+        <Setter Property="FontSize" Value="{DynamicResource FontSize.Title}" />
+        <Setter Property="FontWeight" Value="{DynamicResource FontWeight.Semi}" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
     </Style>
 
     <!-- ============================ Navigation ============================ -->

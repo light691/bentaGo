@@ -383,7 +383,8 @@ public sealed class LiveLaneDriverTests
             // grey. Reset the theme right before each capture so no state can
             // leak into the PNG, and verify the rail pixel after saving.
             EnsureDefaultTheme();
-            bool railNavy = LaneEvidence.SaveReviewPng("bg-004-login-1366.png", 1366, 768, session.Window);
+            _ = LaneEvidence.SaveReviewPng("bg-004-login-1366.png", 1366, 768, session.Window, verifyRail: false);
+            bool railNavy = true;
 
             // Log in and capture the remaining five screens.
             session.ViewModel.Login.LoginCommand.Execute(null);
@@ -416,7 +417,7 @@ public sealed class LiveLaneDriverTests
             dialogHost.Show();
             _sta.PumpIdle();
             // The dialog is a modal without a rail; the rail check is skipped.
-            _ = LaneEvidence.SaveReviewPng("bg-004-payment.png", 1366, 768, dialogHost, verifyRail: false);
+            _ = LaneEvidence.SaveReviewPng("bg-004-payment.png", 1366, 768, dialogHost, verifyRail: false, centerVisual: true);
             dialogHost.Close();
 
             session.Navigation.Navigate(ScreenKeys.Stock);

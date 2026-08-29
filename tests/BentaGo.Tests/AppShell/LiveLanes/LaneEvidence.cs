@@ -50,11 +50,39 @@ internal static class LaneEvidence
     /// light (a mounted high-contrast dictionary collapses it to the system
     /// control colour). Dialog captures (no rail) pass verifyRail: false.
     /// </summary>
-    public static bool SaveReviewPng(string fileName, int widthPx, int heightPx, Visual visual, bool verifyRail = true)
+    public static bool SaveReviewPng(string fileName, int widthPx, int heightPx, Visual visual, bool verifyRail = true, bool centerVisual = false)
     {
         Directory.CreateDirectory(ReviewDir);
         var bitmap = new RenderTargetBitmap(widthPx, heightPx, 96, 96, PixelFormats.Pbgra32);
-        bitmap.Render(visual);
+        RenderTargetBitmap? renderedVisual = null;
+        if (!centerVisual)
+        {
+            renderedVisual = new RenderTargetBitmap(widthPx, heightPx, 96, 96, PixelFormats.Pbgra32);
+            renderedVisual.Render(visual);
+        }
+
+        // Compose every review capture onto the page surface. The live WPF
+        // window can be a few pixels shorter than the fixed evidence canvas;
+        // leaving the remainder unpainted produces a misleading black band.
+        var canvas = new DrawingVisual();
+        using (DrawingContext drawing = canvas.RenderOpen())
+        {
+            var pageBrush = (System.Windows.Media.Brush)System.Windows.Application.Current.FindResource("Brush.Surface.Page");
+            drawing.DrawRectangle(pageBrush, null, new Rect(0, 0, widthPx, heightPx));
+
+            if (renderedVisual is not null)
+            {
+                drawing.DrawImage(renderedVisual, new Rect(0, 0, widthPx, heightPx));
+            }
+            else if (visual is FrameworkElement element && element.ActualWidth > 0 && element.ActualHeight > 0)
+            {
+                double left = centerVisual ? Math.Max(0, (widthPx - element.ActualWidth) / 2) : 0;
+                double top = centerVisual ? Math.Max(0, (heightPx - element.ActualHeight) / 2) : 0;
+                drawing.DrawRectangle(new VisualBrush(visual), null,
+                    new Rect(left, top, element.ActualWidth, element.ActualHeight));
+            }
+        }
+        bitmap.Render(canvas);
 
         bool railNavy = true;
         if (verifyRail && widthPx > 40 && heightPx > 420)

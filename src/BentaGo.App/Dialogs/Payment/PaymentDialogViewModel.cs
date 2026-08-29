@@ -29,6 +29,7 @@ public sealed class PaymentDialogViewModel : DialogViewModelBase<PaymentDialogRe
 
     private readonly IFocusService _focus;
     private Money _total;
+    private int _itemCount;
     private string _selectedMethodId = CashId;
     private string _amountReceivedText = "";
     private string _customerName = "";
@@ -64,6 +65,15 @@ public sealed class PaymentDialogViewModel : DialogViewModelBase<PaymentDialogRe
     }
 
     public string TotalText => MoneyDisplay.Peso(Total);
+
+    public int ItemCount
+    {
+        get => _itemCount;
+        private set => SetProperty(ref _itemCount, value);
+    }
+
+    public string SaleSummaryText =>
+        ItemCount > 0 ? $"{ItemCount} item(s) in this sale" : "Review the current sale total before confirming.";
 
     public IReadOnlyList<MethodOption> MethodOptions { get; }
 
@@ -184,9 +194,11 @@ public sealed class PaymentDialogViewModel : DialogViewModelBase<PaymentDialogRe
         };
 
     /// <summary>Loads the cart total before the dialog is shown.</summary>
-    public void Load(Money total)
+    public void Load(Money total, int itemCount = 0)
     {
         Total = total;
+        ItemCount = Math.Max(0, itemCount);
+        OnPropertyChanged(nameof(SaleSummaryText));
         SelectedMethodId = CashId;
         // Cash is the default already, so the property setter is a no-op and
         // the option flags are never synced; hydrate them explicitly so the

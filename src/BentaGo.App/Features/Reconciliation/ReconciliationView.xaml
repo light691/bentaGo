@@ -134,6 +134,20 @@
                 </Border>
 
                 <Grid Grid.Row="1">
+                    <Border Style="{StaticResource Banner.PendingStyle}"
+                            Margin="{StaticResource Thickness.M}"
+                            VerticalAlignment="Center"
+                            Visibility="{Binding IsPending, Converter={StaticResource BoolToVisibility}}">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE7BA;" Style="{StaticResource StatusGlyphTextStyle}" />
+                            <StackPanel>
+                                <TextBlock Text="{Binding BannerText}" Style="{StaticResource StatusPendingTitleTextStyle}" />
+                                <TextBlock Text="Enter the cash remitted before reviewing the variance."
+                                           Style="{StaticResource CaptionTextStyle}"
+                                           Margin="{StaticResource Thickness.XS}" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
                     <Border Style="{StaticResource Banner.SuccessStyle}"
                             Margin="{StaticResource Thickness.M}"
                             VerticalAlignment="Center"
