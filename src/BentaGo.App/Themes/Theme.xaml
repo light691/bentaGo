@@ -1,0 +1,505 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=System.Runtime">
+
+    <!-- ================================================================
+         Theme.xaml — tokens and system states only (bg-004-synthesis §4).
+         Brushes are consumed via DynamicResource (live high-contrast swap);
+         scalars (sizes/spacing/corners) via StaticResource.
+         Hue values FINALIZED in round-4: the rail navy (#01274F), primary
+         action green (#03873F) and secondary navy (#2B4F75) were
+         pixel-sampled from designs/bentago-wpf-mvp-screen-set.png by the
+         operator (vision pass) and approved. Token structure is the
+         contract; the earlier provisional flag is lifted.
+         ================================================================ -->
+
+    <!-- Surfaces -->
+    <SolidColorBrush x:Key="Brush.Surface.Page" Color="#F4F5F7" />
+    <SolidColorBrush x:Key="Brush.Surface.Card" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="Brush.Surface.Sunken" Color="#E8EAED" />
+    <SolidColorBrush x:Key="Brush.Surface.Selected" Color="#E7F0EC" />
+
+    <!-- Text -->
+    <SolidColorBrush x:Key="Brush.Text.Primary" Color="#202124" />
+    <SolidColorBrush x:Key="Brush.Text.Secondary" Color="#5E6470" />
+    <SolidColorBrush x:Key="Brush.Text.Disabled" Color="#9AA0A6" />
+    <SolidColorBrush x:Key="Brush.Text.OnAccent" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="Brush.Text.OnBrand" Color="#FFFFFF" />
+
+    <!-- Brand / accent (round-4: hues pixel-sampled from
+         designs/bentago-wpf-mvp-screen-set.png and FINALIZED; the provisional
+         flag is lifted). Accent = primary-action green; Brand = deep navy. -->
+    <SolidColorBrush x:Key="Brush.Accent" Color="#03873F" />
+    <SolidColorBrush x:Key="Brush.Accent.Hover" Color="#027236" />
+    <SolidColorBrush x:Key="Brush.Accent.Pressed" Color="#025C2D" />
+    <SolidColorBrush x:Key="Brush.Brand" Color="#01274F" />
+
+    <!-- Brand navy ramp (rail + secondary navy text) -->
+    <SolidColorBrush x:Key="Brush.Brand.Rail" Color="#01274F" />
+    <SolidColorBrush x:Key="Brush.Brand.Rail.Hover" Color="#082F5A" />
+    <SolidColorBrush x:Key="Brush.Brand.Rail.Selected" Color="#0E3A68" />
+    <SolidColorBrush x:Key="Brush.Brand.Rail.Border" Color="#1B4A77" />
+    <SolidColorBrush x:Key="Brush.Brand.Rail.KeycapBg" Color="#0B3768" />
+    <SolidColorBrush x:Key="Brush.Brand.Rail.KeycapText" Color="#D7E3F1" />
+    <SolidColorBrush x:Key="Brush.Brand.Secondary" Color="#2B4F75" />
+
+    <!-- Borders -->
+    <SolidColorBrush x:Key="Brush.Border.Default" Color="#D7DAE0" />
+    <SolidColorBrush x:Key="Brush.Border.Strong" Color="#B6BCC5" />
+    <SolidColorBrush x:Key="Brush.Divider" Color="#E0E3E8" />
+
+    <!-- Status accents (always paired with text; never color-only) -->
+    <SolidColorBrush x:Key="Brush.Status.Success" Color="#1E7D32" />
+    <SolidColorBrush x:Key="Brush.Status.Warning" Color="#B26A00" />
+    <SolidColorBrush x:Key="Brush.Status.Error" Color="#B3261E" />
+    <SolidColorBrush x:Key="Brush.Status.Info" Color="#0B57D0" />
+    <SolidColorBrush x:Key="Brush.Status.Success.Bg" Color="#E6F4EA" />
+    <SolidColorBrush x:Key="Brush.Status.Warning.Bg" Color="#FCEFD9" />
+    <SolidColorBrush x:Key="Brush.Status.Error.Bg" Color="#F9E5E3" />
+    <SolidColorBrush x:Key="Brush.Status.Info.Bg" Color="#E7F0FB" />
+
+    <!-- Focus / disabled -->
+    <SolidColorBrush x:Key="Brush.Focus" Color="#0B57D0" />
+    <!-- Accent-family focus ring (bg-004-p5 fix10): green buttons ring in
+         the accent pressed dark instead of the focus blue; fields and
+         outlined controls keep Brush.Focus. -->
+    <SolidColorBrush x:Key="Brush.Focus.Accent" Color="#025C2D" />
+    <SolidColorBrush x:Key="Brush.State.Disabled.Bg" Color="#F1F3F4" />
+    <SolidColorBrush x:Key="Brush.State.Disabled.Fg" Color="#9AA0A6" />
+    <SolidColorBrush x:Key="Brush.State.Disabled.Border" Color="#E4E7EB" />
+
+    <!-- Payment method accents (selection only; label text always readable) -->
+    <SolidColorBrush x:Key="Brush.Pay.Cash" Color="#1E7D32" />
+    <SolidColorBrush x:Key="Brush.Pay.Gcash" Color="#0064E0" />
+    <SolidColorBrush x:Key="Brush.Pay.Maya" Color="#F5533D" />
+    <SolidColorBrush x:Key="Brush.Pay.Bank" Color="#6B4FBB" />
+    <SolidColorBrush x:Key="Brush.Pay.Credit" Color="#B26A00" />
+
+    <!-- ============================ Type ramp ============================ -->
+    <FontFamily x:Key="Font.Family.Primary">Segoe UI</FontFamily>
+    <!-- Reliable inline status glyphs (check / warning triangle). Segoe MDL2
+         Assets ships with Windows and renders at every target DPI. -->
+    <FontFamily x:Key="Font.Family.IconGlyphs">Segoe MDL2 Assets</FontFamily>
+    <!-- Round-8 (image pass): the big totals read at the reference
+         proportion (Sales POS / payment references render them ~22-26px,
+         never billboard-sized); 40px dwarfed every neighbouring label. -->
+    <sys:Double x:Key="FontSize.Display">26</sys:Double>
+    <sys:Double x:Key="FontSize.Header">26</sys:Double>
+    <sys:Double x:Key="FontSize.Title">20</sys:Double>
+    <sys:Double x:Key="FontSize.Body">15</sys:Double>
+    <sys:Double x:Key="FontSize.Label">13</sys:Double>
+    <sys:Double x:Key="FontSize.Status">12</sys:Double>
+    <sys:Double x:Key="FontSize.Caption">11</sys:Double>
+    <FontWeight x:Key="FontWeight.Strong">Bold</FontWeight>
+    <FontWeight x:Key="FontWeight.Semi">SemiBold</FontWeight>
+
+    <!-- Named text styles -->
+    <!-- DisplayTextStyle is used for the two big TOTALS only (Sales + Payment)
+         - retinted navy so totals carry the brand colour (round-4). -->
+    <Style x:Key="DisplayTextStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource Font.Family.Primary}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Display}" />
+        <Setter Property="FontWeight" Value="{StaticResource FontWeight.Strong}" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Brand.Secondary}" />
+    </Style>
+    <Style x:Key="HeaderTextStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource Font.Family.Primary}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Header}" />
+        <Setter Property="FontWeight" Value="{StaticResource FontWeight.Semi}" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
+    </Style>
+    <Style x:Key="TitleTextStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource Font.Family.Primary}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Title}" />
+        <Setter Property="FontWeight" Value="{StaticResource FontWeight.Semi}" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
+    </Style>
+    <Style x:Key="BodyTextStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource Font.Family.Primary}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Body}" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
+    </Style>
+    <Style x:Key="LabelTextStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource Font.Family.Primary}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Label}" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Secondary}" />
+    </Style>
+    <Style x:Key="StatusTextStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource Font.Family.Primary}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Status}" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Secondary}" />
+    </Style>
+    <Style x:Key="CaptionTextStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource Font.Family.Primary}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Caption}" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Secondary}" />
+    </Style>
+    <Style x:Key="MoneyTextStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource Font.Family.Primary}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Body}" />
+        <Setter Property="FontWeight" Value="{StaticResource FontWeight.Strong}" />
+        <!-- Money amounts carry the brand navy (round-4). -->
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Brand.Secondary}" />
+    </Style>
+
+    <!-- ====================== Spacing / metrics ====================== -->
+    <Thickness x:Key="Thickness.XS">4</Thickness>
+    <Thickness x:Key="Thickness.S">8</Thickness>
+    <Thickness x:Key="Thickness.M">12</Thickness>
+    <Thickness x:Key="Thickness.L">16</Thickness>
+    <Thickness x:Key="Thickness.XL">24</Thickness>
+    <Thickness x:Key="Thickness.XXL">32</Thickness>
+    <Thickness x:Key="ScreenPadding">24</Thickness>
+    <Thickness x:Key="CardPadding">16</Thickness>
+
+    <CornerRadius x:Key="Corner.S">4</CornerRadius>
+    <CornerRadius x:Key="Corner.M">8</CornerRadius>
+    <CornerRadius x:Key="Corner.L">12</CornerRadius>
+    <!-- Round-7: every interactive control (buttons, chips, method tabs,
+         keycaps on buttons) shares one corner radius; surfaces keep the
+         S/M/L ramp (inputs/tags 4, banners 8, cards 12). -->
+    <CornerRadius x:Key="Corner.Button">6</CornerRadius>
+
+    <sys:Double x:Key="Control.Height.Default">38</sys:Double>
+    <sys:Double x:Key="Control.Height.Large">48</sys:Double>
+    <!-- Round-8: tall scan/search fields and the buttons that sit beside
+         them share one 56px row height (was a view literal on
+         FieldEditorTallStyle only, so companion buttons mis-sized). -->
+    <sys:Double x:Key="Control.Height.Field">56</sys:Double>
+    <!-- bg-004-p5 fix10: shared width floor for the home secondary action
+         row so the four buttons read as one uniform band. -->
+    <sys:Double x:Key="Control.MinWidth.Action">140</sys:Double>
+
+    <!-- Round-8: explicit field widths. Left-anchored + content-sized
+         TextBoxes collapse to their caret width, so a fixed token width is
+         the contract; the values were the pre-existing view literals. -->
+    <sys:Double x:Key="Field.Width.Search">420</sys:Double>
+    <sys:Double x:Key="Field.Width.Cash">260</sys:Double>
+
+    <sys:Double x:Key="DialogHost.MaxWidth">900</sys:Double>
+    <sys:Double x:Key="DialogHost.MaxHeight">660</sys:Double>
+
+    <!-- Round-8: vertical-only stack rhythm. Uniform M margins on stacked
+         summary rows staggered every row +12px to the right. -->
+    <Thickness x:Key="Thickness.RowGap">0,12,0,0</Thickness>
+    <!-- bg-004-p5 fix10: horizontal counterpart - a 12px gap between buttons
+         of one action row, with no left inset (the row keeps the content
+         origin). -->
+    <Thickness x:Key="Thickness.ColumnGap">0,0,12,0</Thickness>
+
+    <!-- ====================== Focus visual ====================== -->
+    <!-- FocusVisualStyle is a Style-typed property: the shared focus ring is
+         a Style whose Template draws the 2px rounded rectangle. Declared as
+         a Style (not a raw ControlTemplate) so the first real keyboard
+         navigation onto any styled control applies it without a type error
+         (review-gate finding). -->
+    <Style x:Key="FocusVisual.Default" TargetType="Control">
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Control">
+                    <Rectangle Margin="-3"
+                               RadiusX="4"
+                               RadiusY="4"
+                               Stroke="{DynamicResource Brush.Focus}"
+                               StrokeThickness="2"
+                               SnapsToDevicePixels="True" />
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Accent focus ring (bg-004-p5 fix10): same geometry as the default
+         ring, stroked with Brush.Focus.Accent; applied only to accent /
+         primary button styles. -->
+    <Style x:Key="FocusVisual.Accent" TargetType="Control">
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Control">
+                    <Rectangle Margin="-3"
+                               RadiusX="4"
+                               RadiusY="4"
+                               Stroke="{DynamicResource Brush.Focus.Accent}"
+                               StrokeThickness="2"
+                               SnapsToDevicePixels="True" />
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ============ Round-4 brand text / chip styles ============
+         Declared after the Corner.* and FocusVisual.* tokens they reference
+         (StaticResource within one dictionary resolves backwards only). -->
+    <!-- Positive money (payment dialog Change etc.): brand-green accent. -->
+    <Style x:Key="MoneyPositiveTextStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource Font.Family.Primary}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Body}" />
+        <Setter Property="FontWeight" Value="{StaticResource FontWeight.Strong}" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Accent}" />
+    </Style>
+
+    <!-- BALANCED banner title: green accent where the reference shows it. -->
+    <Style x:Key="StatusSuccessTitleTextStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource Font.Family.Primary}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Title}" />
+        <Setter Property="FontWeight" Value="{StaticResource FontWeight.Semi}" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Status.Success}" />
+    </Style>
+
+    <!-- Rail: light text on the dark navy surface, navy-tinted chip chrome. -->
+    <Style x:Key="NavRailTextStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource Font.Family.Primary}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Body}" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.OnBrand}" />
+    </Style>
+    <Style x:Key="NavRailKeyCapStyle" TargetType="Border">
+        <Setter Property="Background" Value="{DynamicResource Brush.Brand.Rail.KeycapBg}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Brush.Brand.Rail.Border}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="{StaticResource Corner.S}" />
+        <Setter Property="Padding" Value="6,2" />
+        <Setter Property="MinWidth" Value="28" />
+        <Setter Property="HorizontalAlignment" Value="Center" />
+    </Style>
+    <Style x:Key="NavRailKeyCapTextStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource Font.Family.Primary}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Caption}" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Brand.Rail.KeycapText}" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="HorizontalAlignment" Value="Center" />
+    </Style>
+
+    <!-- Quick Actions chips: green live, greyed-parked. Content inherits the
+         button foreground, so a disabled chip greys text without view literals. -->
+    <Style x:Key="QuickActionChipStyle" TargetType="Button">
+        <Setter Property="FontFamily" Value="{StaticResource Font.Family.Primary}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Body}" />
+        <Setter Property="FontWeight" Value="{StaticResource FontWeight.Semi}" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.OnAccent}" />
+        <!-- Fixed height (not min-height): chips in one Quick Actions row must
+             share identical geometry - enabled vs parked differ only in
+             colour and foreground (round-5 finding C). -->
+        <Setter Property="Height" Value="44" />
+        <Setter Property="Padding" Value="16,0" />
+        <Setter Property="Margin" Value="0,0,8,0" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusVisual.Accent}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Chrome"
+                            Background="{DynamicResource Brush.Accent}"
+                            BorderBrush="{DynamicResource Brush.Accent}"
+                            BorderThickness="1"
+                            CornerRadius="{StaticResource Corner.Button}"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter HorizontalAlignment="Center"
+                                          VerticalAlignment="Center"
+                                          RecognizesAccessKey="False" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource Brush.Accent.Hover}" />
+                            <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource Brush.Accent.Hover}" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource Brush.Accent.Pressed}" />
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource Brush.Focus.Accent}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource Brush.State.Disabled.Bg}" />
+                            <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource Brush.State.Disabled.Border}" />
+                            <Setter Property="Foreground" Value="{DynamicResource Brush.State.Disabled.Fg}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <Style x:Key="QuickActionTextStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource Font.Family.Primary}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Body}" />
+        <Setter Property="FontWeight" Value="{StaticResource FontWeight.Semi}" />
+    </Style>
+    <Style x:Key="QuickActionKeyCapTextStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource Font.Family.Primary}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Caption}" />
+        <Setter Property="Margin" Value="0,0,8,0" />
+    </Style>
+
+    <!-- Status strip lead: dark text (#202124) per the reference, with an 8px
+         green dot before it (round-6). -->
+    <Style x:Key="StatusBarLeadTextStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource Font.Family.Primary}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Status}" />
+        <Setter Property="FontWeight" Value="{StaticResource FontWeight.Semi}" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
+    </Style>
+
+    <!-- Status strip lead dot (8px green, reference-faithful). -->
+    <Style x:Key="StatusStripDotStyle" TargetType="Border">
+        <Setter Property="Width" Value="8" />
+        <Setter Property="Height" Value="8" />
+        <Setter Property="CornerRadius" Value="4" />
+        <Setter Property="Background" Value="{DynamicResource Brush.Accent}" />
+    </Style>
+
+    <!-- ============ Round-6 action-bar token styles ============
+         Global button discipline: every action button is 44 tall with
+         20,0 padding and a 6px corner; enabled vs parked differ ONLY by
+         colour. Bottom action bars are Grids of star columns (equal widths)
+         using these styles, so children share one height and stretch. -->
+    <Style x:Key="Button.ActionBarStyle" TargetType="Button">
+        <Setter Property="FontFamily" Value="{StaticResource Font.Family.Primary}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Body}" />
+        <Setter Property="FontWeight" Value="{StaticResource FontWeight.Semi}" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.OnAccent}" />
+        <Setter Property="Height" Value="44" />
+        <Setter Property="Padding" Value="20,0" />
+        <Setter Property="MinWidth" Value="96" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusVisual.Accent}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Chrome"
+                            Background="{DynamicResource Brush.Accent}"
+                            BorderBrush="{DynamicResource Brush.Accent}"
+                            BorderThickness="1"
+                            CornerRadius="{StaticResource Corner.Button}"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter HorizontalAlignment="Center"
+                                          VerticalAlignment="Center"
+                                          RecognizesAccessKey="False" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource Brush.Accent.Hover}" />
+                            <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource Brush.Accent.Hover}" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource Brush.Accent.Pressed}" />
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource Brush.Focus.Accent}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource Brush.State.Disabled.Bg}" />
+                            <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource Brush.State.Disabled.Border}" />
+                            <Setter Property="Foreground" Value="{DynamicResource Brush.State.Disabled.Fg}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="Button.ActionBarOutlineStyle" TargetType="Button">
+        <Setter Property="FontFamily" Value="{StaticResource Font.Family.Primary}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Body}" />
+        <Setter Property="FontWeight" Value="{StaticResource FontWeight.Semi}" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
+        <Setter Property="Height" Value="44" />
+        <Setter Property="Padding" Value="20,0" />
+        <Setter Property="MinWidth" Value="96" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusVisual.Default}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Chrome"
+                            Background="Transparent"
+                            BorderBrush="{DynamicResource Brush.Border.Strong}"
+                            BorderThickness="1"
+                            CornerRadius="{StaticResource Corner.Button}"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter HorizontalAlignment="Center"
+                                          VerticalAlignment="Center"
+                                          RecognizesAccessKey="False" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource Brush.Surface.Selected}" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource Brush.Surface.Sunken}" />
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource Brush.Focus}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource Brush.State.Disabled.Bg}" />
+                            <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource Brush.State.Disabled.Border}" />
+                            <Setter Property="Foreground" Value="{DynamicResource Brush.State.Disabled.Fg}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Home secondary action row (bg-004-p5 fix10): My Stock /
+         Transactions / Returns / End Trip share one style so the band is
+         uniform - same width floor, same 12px gap; the view keeps the row
+         at the content origin (no left inset on the row container). -->
+    <Style x:Key="Button.HomeActionStyle" TargetType="Button"
+           BasedOn="{StaticResource Button.ActionBarOutlineStyle}">
+        <Setter Property="MinWidth" Value="{StaticResource Control.MinWidth.Action}" />
+        <Setter Property="Margin" Value="{StaticResource Thickness.ColumnGap}" />
+    </Style>
+
+    <!-- Danger outline (round-6): CANCEL on the sales bottom bar. -->
+    <Style x:Key="Button.ActionBarDangerOutlineStyle" TargetType="Button">
+        <Setter Property="FontFamily" Value="{StaticResource Font.Family.Primary}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Body}" />
+        <Setter Property="FontWeight" Value="{StaticResource FontWeight.Semi}" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Status.Error}" />
+        <Setter Property="Height" Value="44" />
+        <Setter Property="Padding" Value="20,0" />
+        <Setter Property="MinWidth" Value="96" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusVisual.Default}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Chrome"
+                            Background="Transparent"
+                            BorderBrush="{DynamicResource Brush.Status.Error}"
+                            BorderThickness="1"
+                            CornerRadius="{StaticResource Corner.Button}"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter HorizontalAlignment="Center"
+                                          VerticalAlignment="Center"
+                                          RecognizesAccessKey="False" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource Brush.Status.Error.Bg}" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource Brush.Status.Error.Bg}" />
+                            <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource Brush.Status.Error}" />
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource Brush.Focus}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource Brush.State.Disabled.Bg}" />
+                            <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource Brush.State.Disabled.Border}" />
+                            <Setter Property="Foreground" Value="{DynamicResource Brush.State.Disabled.Fg}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Bottom action bars: Grids of star columns; children use the action
+         bar button styles above so every row member is 44 tall and stretches
+         to its column. -->
+    <Style x:Key="ActionBarGridStyle" TargetType="Grid">
+        <Setter Property="VerticalAlignment" Value="Bottom" />
+    </Style>
+</ResourceDictionary>

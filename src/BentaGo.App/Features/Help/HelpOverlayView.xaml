@@ -1,0 +1,75 @@
+<UserControl x:Class="BentaGo.App.Features.Help.HelpOverlayView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="clr-namespace:BentaGo.App.Ui"
+             ui:FocusTarget.Id="HelpOverlay.Root">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0"
+                   Text="{Binding Title}"
+                   Style="{StaticResource TitleTextStyle}"
+                   Margin="{StaticResource Thickness.M}" />
+
+        <TextBlock Grid.Row="1"
+                   Text="{Binding Hint}"
+                   Style="{StaticResource StatusTextStyle}"
+                   Margin="{StaticResource Thickness.M}" />
+
+        <!-- Every ShortcutCatalog entry: Active rows rendered, Reserved/Future greyed. -->
+        <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+            <ItemsControl ItemsSource="{Binding Rows}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Grid Margin="{StaticResource Thickness.XS}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="86" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Border Grid.Column="0" HorizontalAlignment="Left">
+                                <Border.Style>
+                                    <Style TargetType="Border" BasedOn="{StaticResource KeyCapStyle}">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsGreyed}" Value="True">
+                                                <Setter Property="Background" Value="{DynamicResource Brush.State.Disabled.Bg}" />
+                                                <Setter Property="BorderBrush" Value="{DynamicResource Brush.State.Disabled.Border}" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <TextBlock Text="{Binding Gesture}"
+                                           Style="{StaticResource CaptionTextStyle}"
+                                           VerticalAlignment="Center"
+                                           HorizontalAlignment="Center" />
+                            </Border>
+                            <TextBlock Grid.Column="1"
+                                       Text="{Binding Action}"
+                                       VerticalAlignment="Center"
+                                       Margin="{StaticResource Thickness.M}">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource BodyTextStyle}">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsGreyed}" Value="True">
+                                                <Setter Property="Foreground" Value="{DynamicResource Brush.State.Disabled.Fg}" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </Grid>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+
+        <TextBlock Grid.Row="3"
+                   Text="Simulated data - BG-002 scenario"
+                   Style="{StaticResource CaptionTextStyle}"
+                   Margin="{StaticResource Thickness.M}" />
+    </Grid>
+</UserControl>

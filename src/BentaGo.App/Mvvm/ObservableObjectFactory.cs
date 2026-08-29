@@ -1,4 +1,14 @@
+using BentaGo.App.Data;
+using BentaGo.App.Dialogs;
+using BentaGo.App.Dialogs.Confirm;
+using BentaGo.App.Dialogs.Payment;
+using BentaGo.App.Features.Help;
 using BentaGo.App.Features.Login;
+using BentaGo.App.Features.PeddlerHome;
+using BentaGo.App.Features.Reconciliation;
+using BentaGo.App.Features.Sales;
+using BentaGo.App.Features.Stock;
+using BentaGo.App.Navigation;
 using BentaGo.Infrastructure.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -6,7 +16,7 @@ namespace BentaGo.App.Mvvm;
 
 /// <summary>
 /// Builds the application service provider: BentaGoHost services plus
-/// App-level view model registrations.
+/// App-level view model and shell registrations.
 /// </summary>
 public static class ObservableObjectFactory
 {
@@ -19,11 +29,32 @@ public static class ObservableObjectFactory
             return _provider;
         }
 
-        _provider = BentaGoHost.Build(extra: services =>
-        {
-            services.AddTransient<LoginViewModel>();
-            services.AddTransient<MainViewModel>();
-        });
+        _provider = BentaGoHost.Build(extra: RegisterAppServices);
         return _provider;
+    }
+
+    /// <summary>
+    /// The full BG-004 app registration surface. Tests build their own host
+    /// with a throwaway data root and call this so the real shell and the
+    /// test host can never drift apart. The BG-005 data-source swap is the
+    /// single line marked below (bg-004-synthesis §12).
+    /// </summary>
+    public static void RegisterAppServices(Microsoft.Extensions.DependencyInjection.IServiceCollection services)
+    {
+        services.AddSingleton<ScreenRegistry>();
+        services.AddSingleton<INavigationService, NavigationService>();
+        services.AddSingleton<IFocusService, FocusCoordinator>();
+        services.AddSingleton<IDialogService, DialogService>();
+        services.AddSingleton<IAppDataSource, ScenarioDataSource>(); // BG-005: swap this line only
+
+        services.AddTransient<MainViewModel>();
+        services.AddTransient<LoginViewModel>();
+        services.AddTransient<PeddlerHomeViewModel>();
+        services.AddTransient<SalesViewModel>();
+        services.AddTransient<StockViewModel>();
+        services.AddTransient<ReconciliationViewModel>();
+        services.AddTransient<PaymentDialogViewModel>();   // dialogs, not screens
+        services.AddTransient<ConfirmDialogViewModel>();
+        services.AddTransient<HelpOverlayViewModel>();
     }
 }

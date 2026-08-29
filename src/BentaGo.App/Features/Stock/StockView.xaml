@@ -1,0 +1,105 @@
+<UserControl x:Class="BentaGo.App.Features.Stock.StockView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="clr-namespace:BentaGo.App.Ui">
+    <!-- Round-6 reference alignment: wide search at the content origin
+         (x=240), toggle right-aligned, and a fully-parked stock-action row
+         at the bottom (BG-005 wires the actions - no commands bound here). -->
+    <Grid Margin="{StaticResource ScreenPadding}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0">
+            <TextBlock Text="My Stock" Style="{StaticResource HeaderTextStyle}" />
+            <TextBlock Style="{StaticResource StatusTextStyle}">
+                <Run Text="Trip " /><Run Text="{Binding Session.TripNumber, Mode=OneWay}" />
+            </TextBlock>
+        </StackPanel>
+
+        <!-- Round-8: the search field is left-anchored at the content origin
+             under a "Search" label (reference layout). The old
+             Stretch+MaxWidth box centred itself mid-screen and the toggle
+             floated without an anchor. -->
+        <Grid Grid.Row="1" Margin="{StaticResource Thickness.M}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel Grid.Column="0">
+                <TextBlock Text="Search" Style="{StaticResource FieldLabelStyle}" />
+                <TextBox Style="{StaticResource StockSearchEditorStyle}"
+                         Text="{Binding SearchQuery, UpdateSourceTrigger=PropertyChanged}"
+                         Width="{StaticResource Field.Width.Search}"
+                         HorizontalAlignment="Left"
+                         ui:FocusTarget.Id="Stock.StockSearchBox" />
+            </StackPanel>
+            <Button Grid.Column="1"
+                    Content="{Binding LowOnlyLabel}"
+                    Style="{StaticResource Button.SecondaryStyle}"
+                    Command="{Binding ToggleLowOnlyCommand}"
+                    VerticalAlignment="Bottom"
+                    Margin="{StaticResource Thickness.XS}" />
+        </Grid>
+
+        <DataGrid Grid.Row="2"
+                  ItemsSource="{Binding FilteredRows}"
+                  RowStyle="{StaticResource DataGrid.LowStockRowStyle}"
+                  AutoGenerateColumns="False">
+            <DataGrid.Columns>
+                <DataGridTemplateColumn Header="SKU" Width="110">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="{Binding Sku}"
+                                           Style="{StaticResource LowStockSkuTextStyle}"
+                                           VerticalAlignment="Center" />
+                                <Border Style="{StaticResource Tag.WarningStyle}"
+                                        Margin="{StaticResource Thickness.XS}"
+                                        Visibility="{Binding IsLow, Converter={StaticResource BoolToVisibility}}">
+                                    <TextBlock Text="LOW" Style="{StaticResource StatusWarningTextStyle}" />
+                                </Border>
+                            </StackPanel>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTextColumn Header="Product" Binding="{Binding Product}" Width="*" />
+                <DataGridTextColumn Header="Loaded" Binding="{Binding Loaded}" Width="60" />
+                <DataGridTextColumn Header="Sold" Binding="{Binding Sold}" Width="60" />
+                <DataGridTextColumn Header="Damaged/Lost" Binding="{Binding DamagedLost}" Width="110" />
+                <DataGridTextColumn Header="Returned" Binding="{Binding Returned}" Width="70" />
+                <DataGridTextColumn Header="On hand" Binding="{Binding OnHand}" Width="70" />
+                <DataGridTextColumn Header="Last movement" Binding="{Binding LastMovementText}" Width="170" />
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <!-- Bottom parked stock-action row: equal widths, all disabled - no
+             commands, no bindings (BG-005 wires these). -->
+        <Grid Grid.Row="3" Style="{StaticResource ActionBarGridStyle}" Margin="{StaticResource Thickness.M}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Button Grid.Column="0" Content="Add Item (F6)"
+                    Style="{StaticResource Button.ActionBarStyle}" IsEnabled="False" />
+            <Button Grid.Column="2" Content="Edit (F7)"
+                    Style="{StaticResource Button.ActionBarStyle}" IsEnabled="False" />
+            <Button Grid.Column="4" Content="Adjust Stock (F8)"
+                    Style="{StaticResource Button.ActionBarStyle}" IsEnabled="False" />
+            <Button Grid.Column="6" Content="Price Update (F9)"
+                    Style="{StaticResource Button.ActionBarStyle}" IsEnabled="False" />
+            <Button Grid.Column="8" Content="Print (F11)"
+                    Style="{StaticResource Button.ActionBarStyle}" IsEnabled="False" />
+        </Grid>
+    </Grid>
+</UserControl>

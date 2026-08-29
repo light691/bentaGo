@@ -1,0 +1,157 @@
+<UserControl x:Class="BentaGo.App.Features.PeddlerHome.PeddlerHomeView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="clr-namespace:BentaGo.App.Ui">
+    <!-- Round-6 reference alignment: every element's left edge sits at the
+         content origin (x=240 in window space); action rows are 44 tall with
+         12px gaps; quick actions are four equal-width buttons. -->
+    <Grid Margin="{StaticResource ScreenPadding}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- Header: greeting (already carries the peddler name from the
+              session projection), online status. Round-8: the duplicated
+              PeddlerName chip is gone and every child is vertically centred
+              on one visual line - the old row mixed 26px header text with a
+              24px uniform margin (which pushed the name down-right) and a
+              top-anchored status label, so the greeting rendered as three
+              misaligned fragments. -->
+        <StackPanel Grid.Row="0">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="{Binding Session.Greeting}"
+                           Style="{StaticResource HeaderTextStyle}"
+                           VerticalAlignment="Center" />
+                <Ellipse Style="{StaticResource StatusDotStyle}"
+                         Fill="{DynamicResource Brush.Status.Success}"
+                         Margin="{StaticResource Thickness.M}" />
+                <TextBlock Text="Online"
+                           Style="{StaticResource StatusTextStyle}"
+                           VerticalAlignment="Center" />
+            </StackPanel>
+            <TextBlock Style="{StaticResource StatusTextStyle}">
+                <Run Text="{Binding Session.TripNumber, Mode=OneWay}" />
+                <Run Text="  ·  now " /><Run Text="{Binding Session.NowText, Mode=OneWay}" />
+            </TextBlock>
+        </StackPanel>
+
+        <!-- Urgent previous-date-trip banner (scenario is same-day: hidden). -->
+        <Border Grid.Row="1"
+                Style="{StaticResource Banner.WarningStyle}"
+                Margin="{StaticResource Thickness.M}"
+                Visibility="{Binding Session.PreviousDateTripOpen, Converter={StaticResource BoolToVisibility}}">
+            <TextBlock Text="This trip opened on a previous date. Close it before starting today's route."
+                       Style="{StaticResource BodyTextStyle}" />
+        </Border>
+
+        <!-- KPI row: two equal 50/50 cards (Cash Sales / Remaining Items). -->
+        <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Border Grid.Column="0" Style="{StaticResource KpiCardStyle}" >
+                <StackPanel>
+                    <TextBlock Text="Cash Sales" Style="{StaticResource LabelTextStyle}" />
+                    <TextBlock Text="{Binding Dashboard.CashSalesText}" Style="{StaticResource MoneyTextStyle}" />
+                </StackPanel>
+            </Border>
+            <Border Grid.Column="1" Style="{StaticResource KpiCardStyle}" >
+                <StackPanel>
+                    <TextBlock Text="Remaining Items" Style="{StaticResource LabelTextStyle}" />
+                    <TextBlock Text="{Binding Dashboard.RemainingItemsText}" Style="{StaticResource MoneyTextStyle}" />
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- Primary + secondary actions + quick actions. RowGap keeps the
+             12px vertical rhythm while every child stays on the content
+             origin (bg-004-p5 fix10: the old uniform M margin inset the
+             whole action area 12px right of the KPI cards). -->
+        <Grid Grid.Row="3" Margin="{StaticResource Thickness.RowGap}">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <Button Grid.Row="0" Content="NEW SALE"
+                    Style="{StaticResource Button.PrimaryStyle}"
+                    Command="{Binding NewSaleCommand}"
+                    HorizontalAlignment="Left"
+                    MinWidth="200"
+                    ui:FocusTarget.Id="Home.NewSaleButton" />
+
+            <!-- Action row (bg-004-p5 fix10): one aligned band at the
+                 content origin - same left edge as NEW SALE and the KPI
+                 cards, shared Button.HomeActionStyle gives a uniform 140
+                 width floor, ColumnGap the 12px gaps. Off-scope items
+                 (BG-005) carry a Future tag and are parked. -->
+            <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="{StaticResource Thickness.RowGap}">
+                <Button Content="My Stock"
+                        Style="{StaticResource Button.HomeActionStyle}"
+                        Command="{Binding StockCommand}"
+                        ui:FocusTarget.Id="Home.StockButton" />
+                <Button Style="{StaticResource Button.HomeActionStyle}"
+                        Command="{Binding TransactionsCommand}"
+                        IsEnabled="False">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Transactions" Style="{StaticResource PlaceholderTextStyle}" />
+                        <Border Style="{StaticResource PlaceholderStyle}" >
+                            <TextBlock Text="Future" Style="{StaticResource PlaceholderTextStyle}" />
+                        </Border>
+                    </StackPanel>
+                </Button>
+                <Button Style="{StaticResource Button.HomeActionStyle}"
+                        Command="{Binding ReturnsCommand}"
+                        IsEnabled="False">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Returns" Style="{StaticResource PlaceholderTextStyle}" />
+                        <Border Style="{StaticResource PlaceholderStyle}" >
+                            <TextBlock Text="Future" Style="{StaticResource PlaceholderTextStyle}" />
+                        </Border>
+                    </StackPanel>
+                </Button>
+                <Button Content="End Trip"
+                        Style="{StaticResource Button.HomeActionStyle}"
+                        Command="{Binding EndTripCommand}"
+                        ui:FocusTarget.Id="Home.EndTripButton" />
+            </StackPanel>
+
+            <!-- Quick Actions (Keyboard First): four equal-width buttons across
+                 the content width; F2/F12 live green, F8/F11 parked. -->
+            <TextBlock Grid.Row="2" Text="Quick Actions (Keyboard First)"
+                       Style="{StaticResource FieldLabelStyle}"
+                       Margin="{StaticResource Thickness.RowGap}" />
+            <Grid Grid.Row="3" Margin="{StaticResource Thickness.RowGap}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Button Grid.Column="0" Content="F2 Scan"
+                        Style="{StaticResource Button.ActionBarStyle}"
+                        Command="{Binding NewSaleCommand}"
+                        ui:FocusTarget.Id="Home.QuickAction.Scan" />
+                <Button Grid.Column="1" Content="F8 Pay"
+                        Style="{StaticResource Button.ActionBarStyle}"
+                        IsEnabled="False"
+                        ui:FocusTarget.Id="Home.QuickAction.Pay" />
+                <Button Grid.Column="2" Content="F11 Print"
+                        Style="{StaticResource Button.ActionBarStyle}"
+                        IsEnabled="False"
+                        ui:FocusTarget.Id="Home.QuickAction.Print" />
+                <Button Grid.Column="3" Content="F12 End Trip"
+                        Style="{StaticResource Button.ActionBarStyle}"
+                        Command="{Binding EndTripCommand}"
+                        ui:FocusTarget.Id="Home.QuickAction.EndTrip" />
+            </Grid>
+        </Grid>
+    </Grid>
+</UserControl>

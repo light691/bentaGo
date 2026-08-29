@@ -1,41 +1,105 @@
 <Window x:Class="BentaGo.App.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:features="clr-namespace:BentaGo.App.Features.Login"
-        Title="BentaGo" Width="1366" Height="768" MinWidth="1024" MinHeight="700"
-        WindowStartupLocation="CenterScreen">
+        xmlns:views="clr-namespace:BentaGo.App.Features.Help"
+        xmlns:ui="clr-namespace:BentaGo.App.Ui"
+        Title="BentaGo"
+        Width="1366"
+        Height="768"
+        MinWidth="1024"
+        MinHeight="700"
+        WindowStartupLocation="CenterScreen"
+        Background="{DynamicResource Brush.Surface.Page}">
     <Window.Resources>
-        <DataTemplate DataType="{x:Type features:LoginViewModel}">
-            <features:LoginView />
-        </DataTemplate>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
     </Window.Resources>
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="*" />
-            <RowDefinition Height="28" />
+            <RowDefinition Height="32" />
         </Grid.RowDefinitions>
-        <ContentControl Grid.Row="0">
-            <ContentControl.Style>
-                <Style TargetType="ContentControl">
-                    <Setter Property="Content" Value="{Binding Login}" />
-                    <Style.Triggers>
-                        <DataTrigger Binding="{Binding IsAuthenticated}" Value="True">
-                            <Setter Property="Content">
-                                <Setter.Value>
-                                    <TextBlock Text="Signed in. Ready."
-                                               FontSize="30" FontWeight="SemiBold"
-                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                </Setter.Value>
-                            </Setter>
-                        </DataTrigger>
-                    </Style.Triggers>
-                </Style>
-            </ContentControl.Style>
-        </ContentControl>
-        <Border Grid.Row="1" Background="#E8EAED" BorderBrush="#D7DAE0" BorderThickness="0,1,0,0">
-            <Grid Margin="12,0">
-                <TextBlock Text="{Binding StatusText}" VerticalAlignment="Center" FontSize="12" Foreground="#3C4043" />
-                <TextBlock Text="{Binding VersionText}" HorizontalAlignment="Right" VerticalAlignment="Center" FontSize="12" Foreground="#5E6470" />
+        <Grid.ColumnDefinitions>
+            <!-- Rail 216 + the content ScreenPadding (24) lands screen content
+                 exactly at x=240 (round-6 reference alignment). -->
+            <ColumnDefinition Width="216" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <!-- Left rail: BG-004 shell navigation (Alt+1..5 shell-scoped). -->
+        <Border x:Name="RailChrome"
+                Grid.Row="0"
+                Grid.Column="0"
+                Background="{DynamicResource Brush.Brand.Rail}"
+                BorderBrush="{DynamicResource Brush.Brand.Rail.Border}"
+                BorderThickness="0,0,1,0">
+            <ItemsControl ItemsSource="{Binding RailItems}" Margin="8,16,8,16">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Button Style="{StaticResource NavRailItemStyle}"
+                                Command="{Binding DataContext.NavigateCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                CommandParameter="{Binding Key}"
+                                IsEnabled="{Binding IsEnabled}"
+                                ui:FocusTarget.Id="{Binding FocusTargetId}">
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Stretch">
+                                <TextBlock Text="{Binding Label}"
+                                           Style="{StaticResource NavRailTextStyle}"
+                                           VerticalAlignment="Center" />
+                                <!-- Navy-tinted keycap chips: readable on the
+                                     dark rail (round-4). -->
+                                <Border Style="{StaticResource NavRailKeyCapStyle}" Margin="8,0,0,0">
+                                    <TextBlock Text="{Binding KeyCap}"
+                                               Style="{StaticResource NavRailKeyCapTextStyle}" />
+                                </Border>
+                            </StackPanel>
+                        </Button>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </Border>
+
+        <!-- Content region + F1 help overlay. -->
+        <Grid Grid.Row="0" Grid.Column="1">
+            <ContentControl x:Name="ShellContent"
+                            Content="{Binding Current}"
+                            Focusable="False"
+                            Margin="0" />
+            <Border Style="{StaticResource HelpOverlayStyle}"
+                    Margin="24"
+                    Visibility="{Binding IsHelpOpen, Converter={StaticResource BoolToVisibility}}"
+                    HorizontalAlignment="Stretch"
+                    VerticalAlignment="Stretch">
+                <views:HelpOverlayView DataContext="{Binding HelpOverlay}" />
+            </Border>
+        </Grid>
+
+        <!-- Status strip (round-6, reference-faithful): light full-width strip
+             below the rail; green dot + dark "Offline — local data" lead,
+             muted simulated-data segment, version right. No SQLite/EF claim
+             on this branch (lands with the BG-003 merge). -->
+        <Border Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
+                Background="{DynamicResource Brush.Surface.Sunken}"
+                BorderBrush="{DynamicResource Brush.Border.Default}"
+                BorderThickness="0,1,0,0">
+            <Grid Margin="16,0,16,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Orientation="Horizontal">
+                    <Border Style="{StaticResource StatusStripDotStyle}" VerticalAlignment="Center" />
+                    <TextBlock x:Name="StatusLeadText" Text="Offline — local data"
+                               Style="{StaticResource StatusBarLeadTextStyle}"
+                               Margin="8,0,0,0"
+                               VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding SimulatedLabel}"
+                               Style="{StaticResource StatusTextStyle}"
+                               Margin="24,0,0,0"
+                               VerticalAlignment="Center" />
+                </StackPanel>
+                <TextBlock Grid.Column="2" Text="{Binding VersionText}"
+                           Style="{StaticResource StatusTextStyle}"
+                           VerticalAlignment="Center" />
             </Grid>
         </Border>
     </Grid>
