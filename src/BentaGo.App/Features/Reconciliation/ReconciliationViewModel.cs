@@ -56,6 +56,7 @@ public sealed class ReconciliationViewModel : ValidatableViewModelBase, IRetaina
                 OnPropertyChanged(nameof(BannerText));
                 OnPropertyChanged(nameof(BannerKind));
                 OnPropertyChanged(nameof(IsBalanced));
+                OnPropertyChanged(nameof(IsPending));
                 OnPropertyChanged(nameof(IsShort));
                 OnPropertyChanged(nameof(IsOver));
                 NotifySubmitGate();
@@ -118,6 +119,11 @@ public sealed class ReconciliationViewModel : ValidatableViewModelBase, IRetaina
     {
         get
         {
+            if (!TryParseAmount(ActualCashText, out _))
+            {
+                return "Pending";
+            }
+
             Money variance = Variance;
             return variance.Centavos == 0 ? "Balanced" : variance.Centavos < 0 ? "Short" : "Over";
         }
@@ -127,6 +133,16 @@ public sealed class ReconciliationViewModel : ValidatableViewModelBase, IRetaina
     {
         get
         {
+            if (string.IsNullOrWhiteSpace(ActualCashText))
+            {
+                return "ENTER CASH TO RECONCILE";
+            }
+
+            if (!TryParseAmount(ActualCashText, out _))
+            {
+                return "CHECK CASH AMOUNT";
+            }
+
             Money variance = Variance;
             return variance.Centavos switch
             {
@@ -138,6 +154,7 @@ public sealed class ReconciliationViewModel : ValidatableViewModelBase, IRetaina
     }
 
     // Non-color banner channels for the view (each renders text + glyph + tint).
+    public bool IsPending => BannerKind == "Pending";
     public bool IsBalanced => BannerKind == "Balanced";
     public bool IsShort => BannerKind == "Short";
     public bool IsOver => BannerKind == "Over";

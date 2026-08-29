@@ -43,6 +43,8 @@ public sealed class StockViewModel : ViewModelBase, IRetainableScreen
             if (SetProperty(ref _searchQuery, value))
             {
                 OnPropertyChanged(nameof(FilteredRows));
+                OnPropertyChanged(nameof(FilteredCountText));
+                OnPropertyChanged(nameof(HasFilteredRows));
             }
         }
     }
@@ -56,6 +58,8 @@ public sealed class StockViewModel : ViewModelBase, IRetainableScreen
             {
                 OnPropertyChanged(nameof(FilteredRows));
                 OnPropertyChanged(nameof(LowOnlyLabel));
+                OnPropertyChanged(nameof(FilteredCountText));
+                OnPropertyChanged(nameof(HasFilteredRows));
             }
         }
     }
@@ -83,4 +87,9 @@ public sealed class StockViewModel : ViewModelBase, IRetainableScreen
             return rows.ToArray();
         }
     }
+
+    public bool HasFilteredRows => FilteredRows.Count > 0;
+
+    public string FilteredCountText =>
+        FilteredRows.Count == 1 ? "1 item shown" : $"{FilteredRows.Count} items shown";
 }

@@ -74,7 +74,7 @@
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
-                        <TextBlock Text="Database connected"
+                        <TextBlock Text="Local data ready"
                                    Style="{StaticResource CaptionTextStyle}"
                                    HorizontalAlignment="Left" />
                         <TextBlock Grid.Column="1"

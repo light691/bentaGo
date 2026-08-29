@@ -71,17 +71,28 @@
                                 Margin="{StaticResource Thickness.XS}" />
                     </Grid>
 
-                    <TextBlock Grid.Row="5" Text="RESULTS"
-                               Style="{StaticResource FieldLabelStyle}"
-                               Margin="{StaticResource Thickness.RowGap}"
-                               VerticalAlignment="Top" />
+                    <Grid Grid.Row="5" Margin="{StaticResource Thickness.RowGap}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="RESULTS" Style="{StaticResource FieldLabelStyle}" />
+                        <TextBlock Grid.Column="1"
+                                   Text="{Binding SearchResultCountText}"
+                                   Style="{StaticResource CaptionTextStyle}"
+                                   HorizontalAlignment="Right" />
+                    </Grid>
                     <Grid Grid.Row="6" Margin="{StaticResource Thickness.L}">
-                        <Border Style="{StaticResource Banner.InfoBgStyle}"
+                        <Border Style="{StaticResource EmptyStateStyle}"
                                 VerticalAlignment="Top"
                                 Visibility="{Binding HasSearchResults, Converter={StaticResource InvertedBoolToVisibility}}">
-                            <TextBlock Text="{Binding SearchResultsEmptyText}"
-                                       Style="{StaticResource CaptionTextStyle}"
-                                       TextWrapping="Wrap" />
+                            <StackPanel>
+                                <TextBlock Text="No matches yet" Style="{StaticResource TitleTextStyle}" />
+                                <TextBlock Text="{Binding SearchResultsEmptyText}"
+                                           Style="{StaticResource CaptionTextStyle}"
+                                           TextWrapping="Wrap"
+                                           Margin="{StaticResource Thickness.RowGap}" />
+                            </StackPanel>
                         </Border>
                         <ScrollViewer VerticalScrollBarVisibility="Auto"
                                       HorizontalScrollBarVisibility="Disabled"
@@ -129,15 +140,22 @@
                     <StackPanel Grid.Row="0">
                         <TextBlock Text="CURRENT ORDER" Style="{StaticResource PageEyebrowTextStyle}" />
                         <TextBlock Text="Cart" Style="{StaticResource TitleTextStyle}" />
+                        <TextBlock Text="{Binding CartSummaryText}"
+                                   Style="{StaticResource StatusTextStyle}"
+                                   Margin="{StaticResource Thickness.XS}" />
                     </StackPanel>
 
                     <Border Grid.Row="1"
-                            Style="{StaticResource Banner.InfoBgStyle}"
+                            Style="{StaticResource EmptyStateStyle}"
                             Margin="{StaticResource Thickness.RowGap}"
                             Visibility="{Binding HasCartItems, Converter={StaticResource InvertedBoolToVisibility}}">
-                        <TextBlock Text="{Binding CartEmptyText}"
-                                   Style="{StaticResource CaptionTextStyle}"
-                                   TextWrapping="Wrap" />
+                        <StackPanel>
+                            <TextBlock Text="Ready to add products" Style="{StaticResource TitleTextStyle}" />
+                            <TextBlock Text="{Binding CartEmptyText}"
+                                       Style="{StaticResource CaptionTextStyle}"
+                                       TextWrapping="Wrap"
+                                       Margin="{StaticResource Thickness.RowGap}" />
+                        </StackPanel>
                     </Border>
 
                     <Border Grid.Row="2"
@@ -241,10 +259,12 @@
             <Button Grid.Column="2" Content="F8 Pay"
                     Style="{StaticResource Button.ActionBarStyle}"
                     IsEnabled="False"
+                    ToolTip="Payment shortcut will be enabled in a future release."
                     ui:FocusTarget.Id="Sales.QuickAction.Pay" />
             <Button Grid.Column="4" Content="F11 Print"
                     Style="{StaticResource Button.ActionBarStyle}"
                     IsEnabled="False"
+                    ToolTip="Printing will be enabled in a future release."
                     ui:FocusTarget.Id="Sales.QuickAction.Print" />
             <Button Grid.Column="6" Content="CANCEL"
                     Style="{StaticResource Button.ActionBarDangerOutlineStyle}"

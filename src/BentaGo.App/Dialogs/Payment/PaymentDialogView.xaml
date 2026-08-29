@@ -100,16 +100,10 @@
             <!-- Order summary card. -->
             <Border Grid.Column="2" Style="{StaticResource CardStyle}" VerticalAlignment="Stretch">
                 <StackPanel Margin="{StaticResource CardPadding}">
-                    <TextBlock Text="Order summary" Style="{StaticResource TitleTextStyle}" />
-                    <Grid Margin="{StaticResource Thickness.M}">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="TOTAL" Style="{StaticResource LabelTextStyle}" VerticalAlignment="Center" />
-                        <TextBlock Grid.Column="1" Text="{Binding TotalText}" Style="{StaticResource DisplayTextStyle}"
-                                   HorizontalAlignment="Right" VerticalAlignment="Center" />
-                    </Grid>
+                    <TextBlock Text="Payment summary" Style="{StaticResource TitleTextStyle}" />
+                    <TextBlock Text="{Binding SaleSummaryText}"
+                               Style="{StaticResource StatusTextStyle}"
+                               Margin="{StaticResource Thickness.XS}" />
                     <Border BorderThickness="0,1,0,0"
                             BorderBrush="{DynamicResource Brush.Divider}"
                             Margin="{StaticResource Thickness.M}" />
