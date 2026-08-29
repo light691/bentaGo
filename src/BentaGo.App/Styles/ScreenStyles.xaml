@@ -14,12 +14,16 @@
          ================================================================ -->
 
     <!-- ============================ Buttons ============================ -->
+    <!-- Round-7 interaction contract (every button template): hover tint,
+         pressed deepens the tint, keyboard focus draws the focus border,
+         disabled greys via the State.Disabled tokens - declared in that
+         order so a later trigger wins when states combine. -->
     <Style TargetType="Button">
         <Setter Property="FontFamily" Value="{DynamicResource Font.Family.Primary}" />
         <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
         <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
         <Setter Property="MinHeight" Value="{DynamicResource Control.Height.Default}" />
-        <Setter Property="Padding" Value="14,0" />
+        <Setter Property="Padding" Value="16,0" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="FocusVisualStyle" Value="{DynamicResource FocusVisual.Default}" />
         <Setter Property="Template">
@@ -29,7 +33,7 @@
                             Background="{DynamicResource Brush.Surface.Card}"
                             BorderBrush="{DynamicResource Brush.Border.Default}"
                             BorderThickness="1"
-                            CornerRadius="{DynamicResource Corner.S}"
+                            CornerRadius="{DynamicResource Corner.Button}"
                             Padding="{TemplateBinding Padding}">
                         <ContentPresenter HorizontalAlignment="Center"
                                           VerticalAlignment="Center"
@@ -73,7 +77,7 @@
                             Background="{DynamicResource Brush.Accent}"
                             BorderBrush="{DynamicResource Brush.Accent}"
                             BorderThickness="1"
-                            CornerRadius="{DynamicResource Corner.M}"
+                            CornerRadius="{DynamicResource Corner.Button}"
                             Padding="{TemplateBinding Padding}">
                         <ContentPresenter HorizontalAlignment="Center"
                                           VerticalAlignment="Center"
@@ -90,7 +94,6 @@
                         </Trigger>
                         <Trigger Property="IsKeyboardFocused" Value="True">
                             <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource Brush.Focus}" />
-                            <Setter TargetName="Chrome" Property="BorderThickness" Value="2" />
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource Brush.State.Disabled.Bg}" />
@@ -118,8 +121,8 @@
                     <Border x:Name="Chrome"
                             Background="Transparent"
                             BorderBrush="{DynamicResource Brush.Border.Strong}"
-                            BorderThickness="1.5"
-                            CornerRadius="{DynamicResource Corner.M}"
+                            BorderThickness="1"
+                            CornerRadius="{DynamicResource Corner.Button}"
                             Padding="{TemplateBinding Padding}">
                         <ContentPresenter HorizontalAlignment="Center"
                                           VerticalAlignment="Center"
@@ -161,15 +164,24 @@
                     <Border x:Name="Chrome"
                             Background="{DynamicResource Brush.Status.Error.Bg}"
                             BorderBrush="{DynamicResource Brush.Status.Error}"
-                            BorderThickness="1.5"
-                            CornerRadius="{DynamicResource Corner.M}"
+                            BorderThickness="1"
+                            CornerRadius="{DynamicResource Corner.Button}"
                             Padding="{TemplateBinding Padding}">
                         <ContentPresenter HorizontalAlignment="Center"
                                           VerticalAlignment="Center"
                                           RecognizesAccessKey="False" />
                     </Border>
                     <ControlTemplate.Triggers>
+                        <!-- Hover keeps the danger identity: neutral selection
+                             tint + the error border (round-7: hover never
+                             borrows the focus blue). -->
                         <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource Brush.Surface.Selected}" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource Brush.Surface.Sunken}" />
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
                             <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource Brush.Focus}" />
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
@@ -188,7 +200,7 @@
         <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
         <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Secondary}" />
         <Setter Property="MinHeight" Value="{DynamicResource Control.Height.Default}" />
-        <Setter Property="Padding" Value="10,0" />
+        <Setter Property="Padding" Value="8,0" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="FocusVisualStyle" Value="{DynamicResource FocusVisual.Default}" />
         <Setter Property="Template">
@@ -196,7 +208,7 @@
                 <ControlTemplate TargetType="Button">
                     <Border x:Name="Chrome"
                             Background="Transparent"
-                            CornerRadius="{DynamicResource Corner.S}"
+                            CornerRadius="{DynamicResource Corner.Button}"
                             Padding="{TemplateBinding Padding}">
                         <ContentPresenter HorizontalAlignment="Center"
                                           VerticalAlignment="Center"
@@ -205,6 +217,9 @@
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource Brush.Surface.Selected}" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource Brush.Surface.Sunken}" />
                         </Trigger>
                         <Trigger Property="IsKeyboardFocused" Value="True">
                             <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource Brush.Surface.Selected}" />
@@ -235,7 +250,7 @@
                             Background="{DynamicResource Brush.Surface.Card}"
                             BorderBrush="{DynamicResource Brush.Border.Default}"
                             BorderThickness="1"
-                            CornerRadius="{DynamicResource Corner.M}">
+                            CornerRadius="{DynamicResource Corner.Button}">
                         <ContentPresenter HorizontalAlignment="Center"
                                           VerticalAlignment="Center"
                                           RecognizesAccessKey="False" />
@@ -269,7 +284,7 @@
                             Background="{DynamicResource Brush.Accent}"
                             BorderBrush="{DynamicResource Brush.Accent}"
                             BorderThickness="1"
-                            CornerRadius="{DynamicResource Corner.M}">
+                            CornerRadius="{DynamicResource Corner.Button}">
                         <ContentPresenter HorizontalAlignment="Center"
                                           VerticalAlignment="Center"
                                           RecognizesAccessKey="False" />
@@ -316,8 +331,10 @@
                             <ScrollViewer x:Name="PART_ContentHost"
                                           VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
                             <!-- Watermark (Ui.Watermark.Text): plain disabled
-                                 hint that never intercepts input and hides as
-                                 soon as the field has text or focus. -->
+                                 hint that never intercepts input. Round-7: the
+                                 hint stays visible while the focused field is
+                                 still empty (proper focus placeholder) and
+                                 hides as soon as the field has text. -->
                             <TextBlock x:Name="WatermarkHint"
                                        Text="{Binding (ui:Watermark.Text), RelativeSource={RelativeSource TemplatedParent}}"
                                        IsHitTestVisible="False"
@@ -334,7 +351,6 @@
                         </Trigger>
                         <Trigger Property="IsKeyboardFocused" Value="True">
                             <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource Brush.Focus}" />
-                            <Setter TargetName="WatermarkHint" Property="Visibility" Value="Collapsed" />
                         </Trigger>
                         <DataTrigger Binding="{Binding Text, RelativeSource={RelativeSource TemplatedParent}}" Value="">
                             <Setter TargetName="WatermarkHint" Property="Visibility" Value="Visible" />
@@ -481,7 +497,7 @@
         <Setter Property="FontWeight" Value="{DynamicResource FontWeight.Semi}" />
         <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Secondary}" />
         <Setter Property="Background" Value="{DynamicResource Brush.Surface.Sunken}" />
-        <Setter Property="Padding" Value="8,6" />
+        <Setter Property="Padding" Value="8,8" />
         <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.Strong}" />
         <Setter Property="BorderThickness" Value="0,0,0,1" />
         <Setter Property="HorizontalContentAlignment" Value="Left" />
@@ -512,6 +528,23 @@
                 <Setter Property="Foreground" Value="{DynamicResource Brush.Status.Warning}" />
             </DataTrigger>
         </Style.Triggers>
+    </Style>
+
+    <!-- Round-7 warning tag chip (Stock "LOW"): a compact status tag, not a
+         banner - same hue family as the warning row tint it labels. -->
+    <Style x:Key="Tag.WarningStyle" TargetType="Border">
+        <Setter Property="Background" Value="{DynamicResource Brush.Status.Warning.Bg}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Brush.Status.Warning}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="{DynamicResource Corner.S}" />
+        <Setter Property="Padding" Value="{DynamicResource Thickness.XS}" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style x:Key="StatusWarningTextStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{DynamicResource Font.Family.Primary}" />
+        <Setter Property="FontSize" Value="{DynamicResource FontSize.Caption}" />
+        <Setter Property="FontWeight" Value="{DynamicResource FontWeight.Semi}" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Status.Warning}" />
     </Style>
 
     <!-- ============================ Status bar ============================ -->
@@ -571,7 +604,11 @@
 
     <!-- ============================ Navigation ============================ -->
     <!-- Rail items live on the dark navy surface (Brush.Brand.Rail): light
-         text, navy hover, and a green accent bar when selected. -->
+         text, navy hover, and a green accent bar when selected. Round-7: the
+         selected state lives in the template triggers (after hover) so
+         hovering the selected item keeps its selected background - template
+         triggers outrank style triggers, so the old Style.Triggers form lost
+         to the hover trigger. -->
     <Style x:Key="NavRailItemStyle" TargetType="Button">
         <Setter Property="FontFamily" Value="{DynamicResource Font.Family.Primary}" />
         <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
@@ -579,7 +616,7 @@
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="BorderBrush" Value="Transparent" />
         <Setter Property="Height" Value="52" />
-        <Setter Property="Margin" Value="4,2" />
+        <Setter Property="Margin" Value="4,4" />
         <Setter Property="HorizontalContentAlignment" Value="Stretch" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="FocusVisualStyle" Value="{DynamicResource FocusVisual.Default}" />
@@ -604,6 +641,11 @@
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource Brush.Brand.Rail.Hover}" />
                         </Trigger>
+                        <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                            <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource Brush.Brand.Rail.Selected}" />
+                            <Setter TargetName="Accent" Property="Background" Value="{DynamicResource Brush.Accent}" />
+                            <Setter Property="FontWeight" Value="{DynamicResource FontWeight.Semi}" />
+                        </DataTrigger>
                         <Trigger Property="IsKeyboardFocusWithin" Value="True">
                             <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource Brush.Focus}" />
                             <Setter TargetName="Chrome" Property="BorderThickness" Value="1" />
@@ -616,16 +658,12 @@
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
-        <Style.Triggers>
-            <DataTrigger Binding="{Binding IsSelected}" Value="True">
-                <Setter Property="Background" Value="{DynamicResource Brush.Brand.Rail.Selected}" />
-                <Setter Property="BorderBrush" Value="{DynamicResource Brush.Accent}" />
-                <Setter Property="FontWeight" Value="{DynamicResource FontWeight.Semi}" />
-            </DataTrigger>
-        </Style.Triggers>
     </Style>
 
-    <!-- Payment method strip: rendered as buttons, never a WPF TabControl. -->
+    <!-- Payment method strip: rendered as buttons, never a WPF TabControl.
+         Round-7: the full state machine lives in the template triggers in
+         precedence order (hover -> selected -> pressed -> focus -> disabled),
+         so hovering the selected tab keeps its selected face. -->
     <Style x:Key="MethodTabButtonStyle" TargetType="Button">
         <Setter Property="FontFamily" Value="{DynamicResource Font.Family.Primary}" />
         <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
@@ -633,7 +671,7 @@
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="BorderBrush" Value="Transparent" />
         <Setter Property="MinHeight" Value="44" />
-        <Setter Property="Padding" Value="14,4" />
+        <Setter Property="Padding" Value="16,4" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="FocusVisualStyle" Value="{DynamicResource FocusVisual.Default}" />
         <Setter Property="Template">
@@ -643,7 +681,7 @@
                             Background="{TemplateBinding Background}"
                             BorderBrush="{TemplateBinding BorderBrush}"
                             BorderThickness="0,0,0,2"
-                            CornerRadius="{DynamicResource Corner.S}"
+                            CornerRadius="{DynamicResource Corner.Button}"
                             Padding="{TemplateBinding Padding}">
                         <ContentPresenter HorizontalAlignment="Center"
                                           VerticalAlignment="Center"
@@ -653,27 +691,34 @@
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource Brush.Surface.Selected}" />
                         </Trigger>
+                        <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                            <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource Brush.Surface.Selected}" />
+                            <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource Brush.Accent}" />
+                            <Setter Property="FontWeight" Value="{DynamicResource FontWeight.Semi}" />
+                        </DataTrigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource Brush.Surface.Sunken}" />
+                        </Trigger>
                         <Trigger Property="IsKeyboardFocused" Value="True">
                             <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource Brush.Focus}" />
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource Brush.State.Disabled.Bg}" />
+                            <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource Brush.State.Disabled.Border}" />
                             <Setter Property="Foreground" Value="{DynamicResource Brush.State.Disabled.Fg}" />
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
-        <Style.Triggers>
-            <DataTrigger Binding="{Binding IsSelected}" Value="True">
-                <Setter Property="Background" Value="{DynamicResource Brush.Surface.Selected}" />
-                <Setter Property="BorderBrush" Value="{DynamicResource Brush.Accent}" />
-                <Setter Property="FontWeight" Value="{DynamicResource FontWeight.Semi}" />
-            </DataTrigger>
-        </Style.Triggers>
     </Style>
 
     <!-- Round-6: vertical payment method list - full-column-width buttons,
-             selected = green filled, others outlined, all 44 tall. -->
+             selected = green filled, others outlined, all 44 tall. Round-7:
+             the full state machine lives in the template triggers in
+             precedence order (hover -> selected -> pressed -> focus ->
+             disabled), so the selected face survives hover and disabled
+             greys completely. -->
     <Style x:Key="PaymentMethodListButtonStyle" TargetType="Button">
         <Setter Property="FontFamily" Value="{DynamicResource Font.Family.Primary}" />
         <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
@@ -691,8 +736,8 @@
                             Background="{TemplateBinding Background}"
                             BorderBrush="{TemplateBinding BorderBrush}"
                             BorderThickness="1"
-                            CornerRadius="6"
-                            Padding="14,4">
+                            CornerRadius="{DynamicResource Corner.Button}"
+                            Padding="16,4">
                         <ContentPresenter HorizontalAlignment="Center"
                                           VerticalAlignment="Center"
                                           RecognizesAccessKey="False" />
@@ -701,10 +746,20 @@
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource Brush.Surface.Selected}" />
                         </Trigger>
+                        <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                            <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource Brush.Accent}" />
+                            <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource Brush.Accent}" />
+                            <Setter Property="Foreground" Value="{DynamicResource Brush.Text.OnAccent}" />
+                        </DataTrigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource Brush.Surface.Sunken}" />
+                        </Trigger>
                         <Trigger Property="IsKeyboardFocused" Value="True">
                             <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource Brush.Focus}" />
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource Brush.State.Disabled.Bg}" />
+                            <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource Brush.State.Disabled.Border}" />
                             <Setter Property="Foreground" Value="{DynamicResource Brush.State.Disabled.Fg}" />
                         </Trigger>
                     </ControlTemplate.Triggers>
@@ -712,11 +767,6 @@
             </Setter.Value>
         </Setter>
         <Style.Triggers>
-            <DataTrigger Binding="{Binding IsSelected}" Value="True">
-                <Setter Property="Background" Value="{DynamicResource Brush.Accent}" />
-                <Setter Property="BorderBrush" Value="{DynamicResource Brush.Accent}" />
-                <Setter Property="Foreground" Value="{DynamicResource Brush.Text.OnAccent}" />
-            </DataTrigger>
             <DataTrigger Binding="{Binding IsSelected}" Value="False">
                 <Setter Property="Background" Value="Transparent" />
                 <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.Strong}" />
@@ -765,7 +815,7 @@
         <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.Default}" />
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="CornerRadius" Value="{DynamicResource Corner.S}" />
-        <Setter Property="Padding" Value="6,1" />
+        <Setter Property="Padding" Value="6,2" />
         <Setter Property="MinWidth" Value="28" />
         <Setter Property="HorizontalAlignment" Value="Center" />
     </Style>

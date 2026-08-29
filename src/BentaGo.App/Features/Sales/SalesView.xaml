@@ -34,7 +34,7 @@
                     </TextBox.InputBindings>
                 </TextBox>
 
-                <TextBlock Text="Product search" Style="{StaticResource FieldLabelStyle}"
+                <TextBlock Text="PRODUCT SEARCH" Style="{StaticResource FieldLabelStyle}"
                            Margin="{StaticResource Thickness.M}" />
                 <Grid>
                     <Grid.ColumnDefinitions>
@@ -53,7 +53,7 @@
                             Margin="{StaticResource Thickness.XS}" />
                 </Grid>
 
-                <TextBlock Text="Results" Style="{StaticResource LabelTextStyle}"
+                <TextBlock Text="RESULTS" Style="{StaticResource LabelTextStyle}"
                            Margin="{StaticResource Thickness.M}" />
                 <!-- Meaningful empty state instead of a blank void. -->
                 <Border Style="{StaticResource Banner.InfoBgStyle}"

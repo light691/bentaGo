@@ -45,7 +45,7 @@
                                            VerticalAlignment="Center" />
                                 <!-- Navy-tinted keycap chips: readable on the
                                      dark rail (round-4). -->
-                                <Border Style="{StaticResource NavRailKeyCapStyle}" Margin="10,0,0,0">
+                                <Border Style="{StaticResource NavRailKeyCapStyle}" Margin="8,0,0,0">
                                     <TextBlock Text="{Binding KeyCap}"
                                                Style="{StaticResource NavRailKeyCapTextStyle}" />
                                 </Border>

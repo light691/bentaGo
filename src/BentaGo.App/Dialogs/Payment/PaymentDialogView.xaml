@@ -40,7 +40,7 @@
                              Style="{StaticResource ScanEditorStyle}"
                              Width="220"
                              ui:FocusTarget.Id="Payment.AmountReceivedBox" />
-                    <TextBlock Text="Change  " Style="{StaticResource LabelTextStyle}"
+                    <TextBlock Text="Change" Style="{StaticResource LabelTextStyle}"
                                VerticalAlignment="Center"
                                Margin="{StaticResource Thickness.M}" />
                     <TextBlock Text="{Binding ChangeText}" Style="{StaticResource DisplayTextStyle}"

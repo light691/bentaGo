@@ -50,12 +50,10 @@
                                 <TextBlock Text="{Binding Sku}"
                                            Style="{StaticResource LowStockSkuTextStyle}"
                                            VerticalAlignment="Center" />
-                                <Border Style="{StaticResource Banner.WarningStyle}"
-                                        Padding="{StaticResource Thickness.XS}"
-                                        CornerRadius="{StaticResource Corner.S}"
+                                <Border Style="{StaticResource Tag.WarningStyle}"
                                         Margin="{StaticResource Thickness.XS}"
                                         Visibility="{Binding IsLow, Converter={StaticResource BoolToVisibility}}">
-                                    <TextBlock Text="LOW" Style="{StaticResource CaptionTextStyle}" />
+                                    <TextBlock Text="LOW" Style="{StaticResource StatusWarningTextStyle}" />
                                 </Border>
                             </StackPanel>
                         </DataTemplate>

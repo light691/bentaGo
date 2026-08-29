@@ -130,22 +130,18 @@
                 <Button Grid.Column="0" Content="F2 Scan"
                         Style="{StaticResource Button.ActionBarStyle}"
                         Command="{Binding NewSaleCommand}"
-                        
                         ui:FocusTarget.Id="Home.QuickAction.Scan" />
                 <Button Grid.Column="1" Content="F8 Pay"
                         Style="{StaticResource Button.ActionBarStyle}"
                         IsEnabled="False"
-                        
                         ui:FocusTarget.Id="Home.QuickAction.Pay" />
                 <Button Grid.Column="2" Content="F11 Print"
                         Style="{StaticResource Button.ActionBarStyle}"
                         IsEnabled="False"
-                        
                         ui:FocusTarget.Id="Home.QuickAction.Print" />
                 <Button Grid.Column="3" Content="F12 End Trip"
                         Style="{StaticResource Button.ActionBarStyle}"
                         Command="{Binding EndTripCommand}"
-                        
                         ui:FocusTarget.Id="Home.QuickAction.EndTrip" />
             </Grid>
         </Grid>

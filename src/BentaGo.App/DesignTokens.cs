@@ -101,6 +101,7 @@ public static class DesignTokens
     public const string CornerS = "Corner.S";
     public const string CornerM = "Corner.M";
     public const string CornerL = "Corner.L";
+    public const string CornerButton = "Corner.Button";
     public const string ControlHeightDefault = "Control.Height.Default";
     public const string ControlHeightLarge = "Control.Height.Large";
     public const string DialogHostMaxWidth = "DialogHost.MaxWidth";
@@ -150,6 +151,8 @@ public static class DesignTokens
     public const string PlaceholderTextStyle = "PlaceholderTextStyle";
     public const string StatusGlyphTextStyle = "StatusGlyphTextStyle";
     public const string LowStockSkuTextStyle = "LowStockSkuTextStyle";
+    public const string TagWarningStyle = "Tag.WarningStyle";
+    public const string StatusWarningTextStyle = "StatusWarningTextStyle";
 
     // ---- Validation (Styles/Validation.xaml) ----
     public const string ErrorTemplateTextBox = "ErrorTemplate.TextBox";
@@ -180,7 +183,7 @@ public static class DesignTokens
         DisplayTextStyle, HeaderTextStyle, TitleTextStyle, BodyTextStyle, LabelTextStyle, StatusTextStyle, CaptionTextStyle, MoneyTextStyle,
         ThicknessXs, ThicknessS, ThicknessM, ThicknessL, ThicknessXl, ThicknessXxl,
         ScreenPadding, CardPadding,
-        CornerS, CornerM, CornerL,
+        CornerS, CornerM, CornerL, CornerButton,
         ControlHeightDefault, ControlHeightLarge,
         DialogHostMaxWidth, DialogHostMaxHeight,
         FocusVisualDefault,
@@ -194,6 +197,7 @@ public static class DesignTokens
         MoneyPositiveTextStyle, StatusSuccessTitleTextStyle, StatusBarLeadTextStyle, MethodTabButtonStyle,
         ScanEditorStyle, FieldLabelStyle, DialogWindowStyle, HelpOverlayStyle,
         StatusDotStyle, PaymentMethodListButtonStyle, KeyCapStyle, PlaceholderStyle, PlaceholderTextStyle, StatusGlyphTextStyle, LowStockSkuTextStyle,
+        TagWarningStyle, StatusWarningTextStyle,
         ErrorTemplateTextBox, ErrorTemplatePasswordBox, ErrorTextStyle,
     };
 }

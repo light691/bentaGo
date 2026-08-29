@@ -148,6 +148,10 @@
     <CornerRadius x:Key="Corner.S">4</CornerRadius>
     <CornerRadius x:Key="Corner.M">8</CornerRadius>
     <CornerRadius x:Key="Corner.L">12</CornerRadius>
+    <!-- Round-7: every interactive control (buttons, chips, method tabs,
+         keycaps on buttons) shares one corner radius; surfaces keep the
+         S/M/L ramp (inputs/tags 4, banners 8, cards 12). -->
+    <CornerRadius x:Key="Corner.Button">6</CornerRadius>
 
     <sys:Double x:Key="Control.Height.Default">38</sys:Double>
     <sys:Double x:Key="Control.Height.Large">48</sys:Double>
@@ -206,7 +210,7 @@
         <Setter Property="BorderBrush" Value="{DynamicResource Brush.Brand.Rail.Border}" />
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="CornerRadius" Value="{StaticResource Corner.S}" />
-        <Setter Property="Padding" Value="6,1" />
+        <Setter Property="Padding" Value="6,2" />
         <Setter Property="MinWidth" Value="28" />
         <Setter Property="HorizontalAlignment" Value="Center" />
     </Style>
@@ -229,7 +233,7 @@
              share identical geometry - enabled vs parked differ only in
              colour and foreground (round-5 finding C). -->
         <Setter Property="Height" Value="44" />
-        <Setter Property="Padding" Value="14,0" />
+        <Setter Property="Padding" Value="16,0" />
         <Setter Property="Margin" Value="0,0,8,0" />
         <Setter Property="VerticalContentAlignment" Value="Center" />
         <Setter Property="Cursor" Value="Hand" />
@@ -241,7 +245,7 @@
                             Background="{DynamicResource Brush.Accent}"
                             BorderBrush="{DynamicResource Brush.Accent}"
                             BorderThickness="1"
-                            CornerRadius="{StaticResource Corner.M}"
+                            CornerRadius="{StaticResource Corner.Button}"
                             Padding="{TemplateBinding Padding}">
                         <ContentPresenter HorizontalAlignment="Center"
                                           VerticalAlignment="Center"
@@ -276,7 +280,7 @@
     <Style x:Key="QuickActionKeyCapTextStyle" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource Font.Family.Primary}" />
         <Setter Property="FontSize" Value="{StaticResource FontSize.Caption}" />
-        <Setter Property="Margin" Value="0,0,6,0" />
+        <Setter Property="Margin" Value="0,0,8,0" />
     </Style>
 
     <!-- Status strip lead: dark text (#202124) per the reference, with an 8px
@@ -318,7 +322,7 @@
                             Background="{DynamicResource Brush.Accent}"
                             BorderBrush="{DynamicResource Brush.Accent}"
                             BorderThickness="1"
-                            CornerRadius="6"
+                            CornerRadius="{StaticResource Corner.Button}"
                             Padding="{TemplateBinding Padding}">
                         <ContentPresenter HorizontalAlignment="Center"
                                           VerticalAlignment="Center"
@@ -363,7 +367,7 @@
                             Background="Transparent"
                             BorderBrush="{DynamicResource Brush.Border.Strong}"
                             BorderThickness="1"
-                            CornerRadius="6"
+                            CornerRadius="{StaticResource Corner.Button}"
                             Padding="{TemplateBinding Padding}">
                         <ContentPresenter HorizontalAlignment="Center"
                                           VerticalAlignment="Center"
@@ -408,7 +412,7 @@
                             Background="Transparent"
                             BorderBrush="{DynamicResource Brush.Status.Error}"
                             BorderThickness="1"
-                            CornerRadius="6"
+                            CornerRadius="{StaticResource Corner.Button}"
                             Padding="{TemplateBinding Padding}">
                         <ContentPresenter HorizontalAlignment="Center"
                                           VerticalAlignment="Center"
