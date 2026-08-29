@@ -56,8 +56,8 @@ public sealed class MigrationTests : IDisposable
         await using var context = await host.GetRequiredService<IDbContextFactory<BentaGoDbContext>>()
             .CreateDbContextAsync();
         string[] applied = (await context.Database.GetAppliedMigrationsAsync()).ToArray();
-        Assert.Equal(6, applied.Length); // InitialCreate + BG003_01 + BG003_02 + BG005_01 + BG005b_01 + BG005c_01
-        Assert.EndsWith("BG005c_01_AddTripCancel", applied[^1]);
+        Assert.Equal(7, applied.Length); // InitialCreate + BG003_01 + BG003_02 + BG005_01 + BG005b_01 + BG005c_01 + BG006_01
+        Assert.EndsWith("BG006_01_AddSalesIndexes", applied[^1]);
 
         await using var connection = new SqliteConnection($"Data Source={DbPath(root)};Mode=ReadOnly;Pooling=False");
         await connection.OpenAsync();
@@ -84,9 +84,14 @@ public sealed class MigrationTests : IDisposable
         Assert.True(await TriggerExistsAsync(connection, "Movements_NoUpdate"));
         Assert.True(await TriggerExistsAsync(connection, "Movements_NoDelete"));
 
+        // BG006_01: caller-surface performance indexes.
+        Assert.True(await IndexExistsAsync(connection, "IX_Products_Name_NOCASE"));
+        Assert.True(await IndexExistsAsync(connection, "IX_Sales_TripCreated"));
+        Assert.True(await IndexExistsAsync(connection, "IX_PaymentLines_Reference"));
+
         // A second migrate converges.
         await initializer.EnsureCreatedOrMigrateAsync();
-        Assert.Equal(6, (await context.Database.GetAppliedMigrationsAsync()).Count());
+        Assert.Equal(7, (await context.Database.GetAppliedMigrationsAsync()).Count());
 
         await connection.CloseAsync();
     }
@@ -120,7 +125,7 @@ public sealed class MigrationTests : IDisposable
         var initializer = host.GetRequiredService<DbInitializer>();
         await initializer.EnsureCreatedOrMigrateAsync();
 
-        Assert.Equal(6, await CountRowsAsync(dbPath, "__EFMigrationsHistory"));
+        Assert.Equal(7, await CountRowsAsync(dbPath, "__EFMigrationsHistory"));
         Assert.True(await TableExistsAsync(dbPath, "IdempotencyKeys"));
         Assert.True(await TableExistsAsync(dbPath, "Users"));
         Assert.True(await TableExistsAsync(dbPath, "Peddlers"));
@@ -137,7 +142,8 @@ public sealed class MigrationTests : IDisposable
         await using var context = await host.GetRequiredService<IDbContextFactory<BentaGoDbContext>>()
             .CreateDbContextAsync();
         string[] applied = (await context.Database.GetAppliedMigrationsAsync()).ToArray();
-        Assert.EndsWith("BG005c_01_AddTripCancel", applied[^1]);
+        Assert.Equal(7, applied.Length); // head = BG006_01 after the upgrade
+        Assert.EndsWith("BG006_01_AddSalesIndexes", applied[^1]);
     }
 
     private static async Task<bool> TableExistsAsync(SqliteConnection connection, string name)
@@ -161,6 +167,14 @@ public sealed class MigrationTests : IDisposable
     {
         using var command = connection.CreateCommand();
         command.CommandText = "SELECT COUNT(1) FROM sqlite_master WHERE type = 'trigger' AND name = $name";
+        command.Parameters.AddWithValue("$name", name);
+        return Convert.ToInt64(await command.ExecuteScalarAsync()) == 1;
+    }
+
+    private static async Task<bool> IndexExistsAsync(SqliteConnection connection, string name)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT COUNT(1) FROM sqlite_master WHERE type = 'index' AND name = $name";
         command.Parameters.AddWithValue("$name", name);
         return Convert.ToInt64(await command.ExecuteScalarAsync()) == 1;
     }

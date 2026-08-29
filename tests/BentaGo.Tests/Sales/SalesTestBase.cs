@@ -33,9 +33,10 @@ public abstract class SalesTestBase : PersistenceTestBase
 
     protected sealed class SalesHost : IDisposable
     {
-        public SalesHost(ServiceProvider provider)
+        public SalesHost(ServiceProvider provider, string root)
         {
             Provider = provider;
+            Root = root;
             Store = provider.GetRequiredService<SqliteLedgerStore>();
             Products = provider.GetRequiredService<IProductStore>();
             Checkout = provider.GetRequiredService<ICheckoutService>();
@@ -45,6 +46,7 @@ public abstract class SalesTestBase : PersistenceTestBase
         }
 
         public ServiceProvider Provider { get; }
+        public string Root { get; }
         public SqliteLedgerStore Store { get; }
         public IProductStore Products { get; }
         public ICheckoutService Checkout { get; }
@@ -63,7 +65,7 @@ public abstract class SalesTestBase : PersistenceTestBase
         string root = NewRoot();
         ServiceProvider provider = NewHost(root);
         await provider.GetRequiredService<DbInitializer>().EnsureCreatedOrMigrateAsync();
-        var host = new SalesHost(provider);
+        var host = new SalesHost(provider, root);
 
         (TripId trip, ProductId product, LocationId route, LocationId store, UserId user, PeddlerId peddler) = Known();
 
