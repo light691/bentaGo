@@ -425,22 +425,29 @@
         <Setter Property="FocusVisualStyle" Value="{DynamicResource FocusVisual.Default}" />
     </Style>
 
-    <Style TargetType="DataGridRow">
-        <Setter Property="Background" Value="Transparent" />
-        <Setter Property="FocusVisualStyle" Value="{DynamicResource FocusVisual.Default}" />
+    <Style x:Key="DataGrid.RowStyle" TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
+        <!-- Shared brand selection (round-5 E): navy row + white text in every
+             DataGrid (Sales cart, Stock, Reconciliation inventory, split
+             lines). Low-stock emphasis layers on top via the derived style. -->
         <Style.Triggers>
             <Trigger Property="IsMouseOver" Value="True">
                 <Setter Property="Background" Value="{DynamicResource Brush.Surface.Selected}" />
             </Trigger>
             <Trigger Property="IsSelected" Value="True">
-                <Setter Property="Background" Value="{DynamicResource Brush.Surface.Selected}" />
+                <Setter Property="Background" Value="{DynamicResource Brush.Brand.Secondary}" />
+                <Setter Property="Foreground" Value="{DynamicResource Brush.Text.OnAccent}" />
                 <Setter Property="FontWeight" Value="{DynamicResource FontWeight.Semi}" />
             </Trigger>
         </Style.Triggers>
     </Style>
 
+    <Style TargetType="DataGridRow" BasedOn="{StaticResource DataGrid.RowStyle}">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="FocusVisualStyle" Value="{DynamicResource FocusVisual.Default}" />
+    </Style>
+
     <Style x:Key="DataGrid.LowStockRowStyle" TargetType="DataGridRow"
-           BasedOn="{StaticResource {x:Type DataGridRow}}">
+           BasedOn="{StaticResource DataGrid.RowStyle}">
         <Style.Triggers>
             <DataTrigger Binding="{Binding IsLow}" Value="True">
                 <Setter Property="Background" Value="{DynamicResource Brush.Status.Warning.Bg}" />

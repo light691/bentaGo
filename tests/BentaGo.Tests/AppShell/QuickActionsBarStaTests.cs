@@ -75,6 +75,15 @@ public sealed class QuickActionsBarStaTests
         Assert.False(print.IsEnabled, $"{screen} F11 Print chip must be parked (disabled)");
         Assert.Null(print.Command); // never bound - the Alt+4 pattern
 
+        // Round-5 C: one Quick Actions row must show identical geometry -
+        // enabled and parked chips differ only in colour/foreground.
+        Assert.True(
+            Math.Abs(scan.ActualHeight - pay.ActualHeight) <= 2,
+            $"{screen} enabled chip {scan.ActualHeight:F1}px vs parked chip {pay.ActualHeight:F1}px differ > 2px");
+        Assert.True(
+            Math.Abs(scan.ActualHeight - print.ActualHeight) <= 2,
+            $"{screen} enabled chip {scan.ActualHeight:F1}px vs parked chip {print.ActualHeight:F1}px differ > 2px");
+
         if (screen == "Home")
         {
             Button endTrip = FindById(view, "Home.QuickAction.EndTrip")

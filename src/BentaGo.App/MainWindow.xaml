@@ -73,7 +73,8 @@
              segment arrives only with the BG-003 merge - not claimed here). -->
         <StatusBar Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2">
             <StatusBarItem>
-                <TextBlock Text="Offline &middot; local data"
+                <!-- Real U+00B7 middot (XAML does not decode HTML entities). -->
+                <TextBlock x:Name="StatusLeadText" Text="Offline · local data"
                            Style="{StaticResource StatusBarLeadTextStyle}" />
             </StatusBarItem>
             <StatusBarItem>

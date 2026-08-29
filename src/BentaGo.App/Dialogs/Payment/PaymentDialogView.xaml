@@ -7,165 +7,268 @@
         <!-- F6 focuses the method strip (Payment-dialog scope). -->
         <KeyBinding Key="F6" Command="{Binding FocusMethodCommand}" />
     </UserControl.InputBindings>
-    <Grid Margin="{StaticResource Thickness.L}">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
-            <RowDefinition Height="Auto" />
-        </Grid.RowDefinitions>
+    <!-- Round-5: balanced two-column dialog - keypad/method strip on the
+         left, order summary on the right; margins stay token-based so the
+         whole dialog fits the DialogHost cap (760x600) without scrolling. -->
+    <Grid Margin="{StaticResource Thickness.S}">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
 
-        <TextBlock Grid.Row="0" Text="Payment" Style="{StaticResource TitleTextStyle}" />
-        <StackPanel Grid.Row="1" Orientation="Horizontal">
-            <TextBlock Text="TOTAL " Style="{StaticResource LabelTextStyle}" VerticalAlignment="Center" />
-            <TextBlock Text="{Binding TotalText}" Style="{StaticResource DisplayTextStyle}" />
-        </StackPanel>
-        <Border Grid.Row="2"
-                BorderThickness="0,1,0,0"
-                BorderBrush="{DynamicResource Brush.Divider}"
-                Margin="{StaticResource Thickness.M}" />
+        <!-- LEFT: title + total / divider / methods / tender / actions. -->
+        <Grid Grid.Column="0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
 
-        <!-- Method strip (buttons, never a WPF TabControl). -->
-        <ItemsControl Grid.Row="2"
-                      ItemsSource="{Binding MethodOptions}"
-                      Margin="{StaticResource Thickness.M}"
-                      ui:FocusTarget.Id="Payment.MethodTabs">
-            <ItemsControl.ItemsPanel>
-                <ItemsPanelTemplate>
-                    <StackPanel Orientation="Horizontal" />
-                </ItemsPanelTemplate>
-            </ItemsControl.ItemsPanel>
-            <ItemsControl.ItemTemplate>
-                <DataTemplate>
-                    <Button Style="{StaticResource MethodTabButtonStyle}"
-                            Command="{Binding DataContext.SelectMethodCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                            CommandParameter="{Binding Id}"
-                            Content="{Binding Label}" />
-                </DataTemplate>
-            </ItemsControl.ItemTemplate>
-        </ItemsControl>
+            <StackPanel Grid.Row="0" Orientation="Horizontal">
+                <TextBlock Text="Payment" Style="{StaticResource TitleTextStyle}" VerticalAlignment="Center" />
+                <TextBlock Text="TOTAL " Style="{StaticResource LabelTextStyle}" VerticalAlignment="Center"
+                           Margin="{StaticResource Thickness.M}" />
+                <TextBlock Text="{Binding TotalText}" Style="{StaticResource DisplayTextStyle}" VerticalAlignment="Center" />
+            </StackPanel>
+            <Border Grid.Row="1"
+                    BorderThickness="0,1,0,0"
+                    BorderBrush="{DynamicResource Brush.Divider}"
+                    Margin="{StaticResource Thickness.S}" />
 
-        <!-- Tender panels. -->
-        <Grid Grid.Row="3" Margin="{StaticResource Thickness.M}">
-            <!-- Cash / single-method: amount received + change + keypad. -->
-            <StackPanel Visibility="{Binding IsCashSelected, Converter={StaticResource BoolToVisibility}}">
-                <TextBlock Text="Amount received" Style="{StaticResource FieldLabelStyle}" />
-                <TextBox Text="{Binding AmountReceivedText, UpdateSourceTrigger=PropertyChanged}"
-                         Style="{StaticResource ScanEditorStyle}"
-                         MaxWidth="260"
-                         HorizontalAlignment="Left" />
-                <StackPanel Orientation="Horizontal" Margin="{StaticResource Thickness.M}">
-                    <TextBlock Text="Change  " Style="{StaticResource LabelTextStyle}" VerticalAlignment="Center" />
-                    <TextBlock Text="{Binding ChangeText}" Style="{StaticResource MoneyPositiveTextStyle}" />
+            <!-- Method strip (buttons, never a WPF TabControl). -->
+            <ItemsControl Grid.Row="2"
+                          ItemsSource="{Binding MethodOptions}"
+                          Margin="{StaticResource Thickness.M}"
+                          ui:FocusTarget.Id="Payment.MethodTabs">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <StackPanel Orientation="Horizontal" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Button Style="{StaticResource MethodTabButtonStyle}"
+                                Command="{Binding DataContext.SelectMethodCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                CommandParameter="{Binding Id}"
+                                Content="{Binding Label}" />
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <!-- Tender panels. -->
+            <Grid Grid.Row="3" Margin="{StaticResource Thickness.S}">
+                <!-- Cash / single-method: amount received + change + keypad. -->
+                <StackPanel Visibility="{Binding IsCashSelected, Converter={StaticResource BoolToVisibility}}">
+                    <TextBlock Text="Amount received" Style="{StaticResource FieldLabelStyle}" />
+                    <TextBox Text="{Binding AmountReceivedText, UpdateSourceTrigger=PropertyChanged}"
+                             Style="{StaticResource ScanEditorStyle}"
+                             MaxWidth="260"
+                             HorizontalAlignment="Left" />
+                    <StackPanel Orientation="Horizontal" Margin="{StaticResource Thickness.S}">
+                        <TextBlock Text="Change  " Style="{StaticResource LabelTextStyle}" VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding ChangeText}" Style="{StaticResource MoneyPositiveTextStyle}" />
+                    </StackPanel>
+                    <Grid Margin="{StaticResource Thickness.S}" HorizontalAlignment="Left">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <!-- Canonical numeric pad (with 0 and double-zero). -->
+                        <UniformGrid Grid.Row="0" Grid.RowSpan="4" Grid.Column="0" Rows="4" Columns="3">
+                            <Button Content="7" Style="{StaticResource Button.KeypadStyle}" Command="{Binding AppendDigitCommand}" CommandParameter="7" />
+                            <Button Content="8" Style="{StaticResource Button.KeypadStyle}" Command="{Binding AppendDigitCommand}" CommandParameter="8" />
+                            <Button Content="9" Style="{StaticResource Button.KeypadStyle}" Command="{Binding AppendDigitCommand}" CommandParameter="9" />
+                            <Button Content="4" Style="{StaticResource Button.KeypadStyle}" Command="{Binding AppendDigitCommand}" CommandParameter="4" />
+                            <Button Content="5" Style="{StaticResource Button.KeypadStyle}" Command="{Binding AppendDigitCommand}" CommandParameter="5" />
+                            <Button Content="6" Style="{StaticResource Button.KeypadStyle}" Command="{Binding AppendDigitCommand}" CommandParameter="6" />
+                            <Button Content="1" Style="{StaticResource Button.KeypadStyle}" Command="{Binding AppendDigitCommand}" CommandParameter="1" />
+                            <Button Content="2" Style="{StaticResource Button.KeypadStyle}" Command="{Binding AppendDigitCommand}" CommandParameter="2" />
+                            <Button Content="3" Style="{StaticResource Button.KeypadStyle}" Command="{Binding AppendDigitCommand}" CommandParameter="3" />
+                            <Button Content="0" Style="{StaticResource Button.KeypadStyle}" Command="{Binding AppendDigitCommand}" CommandParameter="0" />
+                            <Button Content="00" Style="{StaticResource Button.KeypadStyle}" Command="{Binding AppendDigitCommand}" CommandParameter="00" />
+                            <Button Content="." Style="{StaticResource Button.KeypadStyle}" Command="{Binding AppendDigitCommand}" CommandParameter="." />
+                        </UniformGrid>
+                        <!-- Clear + Confirm sit in a right-aligned column, each
+                             sized like the keypad buttons (round-5 D2/D4). -->
+                        <Button Grid.Row="0" Grid.Column="1" Content="C"
+                                Style="{StaticResource Button.KeypadStyle}"
+                                Command="{Binding ClearEntryCommand}"
+                                Margin="{StaticResource Thickness.S}"
+                                VerticalAlignment="Top" />
+                        <Button Grid.Row="1" Grid.RowSpan="3" Grid.Column="1" Content="Enter"
+                                Style="{StaticResource KeypadButton.AccentStyle}"
+                                Command="{Binding ConfirmCommand}"
+                                Margin="{StaticResource Thickness.S}"
+                                VerticalAlignment="Stretch" />
+                    </Grid>
                 </StackPanel>
-                <UniformGrid Rows="4" Columns="4" MaxWidth="304" HorizontalAlignment="Left">
-                    <Button Content="7" Style="{StaticResource Button.KeypadStyle}" Command="{Binding AppendDigitCommand}" CommandParameter="7" />
-                    <Button Content="8" Style="{StaticResource Button.KeypadStyle}" Command="{Binding AppendDigitCommand}" CommandParameter="8" />
-                    <Button Content="9" Style="{StaticResource Button.KeypadStyle}" Command="{Binding AppendDigitCommand}" CommandParameter="9" />
-                    <Button Content="C" Style="{StaticResource Button.KeypadStyle}" Command="{Binding ClearEntryCommand}" />
-                    <Button Content="4" Style="{StaticResource Button.KeypadStyle}" Command="{Binding AppendDigitCommand}" CommandParameter="4" />
-                    <Button Content="5" Style="{StaticResource Button.KeypadStyle}" Command="{Binding AppendDigitCommand}" CommandParameter="5" />
-                    <Button Content="6" Style="{StaticResource Button.KeypadStyle}" Command="{Binding AppendDigitCommand}" CommandParameter="6" />
-                    <Button Content="0" Style="{StaticResource Button.KeypadStyle}" Command="{Binding AppendDigitCommand}" CommandParameter="0" />
-                    <Button Content="1" Style="{StaticResource Button.KeypadStyle}" Command="{Binding AppendDigitCommand}" CommandParameter="1" />
-                    <Button Content="2" Style="{StaticResource Button.KeypadStyle}" Command="{Binding AppendDigitCommand}" CommandParameter="2" />
-                    <Button Content="3" Style="{StaticResource Button.KeypadStyle}" Command="{Binding AppendDigitCommand}" CommandParameter="3" />
-                    <Button Content="." Style="{StaticResource Button.KeypadStyle}" Command="{Binding AppendDigitCommand}" CommandParameter="." />
-                    <Button Content="Enter" Style="{StaticResource KeypadButton.AccentStyle}" Command="{Binding ConfirmCommand}" />
-                </UniformGrid>
-            </StackPanel>
 
-            <!-- GCash / Maya / Bank: amount entry. -->
-            <StackPanel Visibility="{Binding IsCardSelected, Converter={StaticResource BoolToVisibility}}">
-                <TextBlock Text="Amount" Style="{StaticResource FieldLabelStyle}" />
-                <TextBox Text="{Binding AmountReceivedText, UpdateSourceTrigger=PropertyChanged}"
-                         Style="{StaticResource ScanEditorStyle}"
-                         MaxWidth="260"
-                         HorizontalAlignment="Left" />
-                <UniformGrid Rows="4" Columns="4" MaxWidth="304" HorizontalAlignment="Left"
-                             Margin="{StaticResource Thickness.M}">
-                    <Button Content="7" Style="{StaticResource Button.KeypadStyle}" Command="{Binding AppendDigitCommand}" CommandParameter="7" />
-                    <Button Content="8" Style="{StaticResource Button.KeypadStyle}" Command="{Binding AppendDigitCommand}" CommandParameter="8" />
-                    <Button Content="9" Style="{StaticResource Button.KeypadStyle}" Command="{Binding AppendDigitCommand}" CommandParameter="9" />
-                    <Button Content="C" Style="{StaticResource Button.KeypadStyle}" Command="{Binding ClearEntryCommand}" />
-                    <Button Content="4" Style="{StaticResource Button.KeypadStyle}" Command="{Binding AppendDigitCommand}" CommandParameter="4" />
-                    <Button Content="5" Style="{StaticResource Button.KeypadStyle}" Command="{Binding AppendDigitCommand}" CommandParameter="5" />
-                    <Button Content="6" Style="{StaticResource Button.KeypadStyle}" Command="{Binding AppendDigitCommand}" CommandParameter="6" />
-                    <Button Content="0" Style="{StaticResource Button.KeypadStyle}" Command="{Binding AppendDigitCommand}" CommandParameter="0" />
-                    <Button Content="1" Style="{StaticResource Button.KeypadStyle}" Command="{Binding AppendDigitCommand}" CommandParameter="1" />
-                    <Button Content="2" Style="{StaticResource Button.KeypadStyle}" Command="{Binding AppendDigitCommand}" CommandParameter="2" />
-                    <Button Content="3" Style="{StaticResource Button.KeypadStyle}" Command="{Binding AppendDigitCommand}" CommandParameter="3" />
-                    <Button Content="." Style="{StaticResource Button.KeypadStyle}" Command="{Binding AppendDigitCommand}" CommandParameter="." />
-                </UniformGrid>
-            </StackPanel>
+                <!-- GCash / Maya / Bank: amount entry. -->
+                <StackPanel Visibility="{Binding IsCardSelected, Converter={StaticResource BoolToVisibility}}">
+                    <TextBlock Text="Amount" Style="{StaticResource FieldLabelStyle}" />
+                    <TextBox Text="{Binding AmountReceivedText, UpdateSourceTrigger=PropertyChanged}"
+                             Style="{StaticResource ScanEditorStyle}"
+                             MaxWidth="260"
+                             HorizontalAlignment="Left" />
+                    <Grid Margin="{StaticResource Thickness.S}" HorizontalAlignment="Left">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <UniformGrid Grid.Row="0" Grid.RowSpan="4" Grid.Column="0" Rows="4" Columns="3">
+                            <Button Content="7" Style="{StaticResource Button.KeypadStyle}" Command="{Binding AppendDigitCommand}" CommandParameter="7" />
+                            <Button Content="8" Style="{StaticResource Button.KeypadStyle}" Command="{Binding AppendDigitCommand}" CommandParameter="8" />
+                            <Button Content="9" Style="{StaticResource Button.KeypadStyle}" Command="{Binding AppendDigitCommand}" CommandParameter="9" />
+                            <Button Content="4" Style="{StaticResource Button.KeypadStyle}" Command="{Binding AppendDigitCommand}" CommandParameter="4" />
+                            <Button Content="5" Style="{StaticResource Button.KeypadStyle}" Command="{Binding AppendDigitCommand}" CommandParameter="5" />
+                            <Button Content="6" Style="{StaticResource Button.KeypadStyle}" Command="{Binding AppendDigitCommand}" CommandParameter="6" />
+                            <Button Content="1" Style="{StaticResource Button.KeypadStyle}" Command="{Binding AppendDigitCommand}" CommandParameter="1" />
+                            <Button Content="2" Style="{StaticResource Button.KeypadStyle}" Command="{Binding AppendDigitCommand}" CommandParameter="2" />
+                            <Button Content="3" Style="{StaticResource Button.KeypadStyle}" Command="{Binding AppendDigitCommand}" CommandParameter="3" />
+                            <Button Content="0" Style="{StaticResource Button.KeypadStyle}" Command="{Binding AppendDigitCommand}" CommandParameter="0" />
+                            <Button Content="00" Style="{StaticResource Button.KeypadStyle}" Command="{Binding AppendDigitCommand}" CommandParameter="00" />
+                            <Button Content="." Style="{StaticResource Button.KeypadStyle}" Command="{Binding AppendDigitCommand}" CommandParameter="." />
+                        </UniformGrid>
+                        <Button Grid.Row="0" Grid.Column="1" Content="C"
+                                Style="{StaticResource Button.KeypadStyle}"
+                                Command="{Binding ClearEntryCommand}"
+                                Margin="{StaticResource Thickness.S}"
+                                VerticalAlignment="Top" />
+                        <Button Grid.Row="1" Grid.RowSpan="3" Grid.Column="1" Content="Enter"
+                                Style="{StaticResource KeypadButton.AccentStyle}"
+                                Command="{Binding ConfirmCommand}"
+                                Margin="{StaticResource Thickness.S}"
+                                VerticalAlignment="Stretch" />
+                    </Grid>
+                </StackPanel>
 
-            <!-- Credit: customer + reference. -->
-            <StackPanel Visibility="{Binding IsCreditSelected, Converter={StaticResource BoolToVisibility}}">
-                <TextBlock Text="Customer name" Style="{StaticResource FieldLabelStyle}" />
-                <TextBox Text="{Binding CustomerName, UpdateSourceTrigger=PropertyChanged}"
-                         Style="{StaticResource ScanEditorStyle}"
-                         MaxWidth="320"
-                         HorizontalAlignment="Left" />
-                <TextBlock Text="Reference / contact" Style="{StaticResource FieldLabelStyle}"
-                           Margin="{StaticResource Thickness.M}" />
-                <TextBox Text="{Binding Reference, UpdateSourceTrigger=PropertyChanged}"
-                         Style="{StaticResource ScanEditorStyle}"
-                         MaxWidth="320"
-                         HorizontalAlignment="Left" />
-                <TextBlock Text="Utang is recorded against this customer. Confirm to continue (BG-005 wires the receivable)."
-                           Style="{StaticResource CaptionTextStyle}"
-                           Margin="{StaticResource Thickness.M}" />
-            </StackPanel>
+                <!-- Credit: customer + reference. -->
+                <StackPanel Visibility="{Binding IsCreditSelected, Converter={StaticResource BoolToVisibility}}">
+                    <TextBlock Text="Customer name" Style="{StaticResource FieldLabelStyle}" />
+                    <TextBox Text="{Binding CustomerName, UpdateSourceTrigger=PropertyChanged}"
+                             Style="{StaticResource ScanEditorStyle}"
+                             MaxWidth="320"
+                             HorizontalAlignment="Left" />
+                    <TextBlock Text="Reference / contact" Style="{StaticResource FieldLabelStyle}"
+                               Margin="{StaticResource Thickness.M}" />
+                    <TextBox Text="{Binding Reference, UpdateSourceTrigger=PropertyChanged}"
+                             Style="{StaticResource ScanEditorStyle}"
+                             MaxWidth="320"
+                             HorizontalAlignment="Left" />
+                    <TextBlock Text="Utang is recorded against this customer. Confirm to continue (BG-005 wires the receivable)."
+                               Style="{StaticResource CaptionTextStyle}"
+                               Margin="{StaticResource Thickness.M}" />
+                </StackPanel>
 
-            <!-- Split: payment lines + remaining balance. -->
-            <StackPanel Visibility="{Binding IsSplitSelected, Converter={StaticResource BoolToVisibility}}">
-                <ItemsControl ItemsSource="{Binding SplitLines}">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <StackPanel Orientation="Horizontal" Margin="{StaticResource Thickness.XS}">
-                                <Button Style="{StaticResource Button.SecondaryStyle}"
-                                        MinWidth="110"
-                                        Command="{Binding CycleMethodCommand}"
-                                        Content="{Binding MethodLabel}" />
-                                <TextBox Text="{Binding AmountText, UpdateSourceTrigger=PropertyChanged}"
-                                         Style="{StaticResource ScanEditorStyle}"
-                                         Width="140"
-                                         Margin="{StaticResource Thickness.S}" />
-                                <Button Content="Remove"
-                                        Style="{StaticResource Button.QuietStyle}"
-                                        Command="{Binding DataContext.RemoveSplitLineCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                        CommandParameter="{Binding}" />
-                            </StackPanel>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-                <StackPanel Orientation="Horizontal" Margin="{StaticResource Thickness.M}">
-                    <Button Content="Add payment line"
-                            Style="{StaticResource Button.SecondaryStyle}"
-                            Command="{Binding AddSplitLineCommand}"
-                            HorizontalAlignment="Left" />
-                    <StackPanel Orientation="Horizontal" Margin="{StaticResource Thickness.L}">
-                        <TextBlock Text="Remaining  " Style="{StaticResource LabelTextStyle}" VerticalAlignment="Center" />
-                        <TextBlock Text="{Binding RemainingText}" Style="{StaticResource MoneyTextStyle}" />
+                <!-- Split: payment lines + remaining balance. -->
+                <StackPanel Visibility="{Binding IsSplitSelected, Converter={StaticResource BoolToVisibility}}">
+                    <ItemsControl ItemsSource="{Binding SplitLines}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal" Margin="{StaticResource Thickness.XS}">
+                                    <Button Style="{StaticResource Button.SecondaryStyle}"
+                                            MinWidth="110"
+                                            Command="{Binding CycleMethodCommand}"
+                                            Content="{Binding MethodLabel}" />
+                                    <TextBox Text="{Binding AmountText, UpdateSourceTrigger=PropertyChanged}"
+                                             Style="{StaticResource ScanEditorStyle}"
+                                             Width="140"
+                                             Margin="{StaticResource Thickness.S}" />
+                                    <Button Content="Remove"
+                                            Style="{StaticResource Button.QuietStyle}"
+                                            Command="{Binding DataContext.RemoveSplitLineCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                            CommandParameter="{Binding}" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <StackPanel Orientation="Horizontal" Margin="{StaticResource Thickness.M}">
+                        <Button Content="Add payment line"
+                                Style="{StaticResource Button.SecondaryStyle}"
+                                Command="{Binding AddSplitLineCommand}"
+                                HorizontalAlignment="Left" />
+                        <StackPanel Orientation="Horizontal" Margin="{StaticResource Thickness.L}">
+                            <TextBlock Text="Remaining  " Style="{StaticResource LabelTextStyle}" VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding RemainingText}" Style="{StaticResource MoneyTextStyle}" />
+                        </StackPanel>
                     </StackPanel>
                 </StackPanel>
+            </Grid>
+
+            <!-- Confirm / cancel. -->
+            <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right"
+                        Margin="{StaticResource Thickness.S}">
+                <Button Content="Cancel"
+                        Style="{StaticResource Button.QuietStyle}"
+                        Command="{Binding CancelCommand}"
+                        Margin="{StaticResource Thickness.S}" />
+                <Button Content="CONFIRM"
+                        Style="{StaticResource Button.PrimaryStyle}"
+                        Command="{Binding ConfirmCommand}"
+                        IsDefault="True"
+                        MinWidth="160"
+                        Margin="{StaticResource Thickness.S}"
+                        ui:FocusTarget.Id="Payment.ConfirmButton" />
             </StackPanel>
         </Grid>
 
-        <!-- Confirm / cancel. -->
-        <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right">
-            <Button Content="Cancel"
-                    Style="{StaticResource Button.QuietStyle}"
-                    Command="{Binding CancelCommand}"
-                    Margin="{StaticResource Thickness.S}" />
-            <Button Content="CONFIRM"
-                    Style="{StaticResource Button.PrimaryStyle}"
-                    Command="{Binding ConfirmCommand}"
-                    IsDefault="True"
-                    MinWidth="160"
-                    Margin="{StaticResource Thickness.S}"
-                    ui:FocusTarget.Id="Payment.ConfirmButton" />
-        </StackPanel>
+        <!-- RIGHT: order summary. Fills the dialog width so the window is not
+             left-packed with empty space (round-5 D3). -->
+        <Border Grid.Column="1"
+                Style="{StaticResource CardStyle}"
+                Margin="{StaticResource Thickness.M}"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Stretch">
+            <StackPanel Margin="{StaticResource CardPadding}">
+                <TextBlock Text="Order summary" Style="{StaticResource TitleTextStyle}" />
+                <Grid Margin="{StaticResource Thickness.M}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="TOTAL" Style="{StaticResource LabelTextStyle}" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="1" Text="{Binding TotalText}" Style="{StaticResource DisplayTextStyle}"
+                               HorizontalAlignment="Right" VerticalAlignment="Center" />
+                </Grid>
+                <Border BorderThickness="0,1,0,0"
+                        BorderBrush="{DynamicResource Brush.Divider}"
+                        Margin="{StaticResource Thickness.M}" />
+                <Grid Margin="{StaticResource Thickness.M}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="Amount received" Style="{StaticResource LabelTextStyle}" />
+                    <TextBlock Grid.Column="1" Text="{Binding AmountReceivedText}" Style="{StaticResource MoneyTextStyle}"
+                               HorizontalAlignment="Right" />
+                </Grid>
+                <Grid Margin="{StaticResource Thickness.M}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="Change" Style="{StaticResource LabelTextStyle}" />
+                    <TextBlock Grid.Column="1" Text="{Binding ChangeText}" Style="{StaticResource MoneyPositiveTextStyle}"
+                               HorizontalAlignment="Right" />
+                </Grid>
+                <TextBlock Text="Split totals are simulated on this branch (BG-005 wires the real tender)."
+                           Style="{StaticResource CaptionTextStyle}"
+                           Margin="{StaticResource Thickness.M}" />
+            </StackPanel>
+        </Border>
     </Grid>
 </UserControl>

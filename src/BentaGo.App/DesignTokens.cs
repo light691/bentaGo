@@ -120,6 +120,7 @@ public static class DesignTokens
     public const string BannerErrorStyle = "Banner.ErrorStyle";
     public const string BannerInfoBgStyle = "Banner.InfoBgStyle";
     public const string DataGridLowStockRowStyle = "DataGrid.LowStockRowStyle";
+    public const string DataGridRowStyle = "DataGrid.RowStyle";
     public const string NavRailItemStyle = "NavRailItemStyle";
     public const string NavRailTextStyle = "NavRailTextStyle";
     public const string NavRailKeyCapStyle = "NavRailKeyCapStyle";
@@ -178,7 +179,7 @@ public static class DesignTokens
         ButtonPrimaryStyle, ButtonSecondaryStyle, ButtonDangerStyle, ButtonQuietStyle,
         ButtonKeypadStyle, KeypadButtonAccentStyle,
         CardStyle, BannerSuccessStyle, BannerWarningStyle, BannerErrorStyle, BannerInfoBgStyle,
-        DataGridLowStockRowStyle, NavRailItemStyle, NavRailTextStyle, NavRailKeyCapStyle, NavRailKeyCapTextStyle,
+        DataGridLowStockRowStyle, DataGridRowStyle, NavRailItemStyle, NavRailTextStyle, NavRailKeyCapStyle, NavRailKeyCapTextStyle,
         QuickActionChipStyle, QuickActionTextStyle, QuickActionKeyCapTextStyle,
         MoneyPositiveTextStyle, StatusSuccessTitleTextStyle, StatusBarLeadTextStyle, MethodTabButtonStyle,
         ScanEditorStyle, FieldLabelStyle, DialogWindowStyle, HelpOverlayStyle,

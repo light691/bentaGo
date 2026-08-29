@@ -225,9 +225,13 @@
         <Setter Property="FontSize" Value="{StaticResource FontSize.Body}" />
         <Setter Property="FontWeight" Value="{StaticResource FontWeight.Semi}" />
         <Setter Property="Foreground" Value="{DynamicResource Brush.Text.OnAccent}" />
-        <Setter Property="MinHeight" Value="44" />
+        <!-- Fixed height (not min-height): chips in one Quick Actions row must
+             share identical geometry - enabled vs parked differ only in
+             colour and foreground (round-5 finding C). -->
+        <Setter Property="Height" Value="44" />
         <Setter Property="Padding" Value="14,0" />
         <Setter Property="Margin" Value="0,0,8,0" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="FocusVisualStyle" Value="{StaticResource FocusVisual.Default}" />
         <Setter Property="Template">

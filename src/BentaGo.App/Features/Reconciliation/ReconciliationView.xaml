@@ -41,11 +41,12 @@
                             <DataTemplate>
                                 <Grid Margin="{StaticResource Thickness.XS}">
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Grid.Column="0" Text="{Binding Method}" Style="{StaticResource LabelTextStyle}" />
-                                    <TextBlock Grid.Column="1" Text="{Binding Amount}" Style="{StaticResource MoneyTextStyle}" />
+                                    <TextBlock Grid.Column="1" Text="{Binding Amount}" Style="{StaticResource MoneyTextStyle}"
+                                               HorizontalAlignment="Right" />
                                 </Grid>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
@@ -53,20 +54,47 @@
                     <Border BorderThickness="0,1,0,0"
                         BorderBrush="{DynamicResource Brush.Divider}"
                         Margin="{StaticResource Thickness.M}" />
-                    <Grid Margin="{StaticResource Thickness.M}">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="Gross Sales" Style="{StaticResource LabelTextStyle}" />
-                        <TextBlock Grid.Column="1" Text="{Binding Summary.GrossSales, Mode=OneWay}" Style="{StaticResource BodyTextStyle}" />
-                        <TextBlock Grid.Column="0" Text="Discounts" Style="{StaticResource LabelTextStyle}" Margin="{StaticResource Thickness.M}" />
-                        <TextBlock Grid.Column="1" Text="{Binding Summary.Discounts, Mode=OneWay}" Style="{StaticResource BodyTextStyle}" Margin="{StaticResource Thickness.M}" />
-                        <TextBlock Grid.Column="0" Text="Net Sales" Style="{StaticResource LabelTextStyle}" Margin="{StaticResource Thickness.M}" />
-                        <TextBlock Grid.Column="1" Text="{Binding Summary.NetSales, Mode=OneWay}" Style="{StaticResource BodyTextStyle}" Margin="{StaticResource Thickness.M}" />
-                        <TextBlock Grid.Column="0" Text="EXPECTED CASH" Style="{StaticResource BodyTextStyle}" FontWeight="{StaticResource FontWeight.Strong}" Margin="{StaticResource Thickness.M}" />
-                        <TextBlock Grid.Column="1" Text="{Binding Summary.ExpectedCash, Mode=OneWay}" Style="{StaticResource MoneyTextStyle}" Margin="{StaticResource Thickness.M}" />
-                    </Grid>
+                    <!-- One label/value row per grid cell pair: never stacked
+                         in the same cells (round-5 F - the old layout ghosted). -->
+                    <StackPanel Margin="{StaticResource Thickness.M}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Gross Sales" Style="{StaticResource LabelTextStyle}" />
+                            <TextBlock Grid.Column="1" Text="{Binding Summary.GrossSales, Mode=OneWay}" Style="{StaticResource BodyTextStyle}"
+                                       HorizontalAlignment="Right" />
+                        </Grid>
+                        <Grid Margin="{StaticResource Thickness.M}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Discounts" Style="{StaticResource LabelTextStyle}" />
+                            <TextBlock Grid.Column="1" Text="{Binding Summary.Discounts, Mode=OneWay}" Style="{StaticResource BodyTextStyle}"
+                                       HorizontalAlignment="Right" />
+                        </Grid>
+                        <Grid Margin="{StaticResource Thickness.M}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Net Sales" Style="{StaticResource LabelTextStyle}" />
+                            <TextBlock Grid.Column="1" Text="{Binding Summary.NetSales, Mode=OneWay}" Style="{StaticResource BodyTextStyle}"
+                                       HorizontalAlignment="Right" />
+                        </Grid>
+                        <Grid Margin="{StaticResource Thickness.M}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="EXPECTED CASH" Style="{StaticResource BodyTextStyle}"
+                                       FontWeight="{StaticResource FontWeight.Strong}" />
+                            <TextBlock Grid.Column="1" Text="{Binding Summary.ExpectedCash, Mode=OneWay}" Style="{StaticResource MoneyTextStyle}"
+                                       HorizontalAlignment="Right" />
+                        </Grid>
+                    </StackPanel>
                     <TextBlock Text="Expected cash is the cash fund this trip produced (reopened day)."
                                Style="{StaticResource CaptionTextStyle}" />
                 </StackPanel>
