@@ -1,0 +1,5 @@
+# Canonical EOL policy: all text files stored/checked out as LF.
+# The repo's git blobs are LF (autocrlf=true legacy); pinning this makes
+# every worktree checkout identical and keeps 'dotnet format --verify-no-changes'
+# stable across worktrees (dotnet format checks worktree bytes).
+* text=auto eol=lf
