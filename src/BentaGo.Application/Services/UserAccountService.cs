@@ -8,25 +8,26 @@ namespace BentaGo.Application.Services;
 
 /// <summary>
 /// User account use cases (BG-005a): CreateUser, SetUserActive/Deactivate,
-/// ChangePassword. Each resolves the acting user, gates the capability through
-/// the <see cref="RoleExtensions"/> predicates, and returns Result&lt;User&gt;
-/// — a failure means nothing was persisted.
+/// ChangePassword. Each resolves the acting user from the SESSION
+/// (<see cref="IActorContext"/>, set on login success — BG-005d F8): the
+/// caller-supplied <c>cmd.By</c> must equal the signed-in actor or the call
+/// is rejected (AUTH_ACTOR_MISMATCH) before any store lookup, so no in-process
+/// caller can spoof another account's id. The session actor is then gated
+/// through the <see cref="RoleExtensions"/> predicates, and every method
+/// returns Result&lt;User&gt; — a failure means nothing was persisted.
 /// </summary>
-public sealed class UserAccountService(IUserAccountStore store, IPasswordHasher hasher) : IUserAccountService
+public sealed class UserAccountService(IUserAccountStore store, IPasswordHasher hasher, IActorContext actorContext)
+    : IUserAccountService
 {
     public async Task<Result<User>> CreateUserAsync(CreateUserCommand cmd, CancellationToken cancellationToken = default)
     {
-        User? actor = await store.FindByIdAsync(cmd.By, cancellationToken);
-        if (actor is null)
+        Result<User> actorResult = await ResolveActorAsync(cmd.By, cancellationToken);
+        if (actorResult.IsFailure)
         {
-            return UserError("AUTH_ACTOR_UNKNOWN", "the acting user does not exist");
+            return actorResult;
         }
 
-        if (actor.DeactivatedUtc is not null)
-        {
-            return UserError("AUTH_ACTOR_DEACTIVATED", "the acting user is deactivated");
-        }
-
+        User actor = actorResult.Value;
         if (!actor.Role.CanManageUsers())
         {
             return UserError("FORBIDDEN", "only an admin may create users");
@@ -68,17 +69,13 @@ public sealed class UserAccountService(IUserAccountStore store, IPasswordHasher 
 
     public async Task<Result<User>> SetUserActiveAsync(SetUserActiveCommand cmd, CancellationToken cancellationToken = default)
     {
-        User? actor = await store.FindByIdAsync(cmd.By, cancellationToken);
-        if (actor is null)
+        Result<User> actorResult = await ResolveActorAsync(cmd.By, cancellationToken);
+        if (actorResult.IsFailure)
         {
-            return UserError("AUTH_ACTOR_UNKNOWN", "the acting user does not exist");
+            return actorResult;
         }
 
-        if (actor.DeactivatedUtc is not null)
-        {
-            return UserError("AUTH_ACTOR_DEACTIVATED", "the acting user is deactivated");
-        }
-
+        User actor = actorResult.Value;
         if (!actor.Role.CanManageUsers())
         {
             return UserError("FORBIDDEN", "only an admin may activate or deactivate users");
@@ -124,17 +121,13 @@ public sealed class UserAccountService(IUserAccountStore store, IPasswordHasher 
 
     public async Task<Result<User>> ChangePasswordAsync(ChangePasswordCommand cmd, CancellationToken cancellationToken = default)
     {
-        User? actor = await store.FindByIdAsync(cmd.By, cancellationToken);
-        if (actor is null)
+        Result<User> actorResult = await ResolveActorAsync(cmd.By, cancellationToken);
+        if (actorResult.IsFailure)
         {
-            return UserError("AUTH_ACTOR_UNKNOWN", "the acting user does not exist");
+            return actorResult;
         }
 
-        if (actor.DeactivatedUtc is not null)
-        {
-            return UserError("AUTH_ACTOR_DEACTIVATED", "the acting user is deactivated");
-        }
-
+        User actor = actorResult.Value;
         bool admin = actor.Role.CanManageUsers();
         if (cmd.Id != cmd.By && !admin)
         {
@@ -155,6 +148,45 @@ public sealed class UserAccountService(IUserAccountStore store, IPasswordHasher 
         User updated = target with { PasswordHash = hasher.Hash(cmd.NewPassword) };
         await store.UpdateAsync(updated, cancellationToken);
         return Result<User>.Ok(updated);
+    }
+
+    /// <summary>
+    /// F8 (BG-005d): the acting user is the SIGNED-IN session actor, never the
+    /// caller-supplied id alone. No session -> AUTH_ACTOR_NOT_SIGNED_IN; a
+    /// command whose By differs from the session actor -> AUTH_ACTOR_MISMATCH,
+    /// both checked BEFORE any store lookup so a spoofed By can never be
+    /// resolved or persisted. The session match is then followed by the
+    /// BG-005a actor existence/deactivation checks against the Users row
+    /// (fresh per call, so a deactivated session actor is caught here even
+    /// though the context still holds them — session lifecycle doc).
+    /// </summary>
+    private async Task<Result<User>> ResolveActorAsync(UserId cmdBy, CancellationToken cancellationToken)
+    {
+        UserId? session = actorContext.CurrentUserId;
+        if (session is null)
+        {
+            return UserError("AUTH_ACTOR_NOT_SIGNED_IN", "no user is signed in for this session");
+        }
+
+        if (cmdBy != session.Value)
+        {
+            return UserError(
+                "AUTH_ACTOR_MISMATCH",
+                "the command actor does not match the signed-in session user");
+        }
+
+        User? actor = await store.FindByIdAsync(cmdBy, cancellationToken);
+        if (actor is null)
+        {
+            return UserError("AUTH_ACTOR_UNKNOWN", "the acting user does not exist");
+        }
+
+        if (actor.DeactivatedUtc is not null)
+        {
+            return UserError("AUTH_ACTOR_DEACTIVATED", "the acting user is deactivated");
+        }
+
+        return Result<User>.Ok(actor);
     }
 
     private static Result<User> UserError(string code, string message) =>

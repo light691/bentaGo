@@ -1,6 +1,10 @@
 using System.IO;
+using BentaGo.Application.Contracts;
+using BentaGo.Application.Services;
+using BentaGo.Core.Common;
 using BentaGo.Core.Domain;
 using BentaGo.Core.Domain.Documents;
+using BentaGo.Core.Domain.Ledger;
 using BentaGo.Infrastructure.Persistence;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.DependencyInjection;
@@ -87,6 +91,51 @@ public sealed class AuthAuditSchemaTests : PersistenceTestBase
         Assert.True(reader.IsDBNull(1)); // terminal null for legacy rows
         Assert.True(reader.IsDBNull(2)); // reason null for legacy rows
         connection.Close();
+    }
+
+    [Fact]
+    public async Task BatchAppendedAudits_PersistRealIdentities_InMemoryMirrorStagesMinusOne()
+    {
+        // F4 parity (BG-005d): the SAME batch append behaves differently in
+        // the two mirrors, and that is documented contract semantics, not a
+        // drift to fix silently: the SQLite store commits batch audits with a
+        // REAL sequence inside the batch transaction; the in-memory mirror
+        // stages them verbatim (-1) because only RecordAudit assigns there.
+        // Audit rendering is message-only, so neither mirror's sequence
+        // granularity affects reports or goldens.
+        var audit = new AuditEvent(-1, UserId.Anonymous, When, "AUTH.TEST", "batch-audit", Ref: null);
+
+        // SQLite side (the persisted contract).
+        string root = NewRoot();
+        ServiceProvider host = NewHost(root);
+        await host.GetRequiredService<DbInitializer>().EnsureCreatedOrMigrateAsync();
+        var store = host.GetRequiredService<SqliteLedgerStore>();
+
+        var loadId = new LoadId(Guid.NewGuid());
+        var product = new ProductId(Guid.NewGuid());
+        var location = new LocationId(Guid.NewGuid());
+        store.RegisterLoad(new StockLoad(loadId, "P-OPEN", default, Array.Empty<StockLoadLine>(), UserId.Anonymous, When));
+        store.Bind();
+
+        Result<AppendOutcome> sqliteOutcome = store.Append(new AppendBatch(
+            new Movement[] { Moves.OpeningStock(0, When, UserId.Anonymous, new LoadRef(loadId), product, location, Quantity.Of(10)) },
+            Audits: new[] { audit }));
+        Assert.True(sqliteOutcome.IsSuccess, sqliteOutcome.Errors.FirstOrDefault()?.Code ?? "append failed");
+        AuditEvent persisted = Assert.Single(store.Audits);
+        Assert.True(persisted.Sequence > 0, "the DB identity must replace the -1 placeholder in a batch");
+
+        // In-memory side (the documented staging semantics).
+        var memory = new InMemoryLedgerStore();
+        memory.RegisterLoad(new StockLoad(loadId, "P-OPEN", default, Array.Empty<StockLoadLine>(), UserId.Anonymous, When));
+        memory.Bind();
+        Result<AppendOutcome> memoryOutcome = memory.Append(new AppendBatch(
+            new Movement[] { Moves.OpeningStock(0, When, UserId.Anonymous, new LoadRef(loadId), product, location, Quantity.Of(10)) },
+            Audits: new[] { audit }));
+        Assert.True(memoryOutcome.IsSuccess, memoryOutcome.Errors.FirstOrDefault()?.Code ?? "append failed");
+        AuditEvent staged = Assert.Single(memory.Audits);
+        Assert.Equal(-1, staged.Sequence); // staged verbatim until RecordAudit/rebuild assigns
+
+        Assert.Equal(persisted.Message, staged.Message); // semantics equal; identity granularity differs
     }
 
     private static async Task<Dictionary<string, int>> TableInfoAsync(string dbPath, string table)

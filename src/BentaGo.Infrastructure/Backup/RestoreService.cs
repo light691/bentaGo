@@ -1,4 +1,5 @@
 using System.IO;
+using BentaGo.Core.Domain.Identity;
 using BentaGo.Infrastructure.Configuration;
 using BentaGo.Infrastructure.Persistence;
 using Microsoft.Data.Sqlite;
@@ -130,6 +131,10 @@ public sealed class RestoreService : IRestoreService
     private async Task VerifyAdminSeedAsync(CancellationToken cancellationToken)
     {
         await using var context = await _factory.CreateDbContextAsync(cancellationToken);
+
+        // Legacy BG-001 seed rows (kept by the seeder for bootstrap/restore
+        // verification; the KEY/VALUE AppSettings shape predates the Users
+        // table — BG-005a kept them and still seeds them).
         bool adminRowPresent = await context.AppSettings
             .AnyAsync(s => s.Key == "seed.admin.username", cancellationToken);
 
@@ -137,6 +142,22 @@ public sealed class RestoreService : IRestoreService
         {
             throw new InvalidOperationException(
                 "restored database failed verification: admin seed row ('seed.admin.username') is missing");
+        }
+
+        // F7 (BG-005d): login reads the USERS table, so the AppSettings row
+        // alone no longer proves the restored database has a usable admin. A
+        // schema-valid backup is refused unless the Users table carries the
+        // admin account (username 'admin', Role.Admin) — the BG-005a shape
+        // both the first-run seeder and every 5a-era database created.
+        bool adminUserPresent = await context.Users.AnyAsync(
+            u => u.Username == "admin" && u.Role == Role.Admin,
+            cancellationToken);
+
+        if (!adminUserPresent)
+        {
+            throw new InvalidOperationException(
+                "restored database failed verification: admin account row " +
+                "(username 'admin', role Admin) is missing from the Users table");
         }
     }
 

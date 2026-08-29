@@ -15,6 +15,14 @@ namespace BentaGo.Infrastructure.Security;
 /// UNCHANGED <see cref="ILoginService"/> (bool) so the WPF shell compiles and
 /// runs untouched.
 ///
+/// Session actor (BG-005d F8): a successful authentication sets
+/// <see cref="IActorContext"/> to the signed-in user; a failed attempt NEVER
+/// touches the context (a failed re-login is not a sign-out). The context
+/// starts null on every host build ("cleared at host start") and stays set
+/// until a future sign-out calls <see cref="IActorContext.Clear"/> (the
+/// logout gap is owned by BG-005d-ui). Account use cases derive the acting
+/// user from this same context and enforce By == CurrentUserId.
+///
 /// Audit rules: failure messages are fixed generic strings that never reveal
 /// whether a username exists (docs/03:33); the actor is the attributed user
 /// when the username maps to one, otherwise <see cref="UserId.Anonymous"/>;
@@ -26,6 +34,7 @@ public sealed class LoginService : IAuthenticationService, ILoginService
     private readonly IPasswordHasher _passwordHasher;
     private readonly ILedgerStore _ledger;
     private readonly Func<DateTimeOffset> _clock;
+    private readonly IActorContext _actorContext;
 
     /// <summary>
     /// F1: in-process serialization of the authentication critical section.
@@ -34,16 +43,19 @@ public sealed class LoginService : IAuthenticationService, ILoginService
     /// full-row snapshot could otherwise lose increments. The service is a
     /// host singleton, so one gate serializes every attempt in the process;
     /// each failure then reads the latest committed counter and writes its
-    /// own +1 (no lost updates, no extended locks).
+    /// own +1 (no lost updates, no extended locks). The F3 compensation below
+    /// also relies on the gate: no concurrent attempt can interleave between
+    /// a state write and its compensating revert.
     /// </summary>
     private readonly SemaphoreSlim _authGate = new(1, 1);
 
-    public LoginService(IUserAccountStore store, IPasswordHasher passwordHasher, ILedgerStore ledger, Func<DateTimeOffset> clock)
+    public LoginService(IUserAccountStore store, IPasswordHasher passwordHasher, ILedgerStore ledger, Func<DateTimeOffset> clock, IActorContext actorContext)
     {
         _store = store;
         _passwordHasher = passwordHasher;
         _ledger = ledger;
         _clock = clock;
+        _actorContext = actorContext;
     }
 
     /// <summary>The rich authentication path (BG-005a).</summary>
@@ -128,20 +140,68 @@ public sealed class LoginService : IAuthenticationService, ILoginService
             // One failed attempt, derived from the counter read while holding
             // the auth gate (F1): the pure policy computes the next snapshot
             // (+1, lock at 5 until now+15, no-extend while locked, expiry
-            // resets the counter) and the full-row write then cannot race a
-            // concurrent attempt.
+            // resets the counter).
             User updated = AccountLockout.OnFailedAttempt(user, now);
-            await _store.UpdateAsync(updated, cancellationToken);
-            AuditLogin(user.Id, now,
-                AuthenticationAudit.LoginFailureCategory, AuthenticationAudit.InvalidCredentialsMessage);
+            await PersistStateAndAuditAsync(user, updated, user.Id, now,
+                AuthenticationAudit.LoginFailureCategory, AuthenticationAudit.InvalidCredentialsMessage,
+                cancellationToken);
             return AuthResult.InvalidCredentials;
         }
 
-        // Success: clear the failure state and record the happy path.
-        await _store.UpdateAsync(AccountLockout.OnSuccess(user), cancellationToken);
-        AuditLogin(user.Id, now,
-            AuthenticationAudit.LoginSuccessCategory, AuthenticationAudit.LoginSuccessMessage);
+        // Success: clear the failure state and record the happy path, then
+        // bind the SESSION ACTOR (F8) — set ONLY after the writes committed,
+        // so a failed write never claims a signed-in user.
+        await PersistStateAndAuditAsync(user, AccountLockout.OnSuccess(user), user.Id, now,
+            AuthenticationAudit.LoginSuccessCategory, AuthenticationAudit.LoginSuccessMessage,
+            cancellationToken);
+        _actorContext.Set(user.Id);
         return AuthResult.Ok(user.Id, user.Role);
+    }
+
+    /// <summary>
+    /// F3 (BG-005d): the auth-state write and its audit are one LOGICAL unit
+    /// of work via explicit compensation, because SQLite cannot span a single
+    /// transaction across two connections — <see cref="IUserAccountStore"/>
+    /// writes through its own EF context while the audit goes through the
+    /// ledger store's long-lived raw connection, so a literal atomic commit
+    /// is not available in this architecture (the audit-failure divergence
+    /// flagged by the BG-005a audit; the counter/audit pair must not split).
+    ///
+    /// Order: persist the state change, then persist the audit. If the audit
+    /// write fails, revert the user row to the pre-attempt snapshot before
+    /// rethrowing, so a failed audit can never leave a persisted counter with
+    /// no evidence — "audit EVERY attempt" stays true on every path that
+    /// completes. The revert itself is best-effort: if it also fails (the
+    /// database is down), the original audit exception is rethrown and the
+    /// divergence is unavoidable (documented in the BG-005d report); the
+    /// F1 auth gate serializes attempts, so no concurrent attempt can
+    /// interleave between the write and the revert in-process.
+    /// </summary>
+    private async Task PersistStateAndAuditAsync(
+        User original, User updated, UserId actor, DateTimeOffset when,
+        string category, string message, CancellationToken cancellationToken)
+    {
+        await _store.UpdateAsync(updated, cancellationToken);
+        try
+        {
+            AuditLogin(actor, when, category, message);
+        }
+        catch
+        {
+            // F3 compensation: undo the state write so counters and audits
+            // cannot diverge when the audit transaction failed.
+            try
+            {
+                await _store.UpdateAsync(original, CancellationToken.None);
+            }
+            catch
+            {
+                // Compensation failed too; the original audit exception is
+                // what the caller sees (no further recovery possible).
+            }
+
+            throw;
+        }
     }
 
     /// <summary>

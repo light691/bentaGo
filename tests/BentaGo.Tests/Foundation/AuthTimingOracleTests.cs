@@ -99,8 +99,13 @@ public sealed class AuthTimingOracleTests : IDisposable
         var accounts = host.GetRequiredService<IUserAccountStore>();
         var users = host.GetRequiredService<IUserAccountService>();
         var admin = await accounts.FindByUsernameAsync("admin");
+
+        // F8 (BG-005d): the account use cases act as the SESSION actor — sign
+        // the seeded admin in before creating/deactivating (no login round-trip).
+        host.GetRequiredService<IActorContext>().Set(admin!.Id);
+
         var created = await users.CreateUserAsync(new CreateUserCommand(
-            new UserId(Guid.NewGuid()), "peddie", "pw", Role.Peddler, PeddlerLink: null, admin!.Id, T0));
+            new UserId(Guid.NewGuid()), "peddie", "pw", Role.Peddler, PeddlerLink: null, admin.Id, T0));
         Assert.True(created.IsSuccess);
         var deact = await users.SetUserActiveAsync(new SetUserActiveCommand(
             created.Value.Id, Active: false, admin.Id, T0));
