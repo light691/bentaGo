@@ -23,6 +23,11 @@ namespace BentaGo.Application.Services;
 /// fixed clock, so the printed report is byte-identical across runs and
 /// across the in-memory and SQLite stores (the tool's GOLDEN_IDENT /
 /// RESTART / REBUILD checks).
+///
+/// The LANE9 rows below are scenario diagnostics that record REJECTED
+/// operations (double-open, cross-peddler, post-close, post-cancel) — not
+/// user actions on a terminal, so their Terminal/Reason stay null (F12:
+/// batch/diagnostic audits keep null; documented in the BG-005d report).
 /// </summary>
 public static class TripLifecycleScenario
 {

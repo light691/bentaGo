@@ -44,13 +44,17 @@ public sealed class PrintTicketStore : IPrintTicketStore
         }
 
         // Print state lives in the audit stream, committed in its own tiny
-        // transaction AFTER the sale committed (C5).
+        // transaction AFTER the sale committed (C5). The terminal is the
+        // machine that rendered the ticket (Environment.MachineName, the
+        // docs/01:77 source); Reason stays null — no command carries one here
+        // (a simulated failure is described in the message, not the column).
         _ledger.RecordAudit(new AuditEvent(
             -1, sale.CreatedBy, sale.CreatedUtc, "PRINT",
             failed
                 ? $"PRINT_FAILED: {reason} ({sale.ReceiptNumber})"
                 : $"PRINTED {sale.ReceiptNumber}",
-            new SaleRef(sale.Id)));
+            new SaleRef(sale.Id),
+            Terminal: Environment.MachineName));
 
         return Task.FromResult(new PrintTicketResult(!failed, reason));
     }
