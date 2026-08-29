@@ -20,21 +20,28 @@
             </TextBlock>
         </StackPanel>
 
+        <!-- Round-8: the search field is left-anchored at the content origin
+             under a "Search" label (reference layout). The old
+             Stretch+MaxWidth box centred itself mid-screen and the toggle
+             floated without an anchor. -->
         <Grid Grid.Row="1" Margin="{StaticResource Thickness.M}">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
-            <TextBox Grid.Column="0"
-                     Style="{StaticResource StockSearchEditorStyle}"
-                     Text="{Binding SearchQuery, UpdateSourceTrigger=PropertyChanged}"
-                     MaxWidth="420"
-                     HorizontalAlignment="Stretch"
-                     ui:FocusTarget.Id="Stock.StockSearchBox" />
+            <StackPanel Grid.Column="0">
+                <TextBlock Text="Search" Style="{StaticResource FieldLabelStyle}" />
+                <TextBox Style="{StaticResource StockSearchEditorStyle}"
+                         Text="{Binding SearchQuery, UpdateSourceTrigger=PropertyChanged}"
+                         Width="{StaticResource Field.Width.Search}"
+                         HorizontalAlignment="Left"
+                         ui:FocusTarget.Id="Stock.StockSearchBox" />
+            </StackPanel>
             <Button Grid.Column="1"
                     Content="{Binding LowOnlyLabel}"
                     Style="{StaticResource Button.SecondaryStyle}"
                     Command="{Binding ToggleLowOnlyCommand}"
+                    VerticalAlignment="Bottom"
                     Margin="{StaticResource Thickness.XS}" />
         </Grid>
 

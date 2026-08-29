@@ -13,19 +13,24 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <!-- Header: greeting, peddler, trip, online/offline, current time. -->
+        <!-- Header: greeting (already carries the peddler name from the
+              session projection), online status. Round-8: the duplicated
+              PeddlerName chip is gone and every child is vertically centred
+              on one visual line - the old row mixed 26px header text with a
+              24px uniform margin (which pushed the name down-right) and a
+              top-anchored status label, so the greeting rendered as three
+              misaligned fragments. -->
         <StackPanel Grid.Row="0">
             <StackPanel Orientation="Horizontal">
-                <TextBlock Text="{Binding Session.Greeting}" Style="{StaticResource HeaderTextStyle}" />
-                <TextBlock Text="{Binding Session.PeddlerName}"
+                <TextBlock Text="{Binding Session.Greeting}"
                            Style="{StaticResource HeaderTextStyle}"
-                           Margin="{StaticResource Thickness.XL}" />
+                           VerticalAlignment="Center" />
                 <Ellipse Style="{StaticResource StatusDotStyle}"
                          Fill="{DynamicResource Brush.Status.Success}"
-                         VerticalAlignment="Center" />
+                         Margin="{StaticResource Thickness.M}" />
                 <TextBlock Text="Online"
                            Style="{StaticResource StatusTextStyle}"
-                           Margin="{StaticResource Thickness.XS}" />
+                           VerticalAlignment="Center" />
             </StackPanel>
             <TextBlock Style="{StaticResource StatusTextStyle}">
                 <Run Text="Trip " /><Run Text="{Binding Session.TripNumber, Mode=OneWay}" />

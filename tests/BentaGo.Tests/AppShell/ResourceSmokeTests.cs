@@ -166,7 +166,10 @@ public sealed class ResourceSmokeTests
         {
             (string Key, double FontSize)[] cases =
             [
-                (DesignTokens.DisplayTextStyle, 40),
+                // Round-8 (image pass): 40 -> 26. Both references (Sales POS,
+                // payment) render the big total at ~22-26px; 40px dwarfed the
+                // surrounding 13px labels and every reference crop.
+                (DesignTokens.DisplayTextStyle, 26),
                 (DesignTokens.HeaderTextStyle, 26),
                 (DesignTokens.TitleTextStyle, 20),
                 (DesignTokens.BodyTextStyle, 15),

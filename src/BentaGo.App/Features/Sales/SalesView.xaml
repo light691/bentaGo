@@ -50,6 +50,7 @@
                             Content="Search"
                             Style="{StaticResource Button.SecondaryStyle}"
                             Command="{Binding ProductSearchCommand}"
+                            MinHeight="{StaticResource Control.Height.Field}"
                             Margin="{StaticResource Thickness.XS}" />
                 </Grid>
 

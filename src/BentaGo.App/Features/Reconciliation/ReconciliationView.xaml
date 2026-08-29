@@ -55,7 +55,9 @@
                         BorderBrush="{DynamicResource Brush.Divider}"
                         Margin="{StaticResource Thickness.M}" />
                     <!-- One label/value row per grid cell pair: never stacked
-                         in the same cells (round-5 F - the old layout ghosted). -->
+                         in the same cells (round-5 F - the old layout ghosted).
+                         Round-8: rows 2-4 use the vertical-only RowGap token;
+                         uniform M margins staggered each row +12px right. -->
                     <StackPanel Margin="{StaticResource Thickness.M}">
                         <Grid>
                             <Grid.ColumnDefinitions>
@@ -66,7 +68,7 @@
                             <TextBlock Grid.Column="1" Text="{Binding Summary.GrossSales, Mode=OneWay}" Style="{StaticResource BodyTextStyle}"
                                        HorizontalAlignment="Right" />
                         </Grid>
-                        <Grid Margin="{StaticResource Thickness.M}">
+                        <Grid Margin="{StaticResource Thickness.RowGap}">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
@@ -75,7 +77,7 @@
                             <TextBlock Grid.Column="1" Text="{Binding Summary.Discounts, Mode=OneWay}" Style="{StaticResource BodyTextStyle}"
                                        HorizontalAlignment="Right" />
                         </Grid>
-                        <Grid Margin="{StaticResource Thickness.M}">
+                        <Grid Margin="{StaticResource Thickness.RowGap}">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
@@ -84,7 +86,7 @@
                             <TextBlock Grid.Column="1" Text="{Binding Summary.NetSales, Mode=OneWay}" Style="{StaticResource BodyTextStyle}"
                                        HorizontalAlignment="Right" />
                         </Grid>
-                        <Grid Margin="{StaticResource Thickness.M}">
+                        <Grid Margin="{StaticResource Thickness.RowGap}">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
@@ -116,9 +118,12 @@
                         <TextBlock Text="Actual cash remitted (leave blank if not counted)"
                                    Style="{StaticResource LabelTextStyle}"
                                    Margin="{StaticResource Thickness.M}" />
+                        <!-- Round-8: explicit token width. Left-anchored +
+                             content-sized, the box collapsed to its caret
+                             (~50px) instead of its 260px budget. -->
                         <TextBox Text="{Binding ActualCashText, UpdateSourceTrigger=PropertyChanged}"
                                  Style="{StaticResource ScanEditorStyle}"
-                                 MaxWidth="260"
+                                 Width="{StaticResource Field.Width.Cash}"
                                  HorizontalAlignment="Left"
                                  ui:FocusTarget.Id="Reconciliation.ActualCashBox" />
                         <TextBlock Text="{Binding DraftStatusText}"

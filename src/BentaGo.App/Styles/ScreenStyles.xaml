@@ -847,10 +847,12 @@
          Declared LAST so every BasedOn target (ScanEditorStyle, CardStyle)
          is already defined in this dictionary (StaticResource resolves
          backwards only). -->
-    <!-- Sales scan/search fields: 56 tall (reference proportion). -->
+    <!-- Sales scan/search fields: 56 tall (reference proportion); the
+         height is the shared Control.Height.Field token so companion
+         buttons in the same row match exactly (round-8). -->
     <Style x:Key="FieldEditorTallStyle" TargetType="TextBox"
            BasedOn="{StaticResource ScanEditorStyle}">
-        <Setter Property="Height" Value="56" />
+        <Setter Property="Height" Value="{DynamicResource Control.Height.Field}" />
     </Style>
 
     <!-- Stock search field: reference proportions (44 tall). -->

@@ -25,6 +25,9 @@
                                HorizontalAlignment="Center"
                                Margin="{StaticResource Thickness.XS}" />
 
+                    <TextBlock Text="Login"
+                               Style="{StaticResource TitleTextStyle}"
+                               Margin="{StaticResource Thickness.XS}" />
                     <TextBlock Text="Peddler ID"
                                Style="{StaticResource FieldLabelStyle}"
                                Margin="{StaticResource Thickness.M}" />
@@ -39,21 +42,21 @@
                     <PasswordBox x:Name="PasswordBox"
                                  MinHeight="{StaticResource Control.Height.Default}"
                                  ui:FocusTarget.Id="Login.PasswordBox" />
-                    <Border BorderThickness="0,1,0,0"
-                            BorderBrush="{DynamicResource Brush.Divider}"
-                            Margin="{StaticResource Thickness.M}" />
 
                     <TextBlock Text="{Binding ErrorMessage}"
                                Style="{StaticResource ErrorTextStyle}"
                                Visibility="{Binding ErrorMessage, Converter={StaticResource StringToVisibility}}" />
 
-                    <!-- Full form width, aligned to the fields exactly
-                         (the divider above supplies the 12px gap). -->
+                    <!-- Full form width, aligned to the fields exactly.
+                         Round-8: the stray divider rule between the password
+                         field and the button (no reference backing) is gone;
+                         the gap is the button's own top margin. -->
                     <Button Content="Log in"
                             Style="{StaticResource Button.PrimaryStyle}"
                             Command="{Binding LoginCommand}"
                             IsDefault="True"
                             HorizontalAlignment="Stretch"
+                            Margin="{StaticResource Thickness.M}"
                             ui:FocusTarget.Id="Login.Submit" />
 
                     <StackPanel Margin="{StaticResource Thickness.M}">

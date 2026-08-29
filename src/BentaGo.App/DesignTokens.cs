@@ -96,6 +96,7 @@ public static class DesignTokens
     public const string ThicknessL = "Thickness.L";
     public const string ThicknessXl = "Thickness.XL";
     public const string ThicknessXxl = "Thickness.XXL";
+    public const string ThicknessRowGap = "Thickness.RowGap";
     public const string ScreenPadding = "ScreenPadding";
     public const string CardPadding = "CardPadding";
     public const string CornerS = "Corner.S";
@@ -104,6 +105,9 @@ public static class DesignTokens
     public const string CornerButton = "Corner.Button";
     public const string ControlHeightDefault = "Control.Height.Default";
     public const string ControlHeightLarge = "Control.Height.Large";
+    public const string ControlHeightField = "Control.Height.Field";
+    public const string FieldWidthSearch = "Field.Width.Search";
+    public const string FieldWidthCash = "Field.Width.Cash";
     public const string DialogHostMaxWidth = "DialogHost.MaxWidth";
     public const string DialogHostMaxHeight = "DialogHost.MaxHeight";
 
@@ -181,10 +185,11 @@ public static class DesignTokens
         FontSizeDisplay, FontSizeHeader, FontSizeTitle, FontSizeBody, FontSizeLabel, FontSizeStatus, FontSizeCaption,
         FontWeightStrong, FontWeightSemi,
         DisplayTextStyle, HeaderTextStyle, TitleTextStyle, BodyTextStyle, LabelTextStyle, StatusTextStyle, CaptionTextStyle, MoneyTextStyle,
-        ThicknessXs, ThicknessS, ThicknessM, ThicknessL, ThicknessXl, ThicknessXxl,
+        ThicknessXs, ThicknessS, ThicknessM, ThicknessL, ThicknessXl, ThicknessXxl, ThicknessRowGap,
         ScreenPadding, CardPadding,
         CornerS, CornerM, CornerL, CornerButton,
-        ControlHeightDefault, ControlHeightLarge,
+        ControlHeightDefault, ControlHeightLarge, ControlHeightField,
+        FieldWidthSearch, FieldWidthCash,
         DialogHostMaxWidth, DialogHostMaxHeight,
         FocusVisualDefault,
         ButtonPrimaryStyle, ButtonSecondaryStyle, ButtonDangerStyle, ButtonQuietStyle,

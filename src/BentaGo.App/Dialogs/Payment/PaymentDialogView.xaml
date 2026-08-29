@@ -31,21 +31,26 @@
                 <TextBlock Text="{Binding TotalText}" Style="{StaticResource DisplayTextStyle}"
                            VerticalAlignment="Center" Margin="{StaticResource Thickness.M}" />
             </StackPanel>
-            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+            <!-- Round-8: the field label sits inline LEFT of its input on one
+                 centred row (reference layout). The old label floated
+                 right-aligned on its own line above, visually attaching
+                 itself to the Change value instead of its field. Change uses
+                 the same positive-money token as the order summary (the
+                 reference shows it green in both places). -->
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                 <TextBlock Text="Amount received" Style="{StaticResource FieldLabelStyle}"
-                           HorizontalAlignment="Right" />
-                <StackPanel Orientation="Horizontal">
-                    <TextBox x:Name="AmountReceivedBox"
-                             Text="{Binding AmountReceivedText, UpdateSourceTrigger=PropertyChanged}"
-                             Style="{StaticResource ScanEditorStyle}"
-                             Width="220"
-                             ui:FocusTarget.Id="Payment.AmountReceivedBox" />
-                    <TextBlock Text="Change" Style="{StaticResource LabelTextStyle}"
-                               VerticalAlignment="Center"
-                               Margin="{StaticResource Thickness.M}" />
-                    <TextBlock Text="{Binding ChangeText}" Style="{StaticResource DisplayTextStyle}"
-                               VerticalAlignment="Center" />
-                </StackPanel>
+                           VerticalAlignment="Center" />
+                <TextBox x:Name="AmountReceivedBox"
+                         Text="{Binding AmountReceivedText, UpdateSourceTrigger=PropertyChanged}"
+                         Style="{StaticResource ScanEditorStyle}"
+                         Width="220"
+                         Margin="{StaticResource Thickness.S}"
+                         ui:FocusTarget.Id="Payment.AmountReceivedBox" />
+                <TextBlock Text="Change" Style="{StaticResource LabelTextStyle}"
+                           VerticalAlignment="Center"
+                           Margin="{StaticResource Thickness.S}" />
+                <TextBlock Text="{Binding ChangeText}" Style="{StaticResource MoneyPositiveTextStyle}"
+                           VerticalAlignment="Center" />
             </StackPanel>
         </Grid>
 

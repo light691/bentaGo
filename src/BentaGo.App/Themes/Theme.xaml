@@ -76,7 +76,10 @@
     <!-- Reliable inline status glyphs (check / warning triangle). Segoe MDL2
          Assets ships with Windows and renders at every target DPI. -->
     <FontFamily x:Key="Font.Family.IconGlyphs">Segoe MDL2 Assets</FontFamily>
-    <sys:Double x:Key="FontSize.Display">40</sys:Double>
+    <!-- Round-8 (image pass): the big totals read at the reference
+         proportion (Sales POS / payment references render them ~22-26px,
+         never billboard-sized); 40px dwarfed every neighbouring label. -->
+    <sys:Double x:Key="FontSize.Display">26</sys:Double>
     <sys:Double x:Key="FontSize.Header">26</sys:Double>
     <sys:Double x:Key="FontSize.Title">20</sys:Double>
     <sys:Double x:Key="FontSize.Body">15</sys:Double>
@@ -155,9 +158,23 @@
 
     <sys:Double x:Key="Control.Height.Default">38</sys:Double>
     <sys:Double x:Key="Control.Height.Large">48</sys:Double>
+    <!-- Round-8: tall scan/search fields and the buttons that sit beside
+         them share one 56px row height (was a view literal on
+         FieldEditorTallStyle only, so companion buttons mis-sized). -->
+    <sys:Double x:Key="Control.Height.Field">56</sys:Double>
+
+    <!-- Round-8: explicit field widths. Left-anchored + content-sized
+         TextBoxes collapse to their caret width, so a fixed token width is
+         the contract; the values were the pre-existing view literals. -->
+    <sys:Double x:Key="Field.Width.Search">420</sys:Double>
+    <sys:Double x:Key="Field.Width.Cash">260</sys:Double>
 
     <sys:Double x:Key="DialogHost.MaxWidth">900</sys:Double>
     <sys:Double x:Key="DialogHost.MaxHeight">660</sys:Double>
+
+    <!-- Round-8: vertical-only stack rhythm. Uniform M margins on stacked
+         summary rows staggered every row +12px to the right. -->
+    <Thickness x:Key="Thickness.RowGap">0,12,0,0</Thickness>
 
     <!-- ====================== Focus visual ====================== -->
     <!-- FocusVisualStyle is a Style-typed property: the shared focus ring is
