@@ -9,6 +9,7 @@ using BentaGo.App.Features.PeddlerHome;
 using BentaGo.App.Features.Reconciliation;
 using BentaGo.App.Features.Sales;
 using BentaGo.App.Features.Stock;
+using BentaGo.App.Features.Transactions;
 using BentaGo.App.Navigation;
 using BentaGo.Application.Contracts;
 using BentaGo.Infrastructure.Hosting;
@@ -65,6 +66,7 @@ public static class ObservableObjectFactory
         services.AddTransient<PeddlerHomeViewModel>();
         services.AddTransient<SalesViewModel>();
         services.AddTransient<StockViewModel>();
+        services.AddTransient<TransactionsViewModel>();
         services.AddTransient<ReconciliationViewModel>();
         services.AddTransient<UserManagementViewModel>();
         services.AddTransient<CatalogImportViewModel>();
