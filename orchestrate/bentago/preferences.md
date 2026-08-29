@@ -26,6 +26,6 @@
 21. Never send mid-flight corrections to a running builder. A correction arrives as a new turn and derails the child (b attempt 1: one wrongful deletion then 70 min of nothing). Stand the child down and respawn with the corrected brief.
 
 ## Environment fact (2026-08-29)
-- Subagents and coordinator sessions are VISION-CAPABLE (read_image works; deepseek-v4-flash-vision-exp).
+- Coordinator session + WORKFLOW agents with explicit model override (provider opencode-go, model deepseek-v4-flash-vision-exp) are VISION-CAPABLE (read_image works). Plain subagent sessions run deepseek-v4-flash WITHOUT image input - route vision work through workflow agents.
 - Lane briefs must require visual evidence (screenshots/frames read via read_image) wherever UI behavior is claimed; "no image model" is no longer an excuse.
 - The BG-004 PROVISIONAL brand accent was set when vision was unavailable; finalize it from the brand reference image during the bg-004 UX round.
