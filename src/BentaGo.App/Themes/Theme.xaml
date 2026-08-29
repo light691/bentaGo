@@ -152,7 +152,7 @@
     <sys:Double x:Key="Control.Height.Default">38</sys:Double>
     <sys:Double x:Key="Control.Height.Large">48</sys:Double>
 
-    <sys:Double x:Key="DialogHost.MaxWidth">760</sys:Double>
+    <sys:Double x:Key="DialogHost.MaxWidth">900</sys:Double>
     <sys:Double x:Key="DialogHost.MaxHeight">600</sys:Double>
 
     <!-- ====================== Focus visual ====================== -->

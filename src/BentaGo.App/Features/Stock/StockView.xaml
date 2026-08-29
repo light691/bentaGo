@@ -63,7 +63,7 @@
                 <DataGridTextColumn Header="Damaged/Lost" Binding="{Binding DamagedLost}" Width="110" />
                 <DataGridTextColumn Header="Returned" Binding="{Binding Returned}" Width="70" />
                 <DataGridTextColumn Header="On hand" Binding="{Binding OnHand}" Width="70" />
-                <DataGridTextColumn Header="Last movement" Binding="{Binding LastMovementText}" Width="130" />
+                <DataGridTextColumn Header="Last movement" Binding="{Binding LastMovementText}" Width="170" />
             </DataGrid.Columns>
         </DataGrid>
     </Grid>

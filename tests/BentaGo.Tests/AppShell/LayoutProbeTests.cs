@@ -22,8 +22,9 @@ namespace BentaGo.Tests.AppShell;
 /// <summary>
 /// Layout probes (bg-004-synthesis 4.6): every screen view must fit the
 /// 1092x614 DIP work area (1366x768 at 125%) and interactive targets must
-/// stay >= 44 DIP. Dialogs are probed at the DialogHost caps (760x600) that
-/// guarantee the payment dialog fits the same work area (14).
+/// stay >= 44 DIP. Dialogs are probed at the DialogHost caps read from the
+/// tokens (updated to 900x600 in round-5 so the payment dialog's method
+/// strip + keypad + order summary fit with no scrollbar).
 /// </summary>
 [Collection("AppShellSta")]
 public sealed class LayoutProbeTests
@@ -97,8 +98,8 @@ public sealed class LayoutProbeTests
 
     /// <summary>
     /// Every screen view (and both dialog views) must fit its probe area:
-    /// screens at 1092x614 DIP, dialogs at the DialogHost caps (760x600)
-    /// (bg-004-synthesis 4.6, 14).
+    /// screens at 1092x614 DIP, dialogs at the DialogHost caps from the
+    /// tokens (bg-004-synthesis 4.6, 14; caps 900x600 since round-5).
     /// </summary>
     [Fact]
     public void AllScreensAndDialogsFitTheirProbeArea()
@@ -113,6 +114,9 @@ public sealed class LayoutProbeTests
                     dataRootOverride: temp,
                     extra: ObservableObjectFactory.RegisterAppServices);
 
+                double dialogWidth = (double)System.Windows.Application.Current.Resources[DesignTokens.DialogHostMaxWidth];
+                double dialogHeight = (double)System.Windows.Application.Current.Resources[DesignTokens.DialogHostMaxHeight];
+
                 var cases = new (string Name, FrameworkElement View, double Width, double Height)[]
                 {
                     ("login", NewView<LoginView, LoginViewModel>(services), ProbeWidth, ProbeHeight),
@@ -120,8 +124,8 @@ public sealed class LayoutProbeTests
                     ("sales", NewView<SalesView, SalesViewModel>(services), ProbeWidth, ProbeHeight),
                     ("stock", NewView<StockView, StockViewModel>(services), ProbeWidth, ProbeHeight),
                     ("reconciliation", NewView<ReconciliationView, ReconciliationViewModel>(services), ProbeWidth, ProbeHeight),
-                    ("payment-dialog", NewPaymentView(services), 760, 600),
-                    ("confirm-dialog", NewView<ConfirmDialogView, ConfirmDialogViewModel>(services), 760, 600),
+                    ("payment-dialog", NewPaymentView(services), dialogWidth, dialogHeight),
+                    ("confirm-dialog", NewView<ConfirmDialogView, ConfirmDialogViewModel>(services), dialogWidth, dialogHeight),
                 };
 
                 foreach ((string name, FrameworkElement view, double width, double height) in cases)
