@@ -1,5 +1,5 @@
 {
-  "generation": 3,
+  "generation": 4,
   "stack": [
     {
       "id": "BG-001",
@@ -11,7 +11,7 @@
     },
     {
       "id": "BG-002",
-      "branch": "bg-002",
+      "branch": "main",
       "state": "MERGED",
       "mergeCommit": "1e827599af70d4e7af5de78ee4c13dabb8937f2e",
       "mergedAt": "2026-08-29T02:44:07+08:00",
@@ -19,7 +19,7 @@
     },
     {
       "id": "BG-003",
-      "branch": "bg-003",
+      "branch": "main",
       "state": "MERGED",
       "mergeCommit": "b65469a562ca187f83c46549e68f50a80cc6abb1",
       "mergedAt": "2026-08-29T04:10:00+08:00",
@@ -27,18 +27,19 @@
     },
     {
       "id": "BG-004",
-      "branch": "bg-004",
-      "state": "NEXT",
-      "dependsOn": ["BG-001"],
-      "notes": "WPF shell + design system; interaction-changing => STOP at merge-ready for operator screenshot/video review. Implementer in p5 (evidence + review pack)."
+      "branch": "main",
+      "state": "MERGED",
+      "mergeCommit": "2e0b54b",
+      "mergedAt": "2026-08-29T17:30:54+08:00",
+      "notes": "WPF shell + design system; interaction-change review passed (operator click); squash-merged #4. Rebase patch-proof 8FE43208. Post-merge: one semantic merge-break (ScenarioDataSource used pre-BG-003 InventoryBreakdown.Quantity API) fixed forward + verified before this frontier update."
     },
     {
       "id": "BG-005",
       "branch": "bg-005",
-      "state": "AFTER-BG-003+BG-004",
+      "state": "NEXT",
       "dependsOn": ["BG-003", "BG-004"],
-      "notes": "Auth + audit; carries deferred audit-logging findings from BG-001 audit. Blueprint: docs/05 lines 287+."
+      "notes": "Auth + audit + catalog + trips + stock loads + CSV exchange; carries deferred BG-001 audit findings 3+4 (auth/audit logging) + client Product.csv v2-contract import unit. Slices a-d per queue/bg-005-brief.md. Blueprint: docs/05 lines 287+."
     }
   ],
-  "note": "Frontier recomputed after BG-003 merge (no review gate). Remote: light691/bentaGo, main = b65469a. BG-005 architects after BG-004 merge."
+  "note": "Frontier recomputed after BG-004 merge at operator click. Operator UI rework (Codex, uncommitted in root checkout on verify-bentago-skill) not part of this merge; must land as its own branch/PR (ui-rework worktree), never on main. BG-005a research done (gaps: BCrypt-vs-PBKDF2, lockout numbers, role set, AuditEvent shape, session actor supply); brief drafting next."
 }

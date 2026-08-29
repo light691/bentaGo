@@ -9,8 +9,8 @@ Derived from units.tsv and ledger.tsv at each drain. Do not hand-maintain.
 | BG-001 | foundation | MERGED | main | 716c95f | 12/12 + foundation verify PASS |
 | BG-002 | domain | MERGED | main | 1e82759 | 43/43, 2 audit rounds, golden scenario |
 | BG-003 | persist | MERGED | main | b65469a | 59/59 + verify PASS |
-| BG-004 | shell | MERGE-GATE | bg-004-glm7 | c6bf973 | 127/127; review pack PASS rail-gated; operator UI rework (Codex) in progress |
-| BG-005 | admin | NEXT | bg-005 | - | auth, catalog, trips, loads, CSV exchange; after BG-004 merge |
+| BG-004 | shell | MERGED | main | 2e0b54b | 127/127; review pack PASS rail-gated; squash-merged #4 at operator click |
+| BG-005 | admin | NEXT | bg-005 | - | auth, catalog, trips, loads, CSV exchange; slices a-d prepared (queue/bg-005-brief.md) |
 | BG-006 | sales | pending | bg-006 | - | - |
 | BG-007 | hardware | pending | bg-007 | - | - |
 | BG-008 | close | pending | bg-008 | - | - |

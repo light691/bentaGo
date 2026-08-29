@@ -133,7 +133,7 @@ public sealed class ScenarioDataSource : IAppDataSource
         foreach ((ProductId id, string sku, string name) in products)
         {
             var breakdown = state.Breakdown(id, route);
-            remaining += breakdown.Ending.Units;
+            remaining += (int)breakdown.Ending;
 
             // The POS catalog needs a price: the last unit price the scenario
             // sold the product at (fold-derived documents, deterministic).
@@ -141,14 +141,14 @@ public sealed class ScenarioDataSource : IAppDataSource
             stockRows.Add(new StockRow(
                 sku,
                 name,
-                breakdown.Loaded.Units.ToString(),
-                breakdown.Sold.Units.ToString(),
-                (breakdown.Damaged.Units + breakdown.Lost.Units).ToString(),
-                breakdown.Returned.Units.ToString(),
-                breakdown.Ending.Units.ToString(),
+                breakdown.Loaded.ToString(),
+                breakdown.Sold.ToString(),
+                (breakdown.Damaged + breakdown.Lost).ToString(),
+                breakdown.Returned.ToString(),
+                breakdown.Ending.ToString(),
                 LastMovementText(store.Movements, id, route),
-                breakdown.Ending.Units <= LowStockThreshold));
-            offers.Add(new ProductOffer(sku, name, price, breakdown.Ending.Units));
+                breakdown.Ending <= LowStockThreshold));
+            offers.Add(new ProductOffer(sku, name, price, (int)breakdown.Ending));
         }
 
         var session = new SessionHeader(
