@@ -361,11 +361,14 @@ public sealed class LiveLaneDriverTests
         await _sta.RunAsync(async () =>
         {
             using var session = await LaneSession.OpenAsync(1366, 768, login: false);
+            // Credentials typed BEFORE the shot so the Log in button renders
+            // enabled (vivid green), not the disabled grey of empty fields.
+            session.ViewModel.Login.Username = "admin";
+            session.ViewModel.Login.Password = "admin";
+            _sta.PumpIdle();
             LaneEvidence.SaveReviewPng("bg-004-login-1366.png", 1366, 768, session.Window);
 
             // Log in and capture the remaining five screens.
-            session.ViewModel.Login.Username = "admin";
-            session.ViewModel.Login.Password = "admin";
             session.ViewModel.Login.LoginCommand.Execute(null);
             WaitFor(() => session.Navigation.CurrentKey == ScreenKeys.Home);
             _sta.PumpIdle();

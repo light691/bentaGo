@@ -265,8 +265,9 @@
                     <TextBlock Grid.Column="1" Text="{Binding ChangeText}" Style="{StaticResource MoneyPositiveTextStyle}"
                                HorizontalAlignment="Right" />
                 </Grid>
-                <TextBlock Text="Split totals are simulated on this branch (BG-005 wires the real tender)."
+                <TextBlock Text="Split totals are simulated (BG-005 wires the real tender)."
                            Style="{StaticResource CaptionTextStyle}"
+                           TextWrapping="Wrap"
                            Margin="{StaticResource Thickness.M}" />
             </StackPanel>
         </Border>
