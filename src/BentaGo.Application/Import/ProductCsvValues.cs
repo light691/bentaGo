@@ -14,8 +14,13 @@ public static class ProductCsvValues
 {
     /// <summary>
     /// Parses a money cell into <see cref="Money"/> (integer centavos, at most
-    /// 2 decimals, non-negative). Empty input is false (the retail-empty case
-    /// is its own row error upstream).
+    /// 2 decimals, non-negative). The parse is STRICT: the decimal point is
+    /// the only allowed separator — no thousands/group separators (commas are
+    /// rejected, so "12,5" / "1,234" never silently become 125 / 1234), no
+    /// signs (negative is rejected too), no exponents, no currency. A bare
+    /// ".50" is a valid 0.50. Surrounding whitespace is trimmed first (the
+    /// CSV parser already trims fields). Empty input is false (the
+    /// retail-empty case is its own row error upstream).
     /// </summary>
     public static bool TryParseMoney(string raw, out Money money)
     {
@@ -25,7 +30,10 @@ public static class ProductCsvValues
             return false;
         }
 
-        if (!decimal.TryParse(raw, NumberStyles.Number, CultureInfo.InvariantCulture, out decimal value))
+        // NumberStyles.AllowDecimalPoint ONLY: rejects commas (AllowThousands),
+        // signs, exponents, and currency symbols by construction.
+        if (!decimal.TryParse(raw.Trim(), NumberStyles.AllowDecimalPoint,
+                CultureInfo.InvariantCulture, out decimal value))
         {
             return false;
         }

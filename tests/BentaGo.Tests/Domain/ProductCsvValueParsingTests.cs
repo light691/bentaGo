@@ -6,7 +6,8 @@ namespace BentaGo.Tests.Domain;
 
 /// <summary>
 /// Pure value parsing at the client-mapping boundary: money must be
-/// non-negative with at most 2 decimals; dates are M/D/YYYY under the
+/// non-negative with at most 2 decimals and decimal-point-ONLY separators
+/// (commas are rejected — no thousands); dates are M/D/YYYY under the
 /// invariant culture (with an optional clock suffix, matching the client's
 /// "6/18/2026 12:00:00 AM" cells); booleans are True/False. All parses are
 /// culture-explicit — nothing depends on the host locale.
@@ -16,7 +17,11 @@ public sealed class ProductCsvValueParsingTests
     [Theory]
     [InlineData("39.00", 3900)]
     [InlineData("0.00", 0)]
+    [InlineData("0", 0)]
+    [InlineData("0.01", 1)]
     [InlineData("65.5", 6550)]      // one decimal normalizes to centavos
+    [InlineData(".50", 50)]         // bare decimal point is a valid 0.50
+    [InlineData("35.00", 3500)]
     [InlineData(" 29.96 ", 2996)]   // surrounding whitespace tolerated
     public void Money_TwoDecimals_ParsesToCentavos(string raw, long centavos)
     {
@@ -26,8 +31,12 @@ public sealed class ProductCsvValueParsingTests
 
     [Theory]
     [InlineData("65.005")]     // 3 decimals — contract violation
-    [InlineData("12,5")]       // comma decimal — not the contract shape
+    [InlineData("12.345")]     // 3 decimals — contract violation
+    [InlineData("12,5")]       // comma is a thousands separator — rejected
+    [InlineData("1,234")]      // comma thousands — rejected
+    [InlineData("1,234.56")]   // comma thousands — rejected
     [InlineData("forty")]      // not a number
+    [InlineData("-5")]         // negative — pricing is never negative
     [InlineData("-1.00")]      // negative — pricing is never negative
     [InlineData("")]           // empty is not a parse (caller flags retail-empty)
     [InlineData("   ")]

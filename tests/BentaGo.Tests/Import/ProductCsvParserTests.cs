@@ -28,13 +28,19 @@ public sealed class ProductCsvParserTests
     [Fact]
     public void CrlfAndLf_BothTolerated_NoBom()
     {
-        string crlf = Header + "\r\n" + ValidRow("a", "35.00") + "\r\n" + ValidRow("b", "39.00") + "\r\n";
-        CsvProductFile file = Parse(crlf);
+        // Mixed line endings in ONE file: header ends with \r\n, the first
+        // data row ends with \n, the second with \r\n — the parser must
+        // handle all three and must report the PHYSICAL CSV line number
+        // (header = line 1, so the first data row is line 2, the second 3).
+        string mixed = Header + "\r\n" + ValidRow("a", "35.00") + "\n"
+            + ValidRow("b", "39.00") + "\r\n";
+        CsvProductFile file = Parse(mixed);
 
         Assert.Equal(2, file.Rows.Count);
         Assert.Equal("a", file.Rows[0].Fields[0]);
+        Assert.Equal(2, file.Rows[0].LineNumber); // header=1, first data row=2
         Assert.Equal("b", file.Rows[1].Fields[0]);
-        Assert.Equal(3, file.Rows[0].LineNumber); // header=1, first data row=2, second data row=3
+        Assert.Equal(3, file.Rows[1].LineNumber); // second data row=3
     }
 
     [Fact]
