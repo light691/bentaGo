@@ -1,5 +1,5 @@
 {
-  "generation": 8,
+  "generation": 9,
   "stack": [
     {
       "id": "BG-001",
@@ -74,11 +74,34 @@
       "notes": "Luna design pass (#9, merged first on stale base - caught + re-delivered correctly) + operator pass 2 (#10, rebased on current main, 0 conflicts, delta = 13 pass-2 files). Palette #0A2E4F approved. 314/314 merged main, review pack rail-gated PASS, format 0 diagnostics. Process note: first push of rebased head was rejected (non-fast-forward) and #9 merged a stale remote head; corrected via #10 after exact-delta verification - pushed test of the review discipline, no content lost."
     },
     {
+      "id": "BG-005d-ui",
+      "branch": "main",
+      "state": "MERGED",
+      "mergeCommit": "531fdf3",
+      "mergedAt": "2026-08-30T01:10:00+08:00",
+      "notes": "Admin screens (Users/Catalog Import/Trips & Sales) on reworked design; operator gate passed. Live lane caught + fixed two stacked bugs: rail not rebuilt after role load + RailItems missing SetProperty notification (in-proc pack looked right, live showed stale 5-item rail). 315/315 merged main."
+    },
+    {
       "id": "BG-005",
-      "branch": "bg-005",
+      "branch": "main",
+      "state": "COMPLETE",
+      "mergeCommits": [
+        "76511d0 (5a)",
+        "0197046 (5b)",
+        "93306c1 (5c)",
+        "52f3e90 (5d-core)",
+        "6329dee (audit-categories)",
+        "3debaf7+d876ae9 (ui-rework)",
+        "531fdf3 (5d-ui)"
+      ],
+      "notes": "COMPLETE: Core Identity + trips + inventory + import + admin + UI rework, all merged and verified. Sessions/actor binding live, TRIP.* categories canonical. Follow-ups recorded: cross-peddler overview read API, sign-out flow (IActorContext.Clear), .github/workflows/windows.yml workflow-scope push fix (operator/scope token)."
+    },
+    {
+      "id": "BG-006",
+      "branch": "next",
       "state": "NEXT",
-      "dependsOn": ["BG-003", "BG-004", "BG-005a", "BG-005b", "BG-005c", "BG-005d-core", "ui-rework"],
-      "notes": "Remaining: 5d-audit-categories (TRIP.* set + terminal/reason - dispatched), 5d-ui (admin screens on reworked design - interaction-changing, STOPS at merge-ready for operator click). After BG-005: docs/02:100 category round complete, BG-006 next (sales/search/scanner/cart/payments/checkout)."
+      "dependsOn": ["BG-005"],
+      "notes": "Sales unit (docs/05:341-393): search/scanner/cart/discounts/payments (Cash/GCash/Maya/Bank Transfer/Credit + split)/idempotent checkout + Sales tests + 10 live lanes + perf probe (P95 lookup <=100ms, checkout <=2s @ 50k products/100k movements; baselines first). $architect before domain contracts (docs/05:606); $interrogate for the unit. Interaction-changing: stop at merge-ready for operator. Plan: 6a domain core (architect then build), 6b UI, 6c perf+lanes+video."
     }
   ],
   "note": "Frontier gen 6 after BG-005b merge (delegated). 279 tests green on merged main; dotnet format --verify-no-changes established as a REAL gate (0 diagnostics) after repo-wide EOL normalization (.gitattributes eol=lf + sweeps at 8d16a8d/6f18f79/3615bba). Known auth limitation: pushes touching .github/workflows/windows.yml are rejected (OAuth App lacks workflow scope) - one trailing-newline fix for that file is held locally; content, not pushed. ui-rework parked by operator instruction. BG-005c dispatch next."
