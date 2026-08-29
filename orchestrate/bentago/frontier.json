@@ -1,5 +1,5 @@
 {
-  "generation": 5,
+  "generation": 6,
   "stack": [
     {
       "id": "BG-001",
@@ -42,12 +42,20 @@
       "notes": "BG-005 slice a: identity+auth+audit (User/Role/Peddler, BCrypt, lockout 5/15, per-attempt AUTH.* audits, EF Users table + AuditEvents identity rebuild, AdminSeeder first-run, LoginService dual-interface). 201/201 on branch + merged main; independent adversarial auth audit PASS (0 major; F1 atomic lockout / F2 timing oracle / F6 admin guards / F10 blank-password fixed in fix2 70226a5); BG-001 deferred findings 3+4 CLOSED (auth core); follow-ups F3-F12 owned in queue/bg-005a-audit-followups.md. Merge delegated to coordinator."
     },
     {
+      "id": "BG-005b",
+      "branch": "main",
+      "state": "MERGED",
+      "mergeCommit": "0197046",
+      "mergedAt": "2026-08-29T23:05:00+08:00",
+      "notes": "BG-005 slice b: catalog + client CSV import. Product v2 additive contract, deterministic SKU derivation (barcode1 digits / X+sha1 name fallback), strict money parse (fix1 5be734d: No-NumberStyles-NUMBER comma rejection), Products table migration BG005b_01, upsert-by-sku idempotent import, 22-row synthetic fixture. 279/279 branch + merged main. Rebase conflict = EOL-only (csproj); patch-proof re-verified via final-blob identity. Merge delegated."
+    },
+    {
       "id": "BG-005",
       "branch": "bg-005",
       "state": "NEXT",
-      "dependsOn": ["BG-003", "BG-004", "BG-005a"],
-      "notes": "Remaining slices: b catalog+CSV v2 (dispatched, queue/bg-005b-brief.md), c trips/stock-loads/peddler-isolation, d admin views + actor wiring (F8 binding mandatory; interaction-change gate). ui-rework 7145207 HELD by operator (further UI improvements; palette #0A2E4F approved 2026-08-29) - becomes its own PR, never merged while held."
+      "dependsOn": ["BG-003", "BG-004", "BG-005a", "BG-005b"],
+      "notes": "Remaining slices: c trips/stock-loads/peddler-isolation (dispatched, queue/bg-005c-brief.md), d admin views + actor wiring (F8 binding mandatory; interaction-change gate; UI base = operator's improved rework, still HELD). ui-rework 7145207 HELD by operator (decisions.tsv)."
     }
   ],
-  "note": "Frontier gen 5 after BG-005a merge (delegated). 201 tests green on merged main. ui-rework parked by operator instruction (hold in decisions.tsv d503a09). BG-005b brief committed; dispatch next."
+  "note": "Frontier gen 6 after BG-005b merge (delegated). 279 tests green on merged main; dotnet format --verify-no-changes established as a REAL gate (0 diagnostics) after repo-wide EOL normalization (.gitattributes eol=lf + sweeps at 8d16a8d/6f18f79/3615bba). Known auth limitation: pushes touching .github/workflows/windows.yml are rejected (OAuth App lacks workflow scope) - one trailing-newline fix for that file is held locally; content, not pushed. ui-rework parked by operator instruction. BG-005c dispatch next."
 }
