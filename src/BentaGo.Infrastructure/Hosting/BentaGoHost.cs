@@ -83,6 +83,16 @@ public static class BentaGoHost
         services.AddSingleton<BentaGo.Application.Contracts.ITripReadService, BentaGo.Application.Services.TripReadService>();
         services.AddSingleton<BentaGo.Application.Contracts.IPrintTicketStore, BentaGo.Infrastructure.PrintTickets.PrintTicketStore>();
 
+        // BG-006 caller surface: catalog search, checkout session, receipt
+        // numbers, and transaction history (all additive over the unchanged
+        // seam; the WPF app additionally registers its App-layer services in
+        // RegisterAppServices).
+        services.AddSingleton<BentaGo.Application.Contracts.IProductStore, ProductStore>();
+        services.AddSingleton<BentaGo.Application.Contracts.ISaleNumberSource, BentaGo.Application.Services.CommittedSaleNumberSource>();
+        services.AddSingleton<BentaGo.Application.Contracts.ICheckoutSessionFactory, BentaGo.Application.Services.CheckoutSessionFactory>();
+        services.AddSingleton<BentaGo.Application.Contracts.ISaleQueryService, BentaGo.Application.Services.SaleQueryService>();
+        services.AddSingleton<BentaGo.Application.Contracts.IProductSearchService, BentaGo.Application.Services.ProductSearchService>();
+
         services.AddSingleton<IRestoreService>(sp => new RestoreService(
             sp.GetRequiredService<IDataPathProvider>(),
             sp.GetRequiredService<IDbContextFactory<BentaGoDbContext>>(),

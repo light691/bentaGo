@@ -23,6 +23,15 @@ public interface IProductStore
     /// <summary>Finds a catalog product by its derived SKU, or null.</summary>
     Task<Product?> FindBySkuAsync(string sku, CancellationToken cancellationToken = default);
 
+    /// <summary>Finds a catalog product by its barcode (exact TEXT equality —
+    /// leading zeros are significant by construction), or null (BG-006 D8).</summary>
+    Task<Product?> FindByBarcodeAsync(string barcode, CancellationToken cancellationToken = default);
+
+    /// <summary>Case-insensitive substring search by name (wildcards escaped),
+    /// ordered by Name then Sku, capped at <paramref name="limit"/> (BG-006 D8;
+    /// served by the NOCASE index from BG006_01).</summary>
+    Task<IReadOnlyList<Product>> SearchByNameAsync(string namePart, int limit, CancellationToken cancellationToken = default);
+
     /// <summary>All catalog products, ordered by SKU.</summary>
     Task<IReadOnlyList<Product>> GetAllAsync(CancellationToken cancellationToken = default);
 }

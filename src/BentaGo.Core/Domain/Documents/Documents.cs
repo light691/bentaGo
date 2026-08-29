@@ -134,3 +134,16 @@ public sealed record AuditEvent(
     Ledger.DocumentRef? Ref,
     string? Terminal = null,
     string? Reason = null);
+
+/// <summary>
+/// The saved-sale print state a receipt-result stage shows (BG-006 D7).
+/// Derived by the query service from the audit stream (latest PRINT /
+/// PRINT_FAILED on a <see cref="Ledger.SaleRef"/> wins); BG-006 never
+/// prints, so every freshly committed sale is Pending.
+/// </summary>
+public enum PrintStatus
+{
+    Pending,
+    Printed,
+    Failed,
+}

@@ -108,6 +108,21 @@ public static class SaleBuilder
                 continue;
             }
 
+            // BG-006 D4: the discount TYPE and the discount MONEY must agree
+            // (None ⇔ zero; a typed discount never carries a zero amount, and
+            // a zero amount can never be a typed discount). The scenario
+            // passes None + zero on every line, so it stays byte-stable.
+            if ((line.DiscountType == DiscountType.None) != (line.Discount.Centavos == 0))
+            {
+                errors.Add(new DomainError(
+                    "DISCOUNT_TYPE_MISMATCH",
+                    (line.DiscountType == DiscountType.None
+                        ? "discount type None requires a zero discount"
+                        : "a typed discount requires a positive discount amount"),
+                    line.Sku));
+                continue;
+            }
+
             Money lineTotal = line.UnitPrice.Times(line.Quantity.Units).Minus(line.Discount);
             if (lineTotal.Centavos < 0)
             {
@@ -146,6 +161,15 @@ public static class SaleBuilder
             if (payment.Method == PaymentMethod.Credit && string.IsNullOrWhiteSpace(payment.Reference))
             {
                 errors.Add(new DomainError("CREDIT_REFERENCE_REQUIRED", "utang needs the customer reference", payment.Method.DisplayName()));
+                continue;
+            }
+
+            // BG-006 D5: lane 5's "reference is required" is a document
+            // validity rule (mirrors CREDIT_REFERENCE_REQUIRED). The scenario
+            // has no bank lines, so this rule is byte-stable.
+            if (payment.Method == PaymentMethod.BankTransfer && string.IsNullOrWhiteSpace(payment.Reference))
+            {
+                errors.Add(new DomainError("BANK_REFERENCE_REQUIRED", "a bank transfer needs the reference", payment.Method.DisplayName()));
                 continue;
             }
 

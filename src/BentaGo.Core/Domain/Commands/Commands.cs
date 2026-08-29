@@ -1,3 +1,4 @@
+using BentaGo.Core.Domain.Builders;
 using BentaGo.Core.Domain.Identity;
 using BentaGo.Core.Domain.Payments;
 
@@ -45,7 +46,8 @@ public sealed record NewSaleLine(
     string ProductName,
     Money UnitPrice,
     Quantity Quantity,
-    Money Discount);
+    Money Discount,
+    DiscountType DiscountType = DiscountType.None);
 
 public sealed record NewPaymentLine(
     PaymentLineId Id,
