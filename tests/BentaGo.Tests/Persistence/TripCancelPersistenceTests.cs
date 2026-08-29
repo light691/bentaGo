@@ -70,10 +70,10 @@ public sealed class TripCancelPersistenceTests : PersistenceTestBase
         Assert.Equal(TripStatus.Cancelled, store.State.Trip(trip).Status);
         Assert.Equal("Cancelled", await ReadTripStatusAsync(DbPath(root), trip));
 
-        // Transitions are audited with EXISTING categories (documented reuse:
-        // REOPEN for the open transition, CLOSE for the cancel — no TRIP.* set).
-        Assert.Contains(store.Audits, a => a.Category == "REOPEN" && a.Message.Contains($"trip {trip.Value:N} opened"));
-        Assert.Contains(store.Audits, a => a.Category == "CLOSE" && a.Message.Contains("cancelled: route cancelled by admin"));
+        // Transitions use the canonical TRIP.* categories (BG-005d): TRIP.OPEN
+        // for the open transition, TRIP.CANCEL for the cancellation.
+        Assert.Contains(store.Audits, a => a.Category == "TRIP.OPEN" && a.Message.Contains($"trip {trip.Value:N} opened"));
+        Assert.Contains(store.Audits, a => a.Category == "TRIP.CANCEL" && a.Message.Contains("cancelled: route cancelled by admin"));
 
         // Reopen + rebuild: the fold replays TripCancel and keeps Cancelled.
         store.Close();
@@ -91,6 +91,65 @@ public sealed class TripCancelPersistenceTests : PersistenceTestBase
         Assert.True(blocked.IsFailure);
         Assert.Equal("TRIP_CANCELLED", blocked.Errors[0].Code);
         Assert.Equal(0, await SqliteTest.CountAsync(DbPath(root), "Sales"));
+    }
+
+    [Fact]
+    public async Task TripAudits_UseCanonicalCategories_LoadStaysLoad_TerminalAndReasonSet()
+    {
+        string root = NewRoot();
+        ServiceProvider host = NewHost(root);
+        await host.GetRequiredService<DbInitializer>().EnsureCreatedOrMigrateAsync();
+
+        var ids = new ScenarioIdSource("persist-trip-audit-v1");
+        var admin = new UserId(ids.Next("admin"));
+        var peddler = new PeddlerId(ids.Next("peddler"));
+        var storeLoc = new LocationId(ids.Next("store"));
+        var route = new LocationId(ids.Next("route"));
+        var product = new ProductId(ids.Next("product"));
+        var trip = new TripId(ids.Next("trip"));
+
+        Result<Trip> opened = host.GetRequiredService<IOpenTripService>().OpenTrip(
+            new NewTripCommand(trip, peddler, route, admin, SeedWhen));
+        Assert.True(opened.IsSuccess, opened.Errors.FirstOrDefault()?.Code);
+
+        var store = host.GetRequiredService<SqliteLedgerStore>();
+        var openId = new LoadId(ids.Next("open"));
+        store.RegisterLoad(new StockLoad(openId, "P-AUDIT-OPEN", default, Array.Empty<StockLoadLine>(), admin, SeedWhen));
+        store.Bind();
+        Result<AppendReceipt> opening = store.Append(new[]
+        {
+            Moves.OpeningStock(0, SeedWhen, admin, new LoadRef(openId), product, storeLoc, Quantity.Of(100)),
+        });
+        Assert.True(opening.IsSuccess, opening.Errors.FirstOrDefault()?.Code);
+
+        Result<LoadOutcome> loaded = host.GetRequiredService<ILoadService>().Load(new LoadCommand(
+            new LoadId(ids.Next("load")), "P-AUDIT-LD", trip, storeLoc,
+            new[] { new LoadLine(product, "SKU", "Product", Quantity.Of(30), Money.FromPesos(30m)) },
+            admin, SeedWhen.AddHours(1)), peddler);
+        Assert.True(loaded.IsSuccess, loaded.Errors.FirstOrDefault()?.Code);
+
+        const string cancelReason = "route cancelled by admin";
+        Result<CancelOutcome> cancelled = host.GetRequiredService<ICancelTripService>().Cancel(
+            new CancelTripCommand(trip, cancelReason, admin, SeedWhen.AddHours(2)), peddler);
+        Assert.True(cancelled.IsSuccess, cancelled.Errors.FirstOrDefault()?.Code);
+
+        // LOAD stays the load category — only lifecycle transitions moved to
+        // the TRIP.* set (BG-005d).
+        Assert.Contains(store.Audits, a => a.Category == "LOAD" && a.Message.Contains("P-AUDIT-LD committed"));
+
+        // F12: use-case rows carry the terminal (Environment.MachineName, the
+        // docs/01:77 source); the trip rows use TRIP.* categories.
+        Assert.Contains(store.Audits, a => a.Category == "TRIP.OPEN" && a.Terminal == Environment.MachineName);
+        Assert.Contains(store.Audits, a => a.Category == "TRIP.CANCEL" && a.Terminal == Environment.MachineName);
+
+        // Reason comes from the command's reason column on TRIP.CANCEL.
+        Assert.Contains(store.Audits, a => a.Category == "TRIP.CANCEL" && a.Reason == cancelReason);
+
+        // The terminal survives a reopen over the same file (persisted column).
+        store.Close();
+        var reopened = new SqliteLedgerStore(new DataPathProvider(root), new DebugOptions());
+        Assert.Contains(reopened.Audits, a => a.Category == "TRIP.OPEN" && a.Terminal == Environment.MachineName);
+        Assert.Contains(reopened.Audits, a => a.Category == "TRIP.CANCEL" && a.Reason == cancelReason);
     }
 
     [Fact]
