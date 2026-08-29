@@ -32,7 +32,39 @@
                 Background="{DynamicResource Brush.Brand.Rail}"
                 BorderBrush="{DynamicResource Brush.Brand.Rail.Border}"
                 BorderThickness="0,0,1,0">
-            <ItemsControl ItemsSource="{Binding RailItems}" Margin="8,16,8,16">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <StackPanel Grid.Row="0" Margin="20,24,20,18">
+                    <StackPanel Orientation="Horizontal">
+                        <Border Width="32"
+                                Height="32"
+                                Background="{DynamicResource Brush.Accent}"
+                                CornerRadius="10"
+                                VerticalAlignment="Center">
+                            <TextBlock Text="BG"
+                                       Foreground="{DynamicResource Brush.Text.OnAccent}"
+                                       FontSize="12"
+                                       FontWeight="Bold"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center" />
+                        </Border>
+                        <StackPanel Margin="10,0,0,0" VerticalAlignment="Center">
+                            <TextBlock Text="BentaGo" Style="{StaticResource RailBrandTitleStyle}" />
+                            <TextBlock Text="FIELD SALES" Style="{StaticResource RailBrandMetaStyle}" />
+                        </StackPanel>
+                    </StackPanel>
+                </StackPanel>
+                <Border Grid.Row="1"
+                        Height="1"
+                        Margin="20,0,20,12"
+                        Background="{DynamicResource Brush.Brand.Rail.Border}" />
+
+                <ItemsControl Grid.Row="2" ItemsSource="{Binding RailItems}" Margin="8,0,8,16">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
                         <Button Style="{StaticResource NavRailItemStyle}"
@@ -54,7 +86,8 @@
                         </Button>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
-            </ItemsControl>
+                </ItemsControl>
+            </Grid>
         </Border>
 
         <!-- Content region + F1 help overlay. -->

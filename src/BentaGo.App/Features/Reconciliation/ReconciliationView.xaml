@@ -12,6 +12,7 @@
         </Grid.RowDefinitions>
 
         <StackPanel Grid.Row="0">
+            <TextBlock Text="CLOSE OUT" Style="{StaticResource PageEyebrowTextStyle}" />
             <TextBlock Text="End Trip / Reconciliation" Style="{StaticResource HeaderTextStyle}" />
             <TextBlock Style="{StaticResource StatusTextStyle}">
                 <Run Text="Trip " /><Run Text="{Binding Session.TripNumber, Mode=OneWay}" />
@@ -162,39 +163,53 @@
                     </Border>
                 </Grid>
 
-                <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="{StaticResource Thickness.M}">
-                    <Button Content="Save Draft"
+                <Grid Grid.Row="2" Margin="{StaticResource Thickness.M}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <Button Grid.Column="0" Content="Save Draft"
                             Style="{StaticResource Button.PrimaryStyle}"
                             Command="{Binding SaveDraftCommand}"
-                            Margin="{StaticResource Thickness.S}" />
-                    <Button Content="Print Summary"
+                            Margin="{StaticResource Thickness.ColumnGap}" />
+                    <Button Grid.Column="1" Content="Print Summary"
                             Style="{StaticResource Button.SecondaryStyle}"
                             Command="{Binding PrintSummaryCommand}"
-                            Margin="{StaticResource Thickness.S}" />
-                    <Button Content="Submit Close"
+                            Margin="{StaticResource Thickness.ColumnGap}" />
+                    <Button Grid.Column="2" Content="Submit Close"
                             Style="{StaticResource Button.PrimaryStyle}"
                             Command="{Binding SubmitCloseCommand}"
                             IsDefault="True"
                             MinWidth="140"
-                            Margin="{StaticResource Thickness.S}"
+                            Margin="{StaticResource Thickness.ColumnGap}"
                             ui:FocusTarget.Id="Reconciliation.SubmitCloseButton" />
-                </StackPanel>
+                </Grid>
             </Grid>
         </Grid>
 
         <!-- Optional inventory count table (placeholder rows; BG-005 wires entry). -->
-        <StackPanel Grid.Row="3" Margin="{StaticResource Thickness.M}">
-            <TextBlock Text="Inventory count (optional)" Style="{StaticResource TitleTextStyle}" />
-            <DataGrid ItemsSource="{Binding CountRows}" AutoGenerateColumns="False" MinHeight="120">
-                <DataGrid.Columns>
-                    <DataGridTextColumn Header="SKU" Binding="{Binding Sku}" Width="110" />
-                    <DataGridTextColumn Header="Product" Binding="{Binding Product}" Width="*" />
-                    <DataGridTextColumn Header="Expected" Binding="{Binding Expected}" Width="80" />
-                    <DataGridTextColumn Header="Counted" Binding="{Binding Counted}" Width="80" />
-                    <DataGridTextColumn Header="Variance" Binding="{Binding Variance}" Width="80" />
-                    <DataGridTextColumn Header="Reason" Binding="{Binding Reason}" Width="*" />
-                </DataGrid.Columns>
-            </DataGrid>
-        </StackPanel>
+        <Border Grid.Row="3" Style="{StaticResource TableCardStyle}" Margin="{StaticResource Thickness.M}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+                <StackPanel Grid.Row="0" Margin="{StaticResource CardPadding}">
+                    <TextBlock Text="INVENTORY COUNT" Style="{StaticResource PageEyebrowTextStyle}" />
+                    <TextBlock Text="Optional count" Style="{StaticResource TitleTextStyle}" />
+                </StackPanel>
+                <DataGrid Grid.Row="1" ItemsSource="{Binding CountRows}" AutoGenerateColumns="False" MinHeight="120">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="SKU" Binding="{Binding Sku}" Width="110" />
+                        <DataGridTextColumn Header="Product" Binding="{Binding Product}" Width="*" />
+                        <DataGridTextColumn Header="Expected" Binding="{Binding Expected}" Width="80" />
+                        <DataGridTextColumn Header="Counted" Binding="{Binding Counted}" Width="80" />
+                        <DataGridTextColumn Header="Variance" Binding="{Binding Variance}" Width="80" />
+                        <DataGridTextColumn Header="Reason" Binding="{Binding Reason}" Width="*" />
+                    </DataGrid.Columns>
+                </DataGrid>
+            </Grid>
+        </Border>
     </Grid>
 </UserControl>

@@ -2,9 +2,8 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ui="clr-namespace:BentaGo.App.Ui">
-    <!-- Round-6: no top quick-action chips - the bottom action bar IS the
-         quick actions. Scan/search fields are 56 tall; CART header aligns
-         with the SCAN label; bottom bar spans the content width. -->
+    <!-- POS layout: catalog and current order are separate surfaces, while
+         both result lists retain their own scrolling for large assortments. -->
     <Grid Margin="{StaticResource ScreenPadding}">
         <Grid.RowDefinitions>
             <RowDefinition Height="*" />
@@ -18,158 +17,211 @@
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
 
-            <!-- Scan / search column. -->
-            <StackPanel Grid.Column="0">
-                <TextBlock Text="SCAN BARCODE / SEARCH" Style="{StaticResource FieldLabelStyle}" VerticalAlignment="Top" />
-                <TextBox x:Name="ScanBox"
-                         Style="{StaticResource FieldEditorTallStyle}"
-                         Text="{Binding ScanBoxText, UpdateSourceTrigger=PropertyChanged}"
-                         ui:Watermark.Text="Scan barcode or type a product name, then Enter"
-                         ui:FocusTarget.Id="Sales.ScanBox"
-                         ui:FocusTarget.IsInitial="True">
-                    <TextBox.InputBindings>
-                        <!-- Scanner Enter submits the focused scan field only; it
-                             never confirms the payment dialog (separate modal). -->
-                        <KeyBinding Key="Enter" Command="{Binding ScanCommand}" />
-                    </TextBox.InputBindings>
-                </TextBox>
-
-                <TextBlock Text="PRODUCT SEARCH" Style="{StaticResource FieldLabelStyle}"
-                           Margin="{StaticResource Thickness.M}" />
+            <!-- Catalog surface. -->
+            <Border Grid.Column="0" Style="{StaticResource CardStyle}">
                 <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-                    <TextBox Grid.Column="0"
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <StackPanel Grid.Row="0">
+                        <TextBlock Text="CATALOG" Style="{StaticResource PageEyebrowTextStyle}" />
+                        <TextBlock Text="Scan or find a product" Style="{StaticResource TitleTextStyle}" />
+                    </StackPanel>
+
+                    <TextBlock Grid.Row="1" Text="SCAN BARCODE / SEARCH"
+                               Style="{StaticResource FieldLabelStyle}"
+                               Margin="{StaticResource Thickness.RowGap}" />
+                    <TextBox Grid.Row="2" x:Name="ScanBox"
                              Style="{StaticResource FieldEditorTallStyle}"
-                             Text="{Binding SearchQuery, UpdateSourceTrigger=PropertyChanged}"
-                             ui:Watermark.Text="Type a product name or SKU"
-                             ui:FocusTarget.Id="Sales.SearchBox" />
-                    <Button Grid.Column="1"
-                            Content="Search"
-                            Style="{StaticResource Button.SecondaryStyle}"
-                            Command="{Binding ProductSearchCommand}"
-                            MinHeight="{StaticResource Control.Height.Field}"
-                            Margin="{StaticResource Thickness.XS}" />
+                             Text="{Binding ScanBoxText, UpdateSourceTrigger=PropertyChanged}"
+                             ui:Watermark.Text="Scan barcode or type a product name, then Enter"
+                             ui:FocusTarget.Id="Sales.ScanBox"
+                             ui:FocusTarget.IsInitial="True">
+                        <TextBox.InputBindings>
+                            <!-- Scanner Enter submits only the focused scan field. -->
+                            <KeyBinding Key="Enter" Command="{Binding ScanCommand}" />
+                        </TextBox.InputBindings>
+                    </TextBox>
+
+                    <TextBlock Grid.Row="3" Text="PRODUCT SEARCH"
+                               Style="{StaticResource FieldLabelStyle}"
+                               Margin="{StaticResource Thickness.RowGap}" />
+                    <Grid Grid.Row="4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBox Grid.Column="0"
+                                 Style="{StaticResource FieldEditorTallStyle}"
+                                 Text="{Binding SearchQuery, UpdateSourceTrigger=PropertyChanged}"
+                                 ui:Watermark.Text="Type a product name or SKU"
+                                 ui:FocusTarget.Id="Sales.SearchBox" />
+                        <Button Grid.Column="1"
+                                Content="Search"
+                                Style="{StaticResource Button.SecondaryStyle}"
+                                Command="{Binding ProductSearchCommand}"
+                                MinHeight="{StaticResource Control.Height.Field}"
+                                Margin="{StaticResource Thickness.XS}" />
+                    </Grid>
+
+                    <TextBlock Grid.Row="5" Text="RESULTS"
+                               Style="{StaticResource FieldLabelStyle}"
+                               Margin="{StaticResource Thickness.RowGap}"
+                               VerticalAlignment="Top" />
+                    <Grid Grid.Row="6" Margin="{StaticResource Thickness.L}">
+                        <Border Style="{StaticResource Banner.InfoBgStyle}"
+                                VerticalAlignment="Top"
+                                Visibility="{Binding HasSearchResults, Converter={StaticResource InvertedBoolToVisibility}}">
+                            <TextBlock Text="{Binding SearchResultsEmptyText}"
+                                       Style="{StaticResource CaptionTextStyle}"
+                                       TextWrapping="Wrap" />
+                        </Border>
+                        <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                      HorizontalScrollBarVisibility="Disabled"
+                                      Visibility="{Binding HasSearchResults, Converter={StaticResource BoolToVisibility}}">
+                            <ItemsControl ItemsSource="{Binding SearchResults}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Margin="{StaticResource Thickness.XS}">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0">
+                                                <TextBlock Text="{Binding Name}" Style="{StaticResource BodyTextStyle}" />
+                                                <TextBlock Style="{StaticResource CaptionTextStyle}">
+                                                    <Run Text="{Binding Sku, Mode=OneWay}" /><Run Text="  " />
+                                                    <Run Text="{Binding PriceText, Mode=OneWay}" />
+                                                </TextBlock>
+                                            </StackPanel>
+                                            <Button Grid.Column="1"
+                                                    Content="Add"
+                                                    Style="{StaticResource Button.QuietStyle}"
+                                                    Command="{Binding DataContext.SelectResultCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </Grid>
                 </Grid>
+            </Border>
 
-                <TextBlock Text="RESULTS" Style="{StaticResource LabelTextStyle}"
-                           Margin="{StaticResource Thickness.M}" />
-                <!-- Meaningful empty state instead of a blank void. -->
-                <Border Style="{StaticResource Banner.InfoBgStyle}"
-                        Margin="{StaticResource Thickness.XS}"
-                        Visibility="{Binding HasSearchResults, Converter={StaticResource InvertedBoolToVisibility}}">
-                    <TextBlock Text="{Binding SearchResultsEmptyText}" Style="{StaticResource CaptionTextStyle}" />
-                </Border>
-                <ItemsControl ItemsSource="{Binding SearchResults}" Visibility="{Binding HasSearchResults, Converter={StaticResource BoolToVisibility}}">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <Grid Margin="{StaticResource Thickness.XS}">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-                                <StackPanel Grid.Column="0">
-                                    <TextBlock Text="{Binding Name}" Style="{StaticResource BodyTextStyle}" />
-                                    <TextBlock Style="{StaticResource CaptionTextStyle}">
-                                        <Run Text="{Binding Sku, Mode=OneWay}" /><Run Text="  " />
-                                        <Run Text="{Binding PriceText, Mode=OneWay}" />
-                                    </TextBlock>
-                                </StackPanel>
-                                <Button Grid.Column="1"
-                                        Content="Add"
-                                        Style="{StaticResource Button.QuietStyle}"
-                                        Command="{Binding DataContext.SelectResultCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                        CommandParameter="{Binding}" />
-                            </Grid>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-            </StackPanel>
+            <!-- Current order surface. -->
+            <Border Grid.Column="2" Style="{StaticResource CardStyle}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
 
-            <!-- Cart column. -->
-            <StackPanel Grid.Column="2">
-                <TextBlock Text="CART" Style="{StaticResource FieldLabelStyle}" VerticalAlignment="Top" />
-                <!-- Meaningful empty state instead of a blank void. -->
-                <Border Style="{StaticResource Banner.InfoBgStyle}"
-                        Margin="{StaticResource Thickness.XS}"
-                        Visibility="{Binding HasCartItems, Converter={StaticResource InvertedBoolToVisibility}}">
-                    <TextBlock Text="{Binding CartEmptyText}" Style="{StaticResource CaptionTextStyle}" />
-                </Border>
-                <DataGrid ItemsSource="{Binding Cart}"
-                          SelectedItem="{Binding SelectedLine, Mode=TwoWay}"
-                          AutoGenerateColumns="False"
-                          MinHeight="200"
-                          Visibility="{Binding HasCartItems, Converter={StaticResource BoolToVisibility}}">
-                    <DataGrid.Columns>
-                        <DataGridTextColumn Header="Item" Binding="{Binding DetailText}" Width="*" />
-                        <DataGridTemplateColumn Header="Qty" Width="96">
-                            <DataGridTemplateColumn.CellTemplate>
-                                <DataTemplate>
-                                    <!-- Per-row quantity stepper (round-3): the +/-
-                                         shell gestures act on the selected line. -->
-                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                                        <Button Content="-"
-                                                Style="{StaticResource Button.QuietStyle}"
-                                                Command="{Binding DataContext.DecreaseLineCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
-                                                CommandParameter="{Binding}"
-                                                MinWidth="24" />
-                                        <TextBlock Text="{Binding Quantity}"
-                                                   Style="{StaticResource MoneyTextStyle}"
-                                                   MinWidth="28"
-                                                   TextAlignment="Center"
-                                                   VerticalAlignment="Center" />
-                                        <Button Content="+"
-                                                Style="{StaticResource Button.QuietStyle}"
-                                                Command="{Binding DataContext.IncreaseLineCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
-                                                CommandParameter="{Binding}"
-                                                MinWidth="24" />
-                                    </StackPanel>
-                                </DataTemplate>
-                            </DataGridTemplateColumn.CellTemplate>
-                        </DataGridTemplateColumn>
-                        <DataGridTextColumn Header="Total" Binding="{Binding LineTotalText}" Width="90" />
-                        <DataGridTemplateColumn Header="Remove" Width="72">
-                            <DataGridTemplateColumn.CellTemplate>
-                                <DataTemplate>
-                                    <Button Content="Remove"
-                                            Style="{StaticResource Button.QuietStyle}"
-                                            Command="{Binding DataContext.RemoveLineCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
-                                            CommandParameter="{Binding}" />
-                                </DataTemplate>
-                            </DataGridTemplateColumn.CellTemplate>
-                        </DataGridTemplateColumn>
-                    </DataGrid.Columns>
-                </DataGrid>
-
-                <Grid Margin="{StaticResource Thickness.M}">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-                    <StackPanel Grid.Column="0">
-                        <TextBlock Text="Subtotal" Style="{StaticResource LabelTextStyle}" />
-                        <TextBlock Text="{Binding SubtotalText}" Style="{StaticResource MoneyTextStyle}" />
-                        <TextBlock Text="Discount" Style="{StaticResource LabelTextStyle}" />
-                        <TextBlock Text="₱0.00" Style="{StaticResource MoneyTextStyle}" />
+                    <StackPanel Grid.Row="0">
+                        <TextBlock Text="CURRENT ORDER" Style="{StaticResource PageEyebrowTextStyle}" />
+                        <TextBlock Text="Cart" Style="{StaticResource TitleTextStyle}" />
                     </StackPanel>
-                    <StackPanel Grid.Column="1">
-                        <TextBlock Text="TOTAL" Style="{StaticResource LabelTextStyle}" />
-                        <TextBlock Text="{Binding TotalText}" Style="{StaticResource DisplayTextStyle}" />
-                    </StackPanel>
+
+                    <Border Grid.Row="1"
+                            Style="{StaticResource Banner.InfoBgStyle}"
+                            Margin="{StaticResource Thickness.RowGap}"
+                            Visibility="{Binding HasCartItems, Converter={StaticResource InvertedBoolToVisibility}}">
+                        <TextBlock Text="{Binding CartEmptyText}"
+                                   Style="{StaticResource CaptionTextStyle}"
+                                   TextWrapping="Wrap" />
+                    </Border>
+
+                    <Border Grid.Row="2"
+                            Style="{StaticResource TableCardStyle}"
+                            Visibility="{Binding HasCartItems, Converter={StaticResource BoolToVisibility}}">
+                        <DataGrid ItemsSource="{Binding Cart}"
+                                  SelectedItem="{Binding SelectedLine, Mode=TwoWay}"
+                                  AutoGenerateColumns="False"
+                                  MinHeight="200">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Item" Binding="{Binding DetailText}" Width="*" />
+                                <DataGridTemplateColumn Header="Qty" Width="96">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <!-- Per-row quantity stepper keeps line actions local. -->
+                                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                                <Button Content="-"
+                                                        Style="{StaticResource Button.QuietStyle}"
+                                                        Command="{Binding DataContext.DecreaseLineCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                                        CommandParameter="{Binding}"
+                                                        MinWidth="24" />
+                                                <TextBlock Text="{Binding Quantity}"
+                                                           Style="{StaticResource MoneyTextStyle}"
+                                                           MinWidth="28"
+                                                           TextAlignment="Center"
+                                                           VerticalAlignment="Center" />
+                                                <Button Content="+"
+                                                        Style="{StaticResource Button.QuietStyle}"
+                                                        Command="{Binding DataContext.IncreaseLineCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                                        CommandParameter="{Binding}"
+                                                        MinWidth="24" />
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTextColumn Header="Total" Binding="{Binding LineTotalText}" Width="90" />
+                                <DataGridTemplateColumn Header="Remove" Width="72">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <Button Content="Remove"
+                                                    Style="{StaticResource Button.QuietStyle}"
+                                                    Command="{Binding DataContext.RemoveLineCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                                    CommandParameter="{Binding}" />
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Border>
+
+                    <Border Grid.Row="3" Style="{StaticResource TotalsPanelStyle}" Margin="{StaticResource Thickness.RowGap}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="Subtotal" Style="{StaticResource LabelTextStyle}" />
+                                <TextBlock Text="{Binding SubtotalText}" Style="{StaticResource MoneyTextStyle}" />
+                                <TextBlock Text="Discount" Style="{StaticResource LabelTextStyle}"
+                                           Margin="{StaticResource Thickness.RowGap}" />
+                                <TextBlock Text="₱0.00" Style="{StaticResource MoneyTextStyle}" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="TOTAL" Style="{StaticResource FieldLabelStyle}"
+                                           HorizontalAlignment="Right" />
+                                <TextBlock Text="{Binding TotalText}" Style="{StaticResource DisplayTextStyle}"
+                                           HorizontalAlignment="Right" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <Border Grid.Row="4"
+                            Style="{StaticResource Banner.SuccessStyle}"
+                            Margin="{StaticResource Thickness.RowGap}"
+                            Visibility="{Binding HasReceipt, Converter={StaticResource BoolToVisibility}}">
+                        <TextBlock Text="{Binding ReceiptText}" Style="{StaticResource BodyTextStyle}" TextWrapping="Wrap" />
+                    </Border>
                 </Grid>
-
-                <Border Style="{StaticResource Banner.SuccessStyle}"
-                        Margin="{StaticResource Thickness.M}"
-                        Visibility="{Binding HasReceipt, Converter={StaticResource BoolToVisibility}}">
-                    <TextBlock Text="{Binding ReceiptText}" Style="{StaticResource BodyTextStyle}" />
-                </Border>
-            </StackPanel>
+            </Border>
         </Grid>
 
-        <!-- Bottom action bar (round-6): quick actions left, CANCEL/CHECKOUT
-             right, all 44 tall in one row spanning the content width. -->
+        <!-- Bottom action bar: keyboard actions left, destructive/primary
+             actions right. All existing commands and focus targets remain. -->
         <Grid Grid.Row="1" Style="{StaticResource ActionBarGridStyle}" Margin="{StaticResource Thickness.M}">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="180" />

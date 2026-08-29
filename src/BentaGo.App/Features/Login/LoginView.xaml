@@ -11,12 +11,19 @@
                 VerticalAlignment="Center"
                 MinWidth="380">
             <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="24" />
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="24" />
                 </Grid.ColumnDefinitions>
-                <StackPanel Grid.Column="1">
+                <Border Grid.Row="0"
+                        Grid.ColumnSpan="3"
+                        Style="{StaticResource LoginAccentBarStyle}" />
+                <StackPanel Grid.Row="1" Grid.Column="1">
                     <TextBlock Text="BentaGo"
                                Style="{StaticResource HeaderTextStyle}"
                                HorizontalAlignment="Center" />
@@ -25,6 +32,9 @@
                                HorizontalAlignment="Center"
                                Margin="{StaticResource Thickness.XS}" />
 
+                    <TextBlock Text="WELCOME BACK"
+                               Style="{StaticResource PageEyebrowTextStyle}"
+                               Margin="{StaticResource Thickness.XL}" />
                     <TextBlock Text="Login"
                                Style="{StaticResource TitleTextStyle}"
                                Margin="{StaticResource Thickness.XS}" />
@@ -59,14 +69,19 @@
                             Margin="{StaticResource Thickness.M}"
                             ui:FocusTarget.Id="Login.Submit" />
 
-                    <StackPanel Margin="{StaticResource Thickness.M}">
+                    <Grid Margin="{StaticResource Thickness.M}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
                         <TextBlock Text="Database connected"
                                    Style="{StaticResource CaptionTextStyle}"
                                    HorizontalAlignment="Left" />
-                        <TextBlock Text="{Binding VersionText, RelativeSource={RelativeSource AncestorType=Window}}"
+                        <TextBlock Grid.Column="1"
+                                   Text="{Binding VersionText, RelativeSource={RelativeSource AncestorType=Window}}"
                                    Style="{StaticResource CaptionTextStyle}"
                                    HorizontalAlignment="Right" />
-                    </StackPanel>
+                    </Grid>
                 </StackPanel>
             </Grid>
         </Border>
