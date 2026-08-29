@@ -43,4 +43,20 @@ public static class AutomationIds
     // Reconciliation
     public const string ReconciliationActualCashBox = "Reconciliation.ActualCashBox";
     public const string ReconciliationSubmitButton = "Reconciliation.SubmitCloseButton";
+
+    // Admin (BG-005d): user management, catalog import, admin overview.
+    public const string RailAdminUsers = "Rail.AdminUsers";
+    public const string RailAdminImport = "Rail.AdminImport";
+    public const string RailAdminOverview = "Rail.AdminOverview";
+    public const string AdminUsersUsername = "Admin.Users.Username";
+    public const string AdminUsersPassword = "Admin.Users.Password";
+    public const string AdminUsersCreate = "Admin.Users.Create";
+    public const string AdminUsersChangePassword = "Admin.Users.ChangePassword";
+    public const string AdminUsersRefresh = "Admin.Users.Refresh";
+    public const string AdminImportFilePath = "Admin.Import.FilePath";
+    public const string AdminImportBrowse = "Admin.Import.Browse";
+    public const string AdminImportPreview = "Admin.Import.Preview";
+    public const string AdminImportConfirm = "Admin.Import.Confirm";
+    public const string AdminOverviewRefresh = "Admin.Overview.Refresh";
+    public const string AdminOverviewPeddlerTabs = "Admin.Overview.PeddlerTabs";
 }
