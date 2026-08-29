@@ -1,12 +1,15 @@
 using System.IO;
 using System.Security.Cryptography;
 using BentaGo.Application.Contracts;
+using BentaGo.Application.Scenario;
 using BentaGo.Application.Services;
 using BentaGo.Core.Common;
 using BentaGo.Core.Domain;
 using BentaGo.Core.Domain.Builders;
+using BentaGo.Core.Domain.Catalog;
 using BentaGo.Core.Domain.Commands;
 using BentaGo.Core.Domain.Documents;
+using BentaGo.Core.Domain.Identity;
 using BentaGo.Core.Domain.Ledger;
 using BentaGo.Core.Domain.Payments;
 using BentaGo.Infrastructure.Backup;
@@ -39,6 +42,7 @@ try
         "foundation" when commandLine.Length > 1 && commandLine[1] == "backup" => await RunBackupAsync(commandLine.Skip(2).ToArray()),
         "foundation" when commandLine.Length > 1 && commandLine[1] == "restore" => await RunRestoreAsync(commandLine.Skip(2).ToArray()),
         "foundation" when commandLine.Length > 1 && commandLine[1] == "verify" => await RunVerifyAsync(),
+        "bg006-lane-seed" when commandLine.Length > 1 => await RunBg006LaneSeedAsync(commandLine.Skip(1).ToArray()),
         _ => UnknownCommand(commandLine),
     };
 }
@@ -87,6 +91,10 @@ static void PrintHelp()
           foundation verify              End-to-end proof: migrate, seed, backup, restore, verify.
                                           Runs entirely under a fresh temp data root and exits 0 only if all checks pass.
           help                           Show this text.
+          bg006-lane-seed --root <dir>   Seed an isolated BentaGo data root for the BG-006 sales
+                                           demo recording: open trip with 50 Sardines/Kopi on the
+                                           route, catalog products, and the seller/seller user
+                                           (mirrors the tests/AppShell SalesSeed scenario).
         """);
 }
 
@@ -701,6 +709,97 @@ static int UnknownCommand(string[] args)
 {
     Console.Error.WriteLine($"ERROR: unknown command '{args[0]}'. Run 'BentaGo.Tools help' for usage.");
     return 1;
+}
+
+/// <summary>
+/// Seeds an isolated root for the BG-006 sales demo recording: an open trip
+/// with the catalog + stock the seller needs (mirrors tests/AppShell
+/// SalesSeed so the recording state matches the lane state).
+/// </summary>
+static async Task<int> RunBg006LaneSeedAsync(string[] args)
+{
+    string root = ResolveDataRoot(args);
+
+    ServiceProvider host = BentaGoHost.Build(development: true, dataRootOverride: root);
+    await host.GetRequiredService<DbInitializer>().EnsureCreatedOrMigrateAsync();
+    await host.GetRequiredService<IAdminSeeder>().SeedAsync();
+
+    var store = host.GetRequiredService<SqliteLedgerStore>();
+    var ids = new ScenarioIdSource("appshell-sales-v1");
+
+    TripId trip = new(ids.Next("trip"));
+    ProductId product = new(ids.Next("product"));
+    ProductId kopi = new(ids.Next("kopi"));
+    LocationId route = new(ids.Next("route"));
+    LocationId storeLoc = new(ids.Next("store"));
+    UserId user = new(ids.Next("user"));
+    PeddlerId peddler = new(ids.Next("peddler"));
+
+    var when = new DateTimeOffset(2026, 1, 15, 8, 0, 0, TimeSpan.Zero);
+    store.RegisterTrip(new Trip(trip, peddler, route, when, user));
+
+    var openId = new LoadId(ids.Next("open"));
+    store.RegisterLoad(new StockLoad(openId, "P-OPEN", trip, Array.Empty<StockLoadLine>(), user, when));
+    store.Bind();
+    Result<AppendReceipt> open = store.Append(new[]
+    {
+        Moves.OpeningStock(0, when, user, new LoadRef(openId), product, storeLoc, Quantity.Of(100)),
+        Moves.OpeningStock(1, when, user, new LoadRef(openId), kopi, storeLoc, Quantity.Of(100)),
+    });
+    if (!open.IsSuccess)
+    {
+        Console.Error.WriteLine($"SEED:           FAIL ({open.Errors.FirstOrDefault()?.Code ?? "opening stock failed"})");
+        return 1;
+    }
+
+    var loadId = new LoadId(ids.Next("load"));
+    Result<LoadDraft> load = LoadBuilder.Build(store.Context, new LoadCommand(
+        loadId, "P-LOAD", trip, storeLoc,
+        new[]
+        {
+            new LoadLine(product, "SARDINES", "Sardines", Quantity.Of(50), Money.FromPesos(30m)),
+            new LoadLine(kopi, "KOPI", "Kopi", Quantity.Of(50), Money.FromPesos(30m)),
+        },
+        user, when));
+    if (!load.IsSuccess)
+    {
+        Console.Error.WriteLine($"SEED:           FAIL ({load.Errors.FirstOrDefault()?.Code ?? "load build failed"})");
+        return 1;
+    }
+
+    store.RegisterLoad(load.Value.Document);
+    store.Bind();
+    Result<AppendReceipt> loadAppend = store.Append(load.Value.Movements);
+    if (!loadAppend.IsSuccess)
+    {
+        Console.Error.WriteLine($"SEED:           FAIL ({loadAppend.Errors.FirstOrDefault()?.Code ?? "load append failed"})");
+        return 1;
+    }
+
+    await host.GetRequiredService<IUserAccountStore>().AddAsync(new User
+    {
+        Id = user,
+        Username = "seller",
+        PasswordHash = host.GetRequiredService<IPasswordHasher>().Hash("seller"),
+        Role = Role.Peddler,
+        PeddlerLink = peddler,
+        CreatedBy = user,
+        CreatedUtc = when,
+    });
+
+    var products = host.GetRequiredService<IProductStore>();
+    await products.UpsertBySkuAsync(new Product(
+        product, "SARDINES", "4801234567890", "Sardines", "canned", new Category("Canned"),
+        "piece", Money.FromPesos(45m), null, null, false, null,
+        SupportsPwdDiscount: true, SupportsSeniorDiscount: false));
+    await products.UpsertBySkuAsync(new Product(
+        kopi, "KOPI", "4801234567891", "Kopi", "coffee", new Category("Drinks"),
+        "sachet", Money.FromPesos(10m), null, null, false, null,
+        SupportsPwdDiscount: false, SupportsSeniorDiscount: false));
+
+    Console.WriteLine($"SEED:           PASS");
+    Console.WriteLine($"DATA_ROOT:      {root}");
+    return 0;
 }
 
 static string ResolveDataRoot(string[] args)
