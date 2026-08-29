@@ -7,17 +7,24 @@ using BentaGo.App.Dialogs.Payment;
 using BentaGo.App.Mvvm;
 using BentaGo.App.Navigation;
 using BentaGo.App.Ui;
+using BentaGo.Application.Contracts;
+using BentaGo.Core.Common;
 using BentaGo.Core.Domain;
+using BentaGo.Core.Domain.Builders;
+using BentaGo.Core.Domain.Display;
+using BentaGo.Core.Domain.Payments;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace BentaGo.App.Features.Sales;
 
 /// <summary>
-/// Sales / POS state (bg-004-synthesis §3, screen 3): scan/search field,
-/// results, cart lines, subtotal, CHECKOUT + CANCEL. Scanner Enter keeps
-/// focus in the scan field; F12 opens the payment DIALOG (never a page).
-/// The cart is session-local placeholder state (BG-005 persists on checkout)
-/// and survives screen switches because this view model is retained.
+/// The BG-006b sales screen: real session-backed flow over
+/// <see cref="ICheckoutSession"/> (the UI never builds a NewSaleCommand and
+/// never sees the store). One session per sale; the cart is a MIRROR of
+/// session.Lines synchronized from the session's Changed event. Exact-once is
+/// the session's typed invariant — the UI just presents SavedSaleState. The
+/// keyboard loop: scan field Enter, F2 scan focus, Ctrl+F search focus, F7
+/// discount cycle, F12 checkout, Delete remove, +/- quantity, Esc clear.
 /// </summary>
 public sealed class SalesViewModel : ValidatableViewModelBase, IRetainableScreen
 {
@@ -27,38 +34,77 @@ public sealed class SalesViewModel : ValidatableViewModelBase, IRetainableScreen
     private readonly IServiceProvider _services;
     private readonly IDialogService _dialogs;
     private readonly IFocusService _focus;
-    private readonly IReadOnlyList<ProductOffer> _catalog;
+    private readonly ICheckoutSessionFactory _sessionFactory;
+    private readonly IProductSearchService _search;
+    private EventHandler _sessionChanged = (_, _) => { };
+    private ICheckoutSession? _session;
     private string _scanBoxText = "";
     private string _searchQuery = "";
     private CartLineDraft? _selectedLine;
     private string? _receiptText;
     private bool _hasReceipt;
+    private bool _isSessionReady;
+    private string? _sessionStateMessage;
+    private string? _actionError;
 
     public SalesViewModel(IServiceProvider services)
     {
         _services = services;
         _dialogs = services.GetRequiredService<IDialogService>();
         _focus = services.GetRequiredService<IFocusService>();
-        _catalog = services.GetRequiredService<IAppDataSource>().Current.Catalog;
+        _sessionFactory = services.GetRequiredService<ICheckoutSessionFactory>();
+        _search = services.GetRequiredService<IProductSearchService>();
 
-        ScanCommand = new RelayCommand(_ => Scan(ScanBoxText));
-        ProductSearchCommand = new RelayCommand(_ => RunSearch());
-        SelectResultCommand = new RelayCommand(parameter => AddOfferAndClear((ProductOffer)parameter!));
-        CheckoutCommand = new RelayCommand(async _ => await CheckoutAsync(), _ => Cart.Count > 0 && !HasReceipt);
+        ScanCommand = new RelayCommand(async _ => await ScanAsync(ScanBoxText));
+        ProductSearchCommand = new RelayCommand(async _ => await RunSearchAsync());
+        SelectResultCommand = new RelayCommand(parameter => AddResultAndClear((SearchResultItem)parameter!));
+        CheckoutCommand = new RelayCommand(async _ => await CheckoutAsync(), _ => Cart.Count > 0 && !HasReceipt && IsSessionReady);
         ClearCartCommand = new RelayCommand(_ => ClearCart());
         RemoveLineCommand = new RelayCommand(async parameter => await RemoveLineAsync((CartLineDraft)parameter!));
         IncreaseQuantityCommand = new RelayCommand(_ => AdjustQuantity(SelectedLine, +1), _ => SelectedLine is not null);
         DecreaseQuantityCommand = new RelayCommand(_ => AdjustQuantity(SelectedLine, -1), _ => SelectedLine is not null);
         IncreaseLineCommand = new RelayCommand(parameter => AdjustQuantity((CartLineDraft)parameter!, +1));
         DecreaseLineCommand = new RelayCommand(parameter => AdjustQuantity((CartLineDraft)parameter!, -1));
+        ApplyDiscountCommand = new RelayCommand(_ => CycleDiscount(SelectedLine), _ => SelectedLine is not null && IsSessionReady);
         ClearSearchCommand = new RelayCommand(_ => ClearScanAndSearch());
         FocusScanCommand = new RelayCommand(_ => _focus.Request(AutomationIds.SalesScanBox));
         FocusSearchCommand = new RelayCommand(_ => _focus.Request(AutomationIds.SalesSearchBox));
     }
 
+    /// <summary>MainViewModel calls this when the Sales screen is navigated to;
+    /// the session is created lazily once (retained across screen switches).</summary>
+    public async Task OnActivatedAsync()
+    {
+        await EnsureSessionAsync();
+    }
+
+    private async Task EnsureSessionAsync()
+    {
+        if (_session is not null || IsSessionReady)
+        {
+            return;
+        }
+
+        Result<ICheckoutSession> created = await _sessionFactory.CreateSessionAsync();
+        if (created.IsFailure)
+        {
+            IsSessionReady = false;
+            SessionStateMessage = FriendlyError(created.Errors.FirstOrDefault()?.Code ?? "SESSION_UNAVAILABLE");
+            return;
+        }
+
+        _session = created.Value;
+        _sessionChanged = (_, _) => SyncCart();
+        _session.Changed += _sessionChanged;
+        IsSessionReady = true;
+        SessionStateMessage = null;
+        ActionError = null;
+        SyncCart();
+    }
+
     public ObservableCollection<CartLineDraft> Cart { get; } = new();
 
-    public IReadOnlyList<ProductOffer> SearchResults { get; private set; } = Array.Empty<ProductOffer>();
+    public IReadOnlyList<SearchResultItem> SearchResults { get; private set; } = Array.Empty<SearchResultItem>();
 
     /// <summary>Per-row cart quantity steppers (round-3 UX completion).</summary>
     public ICommand IncreaseLineCommand { get; }
@@ -80,6 +126,9 @@ public sealed class SalesViewModel : ValidatableViewModelBase, IRetainableScreen
     public ICommand IncreaseQuantityCommand { get; }
 
     public ICommand DecreaseQuantityCommand { get; }
+
+    /// <summary>F7: cycle None → Pwd → Senior → None on the selected line.</summary>
+    public ICommand ApplyDiscountCommand { get; }
 
     public ICommand ClearSearchCommand { get; }
 
@@ -134,8 +183,6 @@ public sealed class SalesViewModel : ValidatableViewModelBase, IRetainableScreen
 
     public string TotalText => MoneyDisplay.Peso(Total);
 
-    /// <summary>Empty-state guidance for the results list and the cart (round-3
-    /// UX completion): meaningful text instead of blank voids.</summary>
     public bool HasCartItems => Cart.Count > 0;
 
     public string CartEmptyText => "Cart is empty - scan to add items";
@@ -143,9 +190,9 @@ public sealed class SalesViewModel : ValidatableViewModelBase, IRetainableScreen
     public bool HasSearchResults => SearchResults.Count > 0;
 
     public string SearchResultsEmptyText =>
-        _catalog.Count == 0
-            ? "No products loaded - ask admin to import."
-            : "No matching products. Try the product name or SKU.";
+        IsSessionReady
+            ? "No matching products. Try the product name, SKU, or barcode."
+            : "Product search is unavailable until a session is ready.";
 
     public string SearchResultCountText =>
         SearchResults.Count == 0 ? "No results" : $"{SearchResults.Count} result(s)";
@@ -167,6 +214,49 @@ public sealed class SalesViewModel : ValidatableViewModelBase, IRetainableScreen
         }
     }
 
+    public Money DiscountTotal => _session?.DiscountTotal ?? Money.Zero;
+
+    public string DiscountText => DiscountTotal.Centavos <= 0
+        ? "-₱0.00"
+        : $"-{MoneyDisplay.Peso(DiscountTotal)}";
+
+    /// <summary>False until a session is open (AUTH_ACTOR_*/NO_PEDDLER_LINK/NO_OPEN_TRIP).</summary>
+    public bool IsSessionReady
+    {
+        get => _isSessionReady;
+        private set => SetProperty(ref _isSessionReady, value);
+    }
+
+    /// <summary>Friendly explanation when no session can be opened.</summary>
+    public string? SessionStateMessage
+    {
+        get => _sessionStateMessage;
+        private set
+        {
+            if (SetProperty(ref _sessionStateMessage, value))
+            {
+                OnPropertyChanged(nameof(HasSessionStateMessage));
+            }
+        }
+    }
+
+    public bool HasSessionStateMessage => !string.IsNullOrEmpty(SessionStateMessage);
+
+    /// <summary>Last action error (search, add, payment, submit) shown in the banner.</summary>
+    public string? ActionError
+    {
+        get => _actionError;
+        private set
+        {
+            if (SetProperty(ref _actionError, value))
+            {
+                OnPropertyChanged(nameof(HasActionError));
+            }
+        }
+    }
+
+    public bool HasActionError => !string.IsNullOrEmpty(ActionError);
+
     public string? ReceiptText
     {
         get => _receiptText;
@@ -186,77 +276,145 @@ public sealed class SalesViewModel : ValidatableViewModelBase, IRetainableScreen
     }
 
     /// <summary>
-    /// Scan/type submit: exact SKU or case-insensitive name match adds or
-    /// increments the line and keeps focus in the scan field; a miss shows
+    /// Scan/type submit: the search service matches exact SKU → barcode →
+    /// name infix (scanner CR trimmed at the service boundary). An exact hit
+    /// adds to the session; a name-infix list fills the results. A miss shows
     /// corrective copy and PRESERVES the typed value (docs/03 §3).
     /// </summary>
-    private void Scan(string text)
+    private async Task ScanAsync(string text)
     {
         if (string.IsNullOrWhiteSpace(text))
         {
             return;
         }
 
-        ProductOffer? offer = FindOffer(text.Trim());
-        if (offer is null)
+        if (!IsSessionReady)
+        {
+            ScanError = "No session is open.";
+            return;
+        }
+
+        ActionError = null;
+        Result<IReadOnlyList<ProductHit>> found = await _search.SearchAsync(text.Trim());
+        if (found.IsFailure)
+        {
+            ScanError = FriendlyError(found.Errors.FirstOrDefault()?.Code ?? "SEARCH_FAILED");
+            return;
+        }
+
+        if (found.Value.Count == 1)
+        {
+            AddToSession(found.Value[0]);
+            ScanBoxText = "";
+            _focus.Request(AutomationIds.SalesScanBox);
+            return;
+        }
+
+        if (found.Value.Count == 0)
         {
             ScanError = ScanNotFoundMessage;
             return;
         }
 
-        AddToCart(offer);
-        ScanBoxText = "";
-        _focus.Request(AutomationIds.SalesScanBox);
+        // Name infix: show the list (typed value stays put).
+        SetResults(found.Value);
     }
 
-    private void RunSearch()
+    private async Task RunSearchAsync()
     {
         string query = SearchQuery.Trim();
         if (query.Length == 0)
         {
-            SearchResults = Array.Empty<ProductOffer>();
-        }
-        else
-        {
-            SearchResults = _catalog
-                .Where(offer => offer.Name.Contains(query, StringComparison.OrdinalIgnoreCase)
-                                || offer.Sku.Contains(query, StringComparison.OrdinalIgnoreCase))
-                .ToArray();
+            SetResults(Array.Empty<ProductHit>());
+            return;
         }
 
-        OnPropertyChanged(nameof(SearchResults));
-        OnPropertyChanged(nameof(HasSearchResults));
-        OnPropertyChanged(nameof(SearchResultsEmptyText));
-        OnPropertyChanged(nameof(SearchResultCountText));
+        Result<IReadOnlyList<ProductHit>> found = await _search.SearchAsync(query);
+        if (found.IsFailure)
+        {
+            ActionError = FriendlyError(found.Errors.FirstOrDefault()?.Code ?? "SEARCH_FAILED");
+            SetResults(Array.Empty<ProductHit>());
+            return;
+        }
+
+        ActionError = null;
+        SetResults(found.Value);
     }
 
-    private void AddOfferAndClear(ProductOffer offer)
+    private void AddResultAndClear(SearchResultItem item)
     {
-        AddToCart(offer);
+        AddToSession(item.Hit);
         SearchQuery = "";
-        SearchResults = Array.Empty<ProductOffer>();
-        OnPropertyChanged(nameof(SearchResults));
-        OnPropertyChanged(nameof(HasSearchResults));
-        OnPropertyChanged(nameof(SearchResultsEmptyText));
-        OnPropertyChanged(nameof(SearchResultCountText));
+        SetResults(Array.Empty<ProductHit>());
         _focus.Request(AutomationIds.SalesScanBox);
     }
 
-    private ProductOffer? FindOffer(string text) =>
-        _catalog.FirstOrDefault(offer =>
-            string.Equals(offer.Sku, text, StringComparison.OrdinalIgnoreCase)
-            || string.Equals(offer.Name, text, StringComparison.OrdinalIgnoreCase));
-
-    private void AddToCart(ProductOffer offer)
+    private void SetResults(IReadOnlyList<ProductHit> hits)
     {
-        CartLineDraft? existing = Cart.FirstOrDefault(line => line.Offer.Sku == offer.Sku);
-        if (existing is not null)
+        SearchResults = hits
+            .Select(h => new SearchResultItem(h.Product.Name, h.Product.Sku,
+                MoneyDisplay.Peso(h.Product.RetailPrice),
+                $"on hand: {h.OnHand.Units}", h))
+            .ToArray();
+        OnPropertyChanged(nameof(SearchResults));
+        OnPropertyChanged(nameof(HasSearchResults));
+        OnPropertyChanged(nameof(SearchResultsEmptyText));
+        OnPropertyChanged(nameof(SearchResultCountText));
+    }
+
+    private void AddToSession(ProductHit hit)
+    {
+        if (_session is null)
         {
-            existing.Quantity++;
+            return;
         }
-        else
+
+        Result<bool> added = _session.AddProduct(hit.Product, Quantity.Of(1));
+        if (added.IsFailure)
         {
-            Cart.Add(new CartLineDraft(offer, 1, NotifyCartChanged));
+            ScanError = FriendlyError(added.Errors.FirstOrDefault()?.Code ?? "LINE_NOT_ADDED");
+            return;
+        }
+
+        ScanError = null;
+        ActionError = null;
+    }
+
+    /// <summary>Mirror session.Lines into the cart; syncs in place so the
+    /// DataGrid selection survives a quantity change.</summary>
+    private void SyncCart()
+    {
+        if (_session is null)
+        {
+            return;
+        }
+
+        // Remove gone lines.
+        for (int i = Cart.Count - 1; i >= 0; i--)
+        {
+            if (_session.Lines.All(line => line.LineId != Cart[i].LineId))
+            {
+                Cart.RemoveAt(i);
+            }
+        }
+
+        // Add new lines, update existing ones.
+        foreach (SessionLine line in _session.Lines)
+        {
+            CartLineDraft? existing = Cart.FirstOrDefault(c => c.LineId == line.LineId);
+            if (existing is null)
+            {
+                Cart.Add(new CartLineDraft(line, NotifyCartChanged));
+            }
+            else
+            {
+                existing.UpdateFrom(line, NotifyCartChanged);
+            }
+        }
+
+        if (SelectedLine is not null && Cart.All(c => c.LineId != SelectedLine.LineId))
+        {
+            SelectedLine = null;
         }
 
         NotifyCartChanged();
@@ -264,35 +422,69 @@ public sealed class SalesViewModel : ValidatableViewModelBase, IRetainableScreen
 
     private void AdjustQuantity(CartLineDraft? line, int delta)
     {
-        if (line is null)
+        if (line is null || _session is null)
         {
             return;
         }
 
-        int next = line.Quantity + delta;
-        if (next <= 0)
+        Result<bool> adjusted = _session.AdjustQuantity(line.LineId, delta);
+        if (adjusted.IsFailure)
+        {
+            ActionError = FriendlyError(adjusted.Errors.FirstOrDefault()?.Code ?? "ADJUST_FAILED");
+        }
+        else
+        {
+            ActionError = null;
+        }
+    }
+
+    private void CycleDiscount(CartLineDraft? line)
+    {
+        if (line is null || _session is null)
         {
             return;
         }
 
-        line.Quantity = next; // CartLineDraft raises the change callback itself
+        DiscountType next = line.DiscountType switch
+        {
+            DiscountType.None => DiscountType.Pwd,
+            DiscountType.Pwd => DiscountType.Senior,
+            _ => DiscountType.None,
+        };
+        Result<bool> applied = _session.ApplyDiscount(line.LineId, next);
+        if (applied.IsFailure)
+        {
+            ActionError = FriendlyError(applied.Errors.FirstOrDefault()?.Code ?? "DISCOUNT_FAILED");
+        }
+        else
+        {
+            ActionError = null;
+        }
     }
 
     private async Task RemoveLineAsync(CartLineDraft line)
     {
+        if (_session is null)
+        {
+            return;
+        }
+
         var confirm = _services.GetRequiredService<ConfirmDialogViewModel>();
-        confirm.Message = $"Remove \"{line.Offer.Name}\" from the cart?";
+        confirm.Message = $"Remove \"{line.ItemText}\" from the cart?";
         ConfirmDialogResult? result = await _dialogs.ShowAsync(confirm, focusAfterClose: AutomationIds.SalesScanBox);
         if (result is { Confirmed: true })
         {
-            Cart.Remove(line);
-            NotifyCartChanged();
+            Result<bool> removed = _session.RemoveLine(line.LineId);
+            if (removed.IsFailure)
+            {
+                ActionError = FriendlyError(removed.Errors.FirstOrDefault()?.Code ?? "LINE_REMOVE_FAILED");
+            }
         }
     }
 
     private async Task CheckoutAsync()
     {
-        if (Cart.Count == 0)
+        if (_session is null || Cart.Count == 0 || HasReceipt)
         {
             return;
         }
@@ -305,21 +497,52 @@ public sealed class SalesViewModel : ValidatableViewModelBase, IRetainableScreen
             return; // Esc/cancel: cart untouched, scan field re-focused by the service
         }
 
-        // BG-004 placeholder completion: BG-005 persists the sale and prints
-        // the receipt. The banner is display-only over simulated data.
-        ReceiptText = $"Sale complete - {result.Lines.Count} payment line(s), change {MoneyDisplay.Peso(result.Change)} (simulated data)";
+        Result<bool> set = _session.SetPayment(result.Lines, result.Change);
+        if (set.IsFailure)
+        {
+            ActionError = FriendlyError(set.Errors.FirstOrDefault()?.Code ?? "PAYMENT_FAILED");
+            return; // cart untouched; the user can re-open the dialog
+        }
+
+        Result<SavedSaleState> submitted = await _session.SubmitAsync();
+        if (submitted.IsFailure)
+        {
+            ActionError = FriendlyError(submitted.Errors.FirstOrDefault()?.Code ?? "SUBMIT_FAILED");
+            return;
+        }
+
+        SavedSaleState saved = submitted.Value;
+        string payments = string.Join("; ",
+            saved.Payments.Select(p =>
+                $"{p.Method.DisplayName()} {MoneyDisplay.Peso(p.Amount)}"));
+        ReceiptText = $"Sale {saved.ReceiptNumber} complete - total {MoneyDisplay.Peso(saved.Total)} " +
+                      $"({payments})";
         HasReceipt = true;
-        Cart.Clear();
-        SelectedLine = null;
-        NotifyCartChanged();
+        ActionError = null;
+
+        // The sale is saved; the next scan starts a NEW sale on the same trip.
+        _session.Changed -= _sessionChanged;
+        _session = null;
+        IsSessionReady = false;
+        await EnsureSessionAsync();
     }
 
     private void ClearCart()
     {
-        Cart.Clear();
+        if (_session is null)
+        {
+            return;
+        }
+
+        foreach (CartLineDraft line in Cart.ToArray())
+        {
+            _session.RemoveLine(line.LineId);
+        }
+
         SelectedLine = null;
         ReceiptText = null;
         HasReceipt = false;
+        ActionError = null;
         NotifyCartChanged();
     }
 
@@ -327,12 +550,8 @@ public sealed class SalesViewModel : ValidatableViewModelBase, IRetainableScreen
     {
         ScanBoxText = "";
         SearchQuery = "";
-        SearchResults = Array.Empty<ProductOffer>();
+        SetResults(Array.Empty<ProductHit>());
         SetFieldError(nameof(ScanBoxText), null);
-        OnPropertyChanged(nameof(SearchResults));
-        OnPropertyChanged(nameof(HasSearchResults));
-        OnPropertyChanged(nameof(SearchResultsEmptyText));
-        OnPropertyChanged(nameof(SearchResultCountText));
     }
 
     private void NotifyCartChanged()
@@ -340,6 +559,8 @@ public sealed class SalesViewModel : ValidatableViewModelBase, IRetainableScreen
         OnPropertyChanged(nameof(SubtotalText));
         OnPropertyChanged(nameof(TotalText));
         OnPropertyChanged(nameof(Total));
+        OnPropertyChanged(nameof(DiscountTotal));
+        OnPropertyChanged(nameof(DiscountText));
         OnPropertyChanged(nameof(HasCartItems));
         OnPropertyChanged(nameof(CartEmptyText));
         OnPropertyChanged(nameof(CartSummaryText));
@@ -362,42 +583,99 @@ public sealed class SalesViewModel : ValidatableViewModelBase, IRetainableScreen
         {
             decrease.NotifyCanExecuteChanged();
         }
-    }
-}
 
-/// <summary>
-/// One cart line. Quantity is mutable session-local state; LineTotal is
-/// display formatting of document-price data (no business math).
-/// </summary>
-public sealed class CartLineDraft : ViewModelBase
-{
-    private readonly Action _changed;
-    private int _quantity;
-
-    public CartLineDraft(ProductOffer offer, int quantity, Action changed)
-    {
-        Offer = offer;
-        _quantity = quantity;
-        _changed = changed;
-    }
-
-    public ProductOffer Offer { get; }
-
-    public int Quantity
-    {
-        get => _quantity;
-        set
+        if (ApplyDiscountCommand is RelayCommand discount)
         {
-            if (SetProperty(ref _quantity, value))
-            {
-                _changed();
-            }
+            discount.NotifyCanExecuteChanged();
         }
     }
 
-    public string DetailText => $"{Offer.Name}  {Quantity} x {MoneyDisplay.Peso(Offer.UnitPrice)}";
-
-    public string LineTotalText => MoneyDisplay.Peso(Offer.UnitPrice.Times(Quantity));
-
-    public Money LineTotal => Offer.UnitPrice.Times(Quantity);
+    private static string FriendlyError(string code) =>
+        code switch
+        {
+            "AUTH_ACTOR_NOT_SIGNED_IN" => "You are not signed in.",
+            "AUTH_ACTOR_DEACTIVATED" => "This account is deactivated. Ask an admin.",
+            "NO_PEDDLER_LINK" => "This account is not linked to a peddler. Ask an admin.",
+            "NO_OPEN_TRIP" => "There is no open trip - open one from Stock.",
+            "STOCK_INSUFFICIENT" => "Not enough stock on hand for that quantity.",
+            "BANK_REFERENCE_REQUIRED" => "A bank transfer needs a reference number.",
+            "PAYMENT_TOTAL" => "Payments do not equal the sale total.",
+            "CHANGE_MISMATCH" => "Change applies to one cash line only - check the tender.",
+            "DISCOUNT_NOT_ALLOWED" => "This product is not eligible for that discount.",
+            "DISCOUNT_TYPE_MISMATCH" => "Discount and product disagree - re-check.",
+            "SALE_EMPTY" => "Add at least one item before checkout.",
+            "SUBMIT_IN_PROGRESS" => "The sale is being saved - try again in a moment.",
+            "LINE_UNKNOWN_PRODUCT" => "A product is no longer in the catalog. Ask an admin to re-import it.",
+            "SESSION_CLOSED" => "This sale is already finished - scan to start a new one.",
+            _ => "Action could not be completed. Please try again.",
+        };
 }
+
+/// <summary>
+/// One cart line mirroring a <see cref="SessionLine"/>: quantity, discount,
+/// and totals are display-only projections (the session owns the rules).
+/// </summary>
+public sealed class CartLineDraft : ViewModelBase
+{
+    private readonly System.Action _changed;
+    private int _quantity;
+    private Money _unitPrice;
+    private Money _discount;
+    private DiscountType _discountType;
+    private string _itemText = "";
+
+    public CartLineDraft(SessionLine line, System.Action changed)
+    {
+        LineId = line.LineId;
+        _changed = changed;
+        _quantity = line.Quantity.Units;
+        _unitPrice = line.UnitPrice;
+        _discount = line.Discount;
+        _discountType = line.DiscountType;
+        _itemText = line.ProductName;
+    }
+
+    public SaleLineId LineId { get; }
+
+    public string ItemText => _itemText;
+
+    public int Quantity => _quantity;
+
+    public DiscountType DiscountType => _discountType;
+
+    public Money LineTotal => _unitPrice.Times(_quantity).Minus(_discount);
+
+    public string DetailText => $"{ItemText}  {Quantity} x {MoneyDisplay.Peso(_unitPrice)}";
+
+    public string LineTotalText => MoneyDisplay.Peso(LineTotal);
+
+    public bool HasDiscount => DiscountType != DiscountType.None;
+
+    public string DiscountLabel => DiscountType == DiscountType.Pwd ? "PWD" : "SENIOR";
+
+    public string DiscountText => $"{DiscountLabel} -{MoneyDisplay.Peso(_discount)}";
+
+    /// <summary>In-place refresh when the session line changes (sync keeps the
+    /// DataGrid selection alive).</summary>
+    internal void UpdateFrom(SessionLine line, System.Action changed)
+    {
+        _itemText = line.ProductName;
+        _quantity = line.Quantity.Units;
+        _unitPrice = line.UnitPrice;
+        _discount = line.Discount;
+        _discountType = line.DiscountType;
+        OnPropertyChanged(nameof(ItemText));
+        OnPropertyChanged(nameof(Quantity));
+        OnPropertyChanged(nameof(DiscountType));
+        OnPropertyChanged(nameof(LineTotal));
+        OnPropertyChanged(nameof(DetailText));
+        OnPropertyChanged(nameof(LineTotalText));
+        OnPropertyChanged(nameof(HasDiscount));
+        OnPropertyChanged(nameof(DiscountLabel));
+        OnPropertyChanged(nameof(DiscountText));
+        _changed();
+    }
+}
+
+/// <summary>One search-result row (display projection over a ProductHit).</summary>
+public sealed record SearchResultItem(string Name, string Sku, string PriceText, string OnHandText, ProductHit Hit);

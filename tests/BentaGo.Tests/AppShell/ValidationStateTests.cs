@@ -66,11 +66,15 @@ public sealed class ValidationStateTests : IDisposable
     }
 
     [Fact]
-    public void MissedScanCarriesExactCorrectiveCopy()
+    public async Task MissedScanCarriesExactCorrectiveCopy()
     {
+        SalesSeed.Seed(_host.Services);
         var sales = _host.Services.GetRequiredService<SalesViewModel>();
+        await sales.OnActivatedAsync();
+
         sales.ScanBoxText = "NOT-A-REAL-SKU";
         sales.ScanCommand.Execute(null);
+        await Task.Delay(150);
 
         Assert.Equal(SalesViewModel.ScanNotFoundMessage, sales.ScanError);
         Assert.True(sales.HasErrors);

@@ -71,6 +71,10 @@ public sealed class MainViewModel : ViewModelBase
         CheckoutCommand = new RelayCommand(_ => ForwardTo<SalesViewModel>(vm => vm.CheckoutCommand.Execute(null)));
         FocusScanCommand = new RelayCommand(_ => ForwardTo<SalesViewModel>(vm => vm.FocusScanCommand.Execute(null)));
         ProductSearchCommand = new RelayCommand(_ => ForwardTo<SalesViewModel>(vm => vm.ProductSearchCommand.Execute(null)));
+        // F7 (BG-006b): discount cycle on the selected cart line.
+        DiscountCommand = new RelayCommand(
+            _ => ForwardTo<SalesViewModel>(vm => vm.ApplyDiscountCommand.Execute(null)),
+            _ => Current is SalesViewModel sales && sales.SelectedLine is not null);
         DeleteLineCommand = new RelayCommand(_ => ForwardTo<SalesViewModel>(vm => vm.RemoveLineCommand.Execute(vm.SelectedLine)));
         IncreaseQuantityCommand = new RelayCommand(_ => ForwardTo<SalesViewModel>(vm => vm.IncreaseQuantityCommand.Execute(null)));
         DecreaseQuantityCommand = new RelayCommand(_ => ForwardTo<SalesViewModel>(vm => vm.DecreaseQuantityCommand.Execute(null)));
@@ -178,6 +182,8 @@ public sealed class MainViewModel : ViewModelBase
 
     public ICommand ProductSearchCommand { get; }
 
+    public ICommand DiscountCommand { get; }
+
     public ICommand DeleteLineCommand { get; }
 
     public ICommand IncreaseQuantityCommand { get; }
@@ -218,6 +224,7 @@ public sealed class MainViewModel : ViewModelBase
             ["help"] = (HelpCommand, null),
             ["focus-scan"] = (FocusScanCommand, null),
             ["product-search"] = (ProductSearchCommand, null),
+            ["discount"] = (DiscountCommand, null),
             ["end-trip"] = (NavigateCommand, ScreenKeys.Reconciliation),
             ["checkout"] = (CheckoutCommand, null),
             ["cancel"] = (EscapeCommand, null),
@@ -229,6 +236,8 @@ public sealed class MainViewModel : ViewModelBase
             ["nav-home"] = (NavigateCommand, ScreenKeys.Home),
             ["nav-sale"] = (NavigateCommand, ScreenKeys.Sales),
             ["nav-stock"] = (NavigateCommand, ScreenKeys.Stock),
+            ["nav-transactions"] = (NavigateCommand, ScreenKeys.Transactions),
+            ["transactions-f9"] = (NavigateCommand, ScreenKeys.Transactions),
             ["nav-reconcile"] = (NavigateCommand, ScreenKeys.Reconciliation),
             ["nav-admin-users"] = (AdminNavigateCommand, ScreenKeys.AdminUsers),
             ["nav-admin-import"] = (AdminNavigateCommand, ScreenKeys.AdminImport),
@@ -290,6 +299,17 @@ public sealed class MainViewModel : ViewModelBase
         {
             item.IsSelected = item.Key == e.ToKey;
         }
+
+        // BG-006b: session/data VMs (re)hydrate when their screen is shown;
+        // retained across navigation, activation is the refresh hook.
+        if (e.ViewModel is SalesViewModel sales)
+        {
+            _ = sales.OnActivatedAsync();
+        }
+        else if (e.ViewModel is Features.Transactions.TransactionsViewModel transactions)
+        {
+            _ = transactions.OnActivatedAsync();
+        }
     }
 
     private void BuildRail()
@@ -321,8 +341,7 @@ public sealed class MainViewModel : ViewModelBase
     {
         foreach (RailItemViewModel item in RailItems)
         {
-            bool reserved = item.Key == ScreenKeys.Transactions;
-            item.SetEnabled(reserved ? false : _navigation.CanNavigate(item.Key));
+            item.SetEnabled(_navigation.CanNavigate(item.Key));
         }
     }
 

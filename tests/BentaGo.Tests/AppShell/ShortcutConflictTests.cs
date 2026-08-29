@@ -97,8 +97,6 @@ public sealed class ShortcutConflictTests : IDisposable
     {
         var parked = new Dictionary<string, ShortcutStatus>
         {
-            ["nav-transactions"] = ShortcutStatus.Reserved,   // Alt+4
-            ["transactions-f9"] = ShortcutStatus.Reserved,    // F9
             ["lock"] = ShortcutStatus.Reserved,               // Ctrl+Alt+L
             ["backup"] = ShortcutStatus.Reserved,             // Ctrl+Alt+B
             ["hardware-test"] = ShortcutStatus.Reserved,      // Ctrl+Alt+T

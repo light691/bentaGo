@@ -4,6 +4,7 @@ using BentaGo.App.Data;
 using BentaGo.App.Mvvm;
 using BentaGo.App.Navigation;
 using BentaGo.App.Ui;
+using BentaGo.Application.Contracts;
 using BentaGo.Core.Domain;
 using BentaGo.Core.Domain.Payments;
 using Microsoft.Extensions.DependencyInjection;
@@ -110,6 +111,10 @@ public sealed class PaymentDialogViewModel : DialogViewModelBase<PaymentDialogRe
                 OnPropertyChanged(nameof(IsCardSelected));
                 OnPropertyChanged(nameof(IsCreditSelected));
                 OnPropertyChanged(nameof(IsSplitSelected));
+                OnPropertyChanged(nameof(IsReferenceRequired));
+                OnPropertyChanged(nameof(ReferenceLabel));
+                OnPropertyChanged(nameof(IsReferenceEntryVisible));
+                OnPropertyChanged(nameof(IsCustomerEntryVisible));
                 NotifyGateChanged();
             }
         }
@@ -181,17 +186,38 @@ public sealed class PaymentDialogViewModel : DialogViewModelBase<PaymentDialogRe
 
     /// <summary>
     /// Completion gate: cash sufficient / single-method exact / credit
-    /// complete / split balance zero. State flags only (bg-004-synthesis §3).
+    /// complete / split balance zero with per-line reference gates. State
+    /// flags only — the session re-validates on SetPayment (BG-006b).
     /// </summary>
     public bool CanConfirm =>
         SelectedMethodId switch
         {
             CashId => TryParseAmount(AmountReceivedText, out Money received) && received.Centavos >= Total.Centavos,
-            GcashId or MayaId or BankId => TryParseAmount(AmountReceivedText, out Money received) && received.Centavos == Total.Centavos,
+            GcashId => TryParseAmount(AmountReceivedText, out Money received) && received.Centavos == Total.Centavos,
+            MayaId => TryParseAmount(AmountReceivedText, out Money received) && received.Centavos == Total.Centavos,
+            BankId => TryParseAmount(AmountReceivedText, out Money received) && received.Centavos == Total.Centavos
+                     && !string.IsNullOrWhiteSpace(Reference),
             CreditId => !string.IsNullOrWhiteSpace(CustomerName) && !string.IsNullOrWhiteSpace(Reference),
             SplitId => SplitBalanceZero(),
             _ => false,
         };
+
+    /// <summary>True when the selected method requires a reference (Bank/Credit).</summary>
+    public bool IsReferenceRequired => SelectedMethodId is BankId or CreditId;
+
+    public string ReferenceLabel => SelectedMethodId switch
+    {
+        CreditId => "Customer reference",
+        GcashId => "GCash reference (optional)",
+        MayaId => "Maya reference (optional)",
+        _ => "Bank reference",
+    };
+
+    /// <summary>Wallet/bank methods capture an optional-or-required reference.</summary>
+    public bool IsReferenceEntryVisible => SelectedMethodId is BankId or GcashId or MayaId;
+
+    /// <summary>Credit needs a customer name (and a reference).</summary>
+    public bool IsCustomerEntryVisible => SelectedMethodId == CreditId;
 
     /// <summary>Loads the cart total before the dialog is shown.</summary>
     public void Load(Money total, int itemCount = 0)
@@ -301,6 +327,11 @@ public sealed class PaymentDialogViewModel : DialogViewModelBase<PaymentDialogRe
             {
                 return false;
             }
+
+            if (line.Method == PaymentMethod.BankTransfer && string.IsNullOrWhiteSpace(line.Reference))
+            {
+                return false; // a bank transfer line needs its reference
+            }
         }
 
         return SplitTotal().Centavos == Total.Centavos;
@@ -316,7 +347,10 @@ public sealed class PaymentDialogViewModel : DialogViewModelBase<PaymentDialogRe
             {
                 if (TryParseAmount(line.AmountText, out Money amount))
                 {
-                    lines.Add(new PaymentLineDraft(line.Method, amount, ""));
+                    string? reference = line.Method == PaymentMethod.BankTransfer
+                        ? line.Reference.Trim()
+                        : string.IsNullOrWhiteSpace(line.Reference) ? null : line.Reference.Trim();
+                    lines.Add(new PaymentLineDraft(line.Method, amount, reference));
                 }
             }
         }
@@ -324,7 +358,10 @@ public sealed class PaymentDialogViewModel : DialogViewModelBase<PaymentDialogRe
         {
             PaymentMethod method = MethodFor(SelectedMethodId);
             Money amount = method == PaymentMethod.Cash ? Total : tender;
-            lines.Add(new PaymentLineDraft(method, amount, SelectedMethodId == CreditId ? Reference : ""));
+            string? reference = SelectedMethodId is BankId or GcashId or MayaId
+                ? (string.IsNullOrWhiteSpace(Reference) ? null : Reference.Trim())
+                : SelectedMethodId == CreditId ? Reference : "";
+            lines.Add(new PaymentLineDraft(method, amount, reference));
             if (method == PaymentMethod.Cash && tender.Centavos > Total.Centavos)
             {
                 change = tender.Minus(Total);
@@ -403,7 +440,8 @@ public sealed class MethodOption : ViewModelBase
 }
 
 /// <summary>
-/// One split payment line: cycle through the funded methods, type an amount.
+/// One split payment line: cycle through the funded methods, type an amount,
+/// and (for wallet/bank) an optional reference — REQUIRED for BankTransfer.
 /// Balance is recomputed on every change (zero-balance gate).
 /// </summary>
 public sealed class SplitLineDraft : ViewModelBase
@@ -416,6 +454,7 @@ public sealed class SplitLineDraft : ViewModelBase
     private readonly Action _changed;
     private int _methodIndex;
     private string _amountText = "";
+    private string _reference = "";
 
     public SplitLineDraft(Action changed)
     {
@@ -441,12 +480,33 @@ public sealed class SplitLineDraft : ViewModelBase
         }
     }
 
+    public string Reference
+    {
+        get => _reference;
+        set
+        {
+            if (SetProperty(ref _reference, value))
+            {
+                _changed();
+            }
+        }
+    }
+
+    public bool IsReferenceRequired => Method == PaymentMethod.BankTransfer;
+
+    public string ReferenceLabel => IsReferenceRequired ? "Reference *" : "Reference";
+
+    public bool IsReferenceEntryVisible => Method != PaymentMethod.Cash;
+
     /// <summary>Cycle method: Cash -&gt; GCash -&gt; Maya -&gt; Bank -&gt; Cash.</summary>
     public void CycleMethod()
     {
         _methodIndex = (_methodIndex + 1) % FundedMethods.Length;
         OnPropertyChanged(nameof(Method));
         OnPropertyChanged(nameof(MethodLabel));
+        OnPropertyChanged(nameof(IsReferenceRequired));
+        OnPropertyChanged(nameof(ReferenceLabel));
+        OnPropertyChanged(nameof(IsReferenceEntryVisible));
         _changed();
     }
 }

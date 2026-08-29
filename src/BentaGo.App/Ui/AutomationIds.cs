@@ -32,6 +32,13 @@ public static class AutomationIds
     public const string SalesSearchBox = "Sales.SearchBox";
     public const string SalesCart = "Sales.Cart";
     public const string SalesCheckoutButton = "Sales.CheckoutButton";
+    public const string SalesDiscountText = "Sales.DiscountText";
+    public const string SalesErrorBanner = "Sales.ErrorBanner";
+
+    // Transactions (BG-006b)
+    public const string TransactionsList = "Transactions.List";
+    public const string TransactionsFilter = "Transactions.Filter";
+    public const string TransactionsRefresh = "Transactions.Refresh";
 
     // Payment dialog
     public const string PaymentMethodTabs = "Payment.MethodTabs";

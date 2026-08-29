@@ -97,39 +97,129 @@
                 </StackPanel>
             </Border>
 
-            <!-- Order summary card. -->
+            <!-- Order summary card with the BG-006b tender-details section:
+                 credit (customer + reference), wallet/bank reference capture,
+                 split editor. -->
             <Border Grid.Column="2" Style="{StaticResource CardStyle}" VerticalAlignment="Stretch">
-                <StackPanel Margin="{StaticResource CardPadding}">
-                    <TextBlock Text="Payment summary" Style="{StaticResource TitleTextStyle}" />
-                    <TextBlock Text="{Binding SaleSummaryText}"
-                               Style="{StaticResource StatusTextStyle}"
-                               Margin="{StaticResource Thickness.XS}" />
-                    <Border BorderThickness="0,1,0,0"
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <!-- Tender details (per selected method). -->
+                    <StackPanel Grid.Row="0">
+                        <TextBlock Text="Tender details" Style="{StaticResource TitleTextStyle}" />
+                        <TextBlock Style="{StaticResource StatusTextStyle}"
+                                   Margin="{StaticResource Thickness.XS}">
+                            <Run Text="{Binding SelectedMethodId, Mode=OneWay, StringFormat=Method: {0}}" />
+                            <Run Text=" - confirm the amount and references." />
+                        </TextBlock>
+
+                        <!-- Credit: customer name + reference (both required). -->
+                        <StackPanel Visibility="{Binding IsCustomerEntryVisible, Converter={StaticResource BoolToVisibility}}">
+                            <TextBlock Text="Customer name" Style="{StaticResource FieldLabelStyle}"
+                                       Margin="{StaticResource Thickness.RowGap}" />
+                            <TextBox Text="{Binding CustomerName, UpdateSourceTrigger=PropertyChanged}"
+                                     Style="{StaticResource ScanEditorStyle}"
+                                     Margin="{StaticResource Thickness.XS}" />
+                        </StackPanel>
+
+                        <!-- Wallet / bank reference (bank required, gcash/maya optional). -->
+                        <StackPanel Visibility="{Binding IsReferenceEntryVisible, Converter={StaticResource BoolToVisibility}}">
+                            <TextBlock Text="{Binding ReferenceLabel}" Style="{StaticResource FieldLabelStyle}"
+                                       Margin="{StaticResource Thickness.RowGap}" />
+                            <TextBox Text="{Binding Reference, UpdateSourceTrigger=PropertyChanged}"
+                                     Style="{StaticResource ScanEditorStyle}"
+                                     Margin="{StaticResource Thickness.XS}"
+                                     ui:FocusTarget.Id="Payment.ReferenceBox" />
+                        </StackPanel>
+
+                        <!-- Split editor. -->
+                        <StackPanel Visibility="{Binding IsSplitSelected, Converter={StaticResource BoolToVisibility}}">
+                            <TextBlock Text="Split lines" Style="{StaticResource FieldLabelStyle}"
+                                       Margin="{StaticResource Thickness.RowGap}" />
+                            <ItemsControl ItemsSource="{Binding SplitLines}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Margin="{StaticResource Thickness.XS}">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <Button Grid.Column="0" Content="{Binding MethodLabel}"
+                                                    Style="{StaticResource Button.QuietStyle}"
+                                                    Command="{Binding CycleMethodCommand}"
+                                                    MinWidth="88" />
+                                            <TextBox Grid.Column="1" Text="{Binding AmountText, UpdateSourceTrigger=PropertyChanged}"
+                                                     Style="{StaticResource ScanEditorStyle}"
+                                                     Margin="{StaticResource Thickness.XS}" />
+                                            <TextBox Grid.Column="2" Text="{Binding Reference, UpdateSourceTrigger=PropertyChanged}"
+                                                     Style="{StaticResource ScanEditorStyle}"
+                                                     Margin="{StaticResource Thickness.XS}"
+                                                     Visibility="{Binding IsReferenceEntryVisible, Converter={StaticResource BoolToVisibility}}"
+                                                     ToolTip="{Binding ReferenceLabel}" />
+                                            <Button Grid.Column="3" Content="-"
+                                                    Style="{StaticResource Button.QuietStyle}"
+                                                    Command="{Binding DataContext.RemoveSplitLineCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <Grid Margin="{StaticResource Thickness.XS}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="Remaining" Style="{StaticResource LabelTextStyle}"
+                                           VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="1" Text="{Binding RemainingText}" Style="{StaticResource MoneyTextStyle}" />
+                            </Grid>
+                            <Button Content="Add split line"
+                                    Style="{StaticResource Button.SecondaryStyle}"
+                                    Command="{Binding AddSplitLineCommand}"
+                                    Margin="{StaticResource Thickness.XS}" />
+                        </StackPanel>
+                    </StackPanel>
+
+                    <Border Grid.Row="1" BorderThickness="0,1,0,0"
                             BorderBrush="{DynamicResource Brush.Divider}"
                             Margin="{StaticResource Thickness.M}" />
-                    <Grid Margin="{StaticResource Thickness.M}">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="Amount received" Style="{StaticResource LabelTextStyle}" />
-                        <TextBlock Grid.Column="1" Text="{Binding AmountReceivedText}" Style="{StaticResource MoneyTextStyle}"
-                                   HorizontalAlignment="Right" />
-                    </Grid>
-                    <Grid Margin="{StaticResource Thickness.M}">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="Change" Style="{StaticResource LabelTextStyle}" />
-                        <TextBlock Grid.Column="1" Text="{Binding ChangeText}" Style="{StaticResource MoneyPositiveTextStyle}"
-                                   HorizontalAlignment="Right" />
-                    </Grid>
-                    <TextBlock Text="Split totals are simulated (BG-005 wires the real tender)."
-                               Style="{StaticResource CaptionTextStyle}"
-                               TextWrapping="Wrap"
-                               Margin="{StaticResource Thickness.M}" />
-                </StackPanel>
+
+                    <!-- Payment summary. -->
+                    <StackPanel Grid.Row="2">
+                        <TextBlock Text="Payment summary" Style="{StaticResource TitleTextStyle}" />
+                        <TextBlock Text="{Binding SaleSummaryText}"
+                                   Style="{StaticResource StatusTextStyle}"
+                                   Margin="{StaticResource Thickness.XS}" />
+                        <Grid Margin="{StaticResource Thickness.M}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Amount received" Style="{StaticResource LabelTextStyle}" />
+                            <TextBlock Grid.Column="1" Text="{Binding AmountReceivedText}" Style="{StaticResource MoneyTextStyle}"
+                                       HorizontalAlignment="Right" />
+                        </Grid>
+                        <Grid Margin="{StaticResource Thickness.M}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Change" Style="{StaticResource LabelTextStyle}" />
+                            <TextBlock Grid.Column="1" Text="{Binding ChangeText}" Style="{StaticResource MoneyPositiveTextStyle}"
+                                       HorizontalAlignment="Right" />
+                        </Grid>
+                        <TextBlock Text="The sale is saved with exactly the lines confirmed here."
+                                   Style="{StaticResource CaptionTextStyle}"
+                                   TextWrapping="Wrap"
+                                   Margin="{StaticResource Thickness.M}" />
+                    </StackPanel>
+                </Grid>
             </Border>
         </Grid>
 
