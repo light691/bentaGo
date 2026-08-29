@@ -1,5 +1,6 @@
 using System.IO;
 using System.Security.Cryptography;
+using BentaGo.Application.Contracts;
 using BentaGo.Infrastructure.Backup;
 using BentaGo.Infrastructure.Configuration;
 using BentaGo.Infrastructure.Hosting;
@@ -114,8 +115,8 @@ public sealed class BootstrapTests : IDisposable
         await using var context = await host.GetRequiredService<IDbContextFactory<BentaGoDbContext>>()
             .CreateDbContextAsync();
         string[] applied = (await context.Database.GetAppliedMigrationsAsync()).ToArray();
-        Assert.Equal(3, applied.Length); // InitialCreate + BG003_01 + BG003_02
-        Assert.EndsWith("BG003_02_AddCheckoutIdempotency", applied[^1]);
+        Assert.Equal(4, applied.Length); // InitialCreate + BG003_01 + BG003_02 + BG005_01
+        Assert.EndsWith("BG005_01_AddIdentityAndAudit", applied[^1]);
     }
 
     [Fact]

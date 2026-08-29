@@ -1,14 +1,11 @@
+using BentaGo.Application.Contracts;
+
 namespace BentaGo.Infrastructure.Security;
 
-public interface IPasswordHasher
-{
-    string Hash(string password);
-    bool Verify(string password, string hash);
-}
-
 /// <summary>
-/// BCrypt-based password hasher. Work factor 12 strikes a balance between
-/// cost and resistance for interactive desktop use.
+/// BCrypt-based password hasher implementing the Application hashing seam.
+/// Work factor 12 strikes a balance between cost and resistance for
+/// interactive desktop use (BG-005a decision; BCrypt.Net-Next).
 /// </summary>
 public sealed class BCryptPasswordHasher : IPasswordHasher
 {

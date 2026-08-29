@@ -28,7 +28,7 @@ namespace BentaGo.Infrastructure.Persistence;
 /// inserting anything. Two competing appends therefore can never both
 /// validate against the same pre-commit state.
 /// </summary>
-public sealed partial class SqliteLedgerStore : ILedgerStore, IAsyncDisposable
+public sealed partial class SqliteLedgerStore : ILedgerStore, IDisposable, IAsyncDisposable
 {
     private const int BusyTimeoutMs = 5000;
     private const long DefaultDelayBeforeCommitMs = 3000;
@@ -273,11 +273,12 @@ public sealed partial class SqliteLedgerStore : ILedgerStore, IAsyncDisposable
                     InsertMovement(connection, movement);
                 }
 
+                var persistedAudits = new List<AuditEvent>();
                 if (batch.Audits is { Count: > 0 } audits)
                 {
                     foreach (AuditEvent audit in audits)
                     {
-                        InsertAudit(connection, audit);
+                        persistedAudits.Add(audit with { Sequence = InsertAudit(connection, audit) });
                     }
                 }
 
@@ -316,9 +317,9 @@ public sealed partial class SqliteLedgerStore : ILedgerStore, IAsyncDisposable
                 _headLastSequence = sequence - 1;
                 _headDocumentsVersion = newDocsVersion;
                 _movements.AddRange(sequenced);
-                if (batch.Audits is { Count: > 0 } batchAudits)
+                if (persistedAudits.Count > 0)
                 {
-                    _audits.AddRange(batchAudits);
+                    _audits.AddRange(persistedAudits);
                 }
 
                 Context = new LedgerContext(_state, _docsTrips.ToList(), sales, returns, loads, voids);
@@ -363,8 +364,13 @@ public sealed partial class SqliteLedgerStore : ILedgerStore, IAsyncDisposable
     // Audit + idempotency + rebuild (lanes 4, 6, 9-style)
     // ------------------------------------------------------------------
 
-    /// <summary>A standalone tiny transaction (audit rows are not in a batch).</summary>
-    public void RecordAudit(AuditEvent audit)
+    /// <summary>
+    /// A standalone tiny transaction (audit rows are not in a batch). The
+    /// AuditEvents PK on Sequence is the SQLite rowid identity: the caller's
+    /// -1 placeholder is replaced by the assigned identity, which is returned
+    /// and mirrored so the in-memory audit list matches the database.
+    /// </summary>
+    public long RecordAudit(AuditEvent audit)
     {
         EnsureSynced();
         SqliteConnection connection = _connection!;
@@ -373,9 +379,10 @@ public sealed partial class SqliteLedgerStore : ILedgerStore, IAsyncDisposable
         {
             Execute(connection, "BEGIN IMMEDIATE");
             _inTransaction = true;
+            long sequence;
             try
             {
-                InsertAudit(connection, audit);
+                sequence = InsertAudit(connection, audit);
                 Execute(connection, "COMMIT");
                 _inTransaction = false;
             }
@@ -384,13 +391,14 @@ public sealed partial class SqliteLedgerStore : ILedgerStore, IAsyncDisposable
                 RollbackQuietly(connection);
                 throw;
             }
+
+            _audits.Add(audit with { Sequence = sequence });
+            return sequence;
         }
         finally
         {
             _inTransaction = false;
         }
-
-        _audits.Add(audit);
     }
 
     public Result<CheckoutReference?> FindCheckout(string idempotencyKey)
@@ -521,6 +529,19 @@ public sealed partial class SqliteLedgerStore : ILedgerStore, IAsyncDisposable
     {
         Close();
         return ValueTask.CompletedTask;
+    }
+
+    /// <summary>
+    /// Synchronous dispose for the MS.DI sync ServiceProvider.Dispose() path.
+    /// LoginService (auth audits) depends on <see cref="ILedgerStore"/>, so the
+    /// store is instantiated inside the container whenever the login/account
+    /// chain is resolved; an IAsyncDisposable-ONLY type makes the container's
+    /// sync dispose throw. Identical work to <see cref="DisposeAsync"/>: close
+    /// the long-lived connection.
+    /// </summary>
+    public void Dispose()
+    {
+        Close();
     }
 
     private void EnsureOpen()

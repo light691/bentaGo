@@ -28,6 +28,7 @@ public sealed class InMemoryLedgerStore : ILedgerStore
     private readonly List<SaleVoid> _voids = new();
     private readonly List<AuditEvent> _audits = new();
     private readonly Dictionary<string, string> _idempotency = new();
+    private long _auditSequence;
 
     // Open-attempt staging: documents registered since the last Bind/Append.
     private readonly List<Sale> _stagedSales = new();
@@ -152,7 +153,19 @@ public sealed class InMemoryLedgerStore : ILedgerStore
     public Result<AppendReceipt> Append(IReadOnlyList<Movement> movements) =>
         Append(new AppendBatch(movements)).Map(outcome => outcome.Receipt!);
 
-    public void RecordAudit(AuditEvent audit) => _audits.Add(audit);
+    /// <summary>
+    /// In-memory RecordAudit keeps incrementing: each call assigns the next
+    /// identity (matching the DB identity semantics; the -1 placeholder is
+    /// replaced) and returns it. Golden scenario rendering is unaffected —
+    /// audits render by message only.
+    /// </summary>
+    public long RecordAudit(AuditEvent audit)
+    {
+        _auditSequence++;
+        AuditEvent stored = audit with { Sequence = _auditSequence };
+        _audits.Add(stored);
+        return stored.Sequence;
+    }
 
     public Result<CheckoutReference?> FindCheckout(string idempotencyKey)
     {

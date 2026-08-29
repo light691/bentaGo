@@ -119,4 +119,18 @@ public sealed record DailyClose(
     UserId By,
     DateTimeOffset WhenUtc);
 
-public sealed record AuditEvent(long Sequence, UserId Actor, DateTimeOffset WhenUtc, string Category, string Message, Ledger.DocumentRef? Ref);
+/// <summary>
+/// An immutable audit fact. Sequence is a database identity (BG-005a: the
+/// store assigns and returns it; <c>-1</c> is the construction-time
+/// "unassigned" placeholder kept by convention). Terminal/Reason capture the
+/// secure-workstation context for sensitive actions (docs/01:77).
+/// </summary>
+public sealed record AuditEvent(
+    long Sequence,
+    UserId Actor,
+    DateTimeOffset WhenUtc,
+    string Category,
+    string Message,
+    Ledger.DocumentRef? Ref,
+    string? Terminal = null,
+    string? Reason = null);

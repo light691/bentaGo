@@ -1,3 +1,4 @@
+using BentaGo.Core.Domain.Identity;
 using BentaGo.Core.Domain.Payments;
 
 namespace BentaGo.Core.Domain.Commands;
@@ -9,6 +10,33 @@ namespace BentaGo.Core.Domain.Commands;
 /// fields are filled by the caller (the store or the scenario's deterministic
 /// id source), so re-runs are byte-identical.
 /// </summary>
+
+// --- User account commands (BG-005a). By = acting user, NowUtc = command
+// time, per the convention of every other command. ---
+
+/// <summary>Admin-only: creates a local account with a plaintext password (hashed by the use case).</summary>
+public sealed record CreateUserCommand(
+    UserId Id,
+    string Username,
+    string Password,
+    Role Role,
+    PeddlerId? PeddlerLink,
+    UserId By,
+    DateTimeOffset NowUtc);
+
+/// <summary>Admin-only: activates (clears DeactivatedUtc) or deactivates (sets it) an account.</summary>
+public sealed record SetUserActiveCommand(
+    UserId Id,
+    bool Active,
+    UserId By,
+    DateTimeOffset NowUtc);
+
+/// <summary>Changes a password: admins for anyone, any user for themselves.</summary>
+public sealed record ChangePasswordCommand(
+    UserId Id,
+    string NewPassword,
+    UserId By,
+    DateTimeOffset NowUtc);
 
 public sealed record NewSaleLine(
     SaleLineId LineId,

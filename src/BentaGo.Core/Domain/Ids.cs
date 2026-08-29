@@ -4,7 +4,16 @@ namespace BentaGo.Core.Domain;
 // constraint). Each domain kind gets its own wrapper type so a TripId can
 // never be passed where a ProductId is expected.
 
-public readonly record struct UserId(Guid Value);
+public readonly record struct UserId(Guid Value)
+{
+    /// <summary>
+    /// Sentinel actor for audit rows that cannot be attributed to a real
+    /// account (e.g. a failed login with an unknown username). Never a real
+    /// user (BG-005a decision).
+    /// </summary>
+    public static UserId Anonymous => new(Guid.Empty);
+}
+
 public readonly record struct PeddlerId(Guid Value);
 public readonly record struct ProductId(Guid Value);
 public readonly record struct LocationId(Guid Value);
