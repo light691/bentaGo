@@ -672,6 +672,58 @@
         </Style.Triggers>
     </Style>
 
+    <!-- Round-6: vertical payment method list - full-column-width buttons,
+             selected = green filled, others outlined, all 44 tall. -->
+    <Style x:Key="PaymentMethodListButtonStyle" TargetType="Button">
+        <Setter Property="FontFamily" Value="{DynamicResource Font.Family.Primary}" />
+        <Setter Property="FontSize" Value="{DynamicResource FontSize.Body}" />
+        <Setter Property="FontWeight" Value="{DynamicResource FontWeight.Semi}" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
+        <Setter Property="Height" Value="44" />
+        <Setter Property="Margin" Value="0,0,0,8" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FocusVisualStyle" Value="{DynamicResource FocusVisual.Default}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Chrome"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="6"
+                            Padding="14,4">
+                        <ContentPresenter HorizontalAlignment="Center"
+                                          VerticalAlignment="Center"
+                                          RecognizesAccessKey="False" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource Brush.Surface.Selected}" />
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource Brush.Focus}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Foreground" Value="{DynamicResource Brush.State.Disabled.Fg}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                <Setter Property="Background" Value="{DynamicResource Brush.Accent}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource Brush.Accent}" />
+                <Setter Property="Foreground" Value="{DynamicResource Brush.Text.OnAccent}" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding IsSelected}" Value="False">
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border.Strong}" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
     <!-- ============================== Misc ============================== -->
     <Style x:Key="FieldLabelStyle" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{DynamicResource Font.Family.Primary}" />
@@ -739,5 +791,27 @@
         <Setter Property="FontSize" Value="{DynamicResource FontSize.Title}" />
         <Setter Property="VerticalAlignment" Value="Center" />
         <Setter Property="Margin" Value="0,0,8,0" />
+    </Style>
+
+    <!-- ===================== Round-6 derived sizes =====================
+         Declared LAST so every BasedOn target (ScanEditorStyle, CardStyle)
+         is already defined in this dictionary (StaticResource resolves
+         backwards only). -->
+    <!-- Sales scan/search fields: 56 tall (reference proportion). -->
+    <Style x:Key="FieldEditorTallStyle" TargetType="TextBox"
+           BasedOn="{StaticResource ScanEditorStyle}">
+        <Setter Property="Height" Value="56" />
+    </Style>
+
+    <!-- Stock search field: reference proportions (44 tall). -->
+    <Style x:Key="StockSearchEditorStyle" TargetType="TextBox"
+           BasedOn="{StaticResource ScanEditorStyle}">
+        <Setter Property="Height" Value="44" />
+    </Style>
+
+    <!-- Equal KPI cards at a reference height (~84). -->
+    <Style x:Key="KpiCardStyle" TargetType="Border"
+           BasedOn="{StaticResource CardStyle}">
+        <Setter Property="MinHeight" Value="84" />
     </Style>
 </ResourceDictionary>

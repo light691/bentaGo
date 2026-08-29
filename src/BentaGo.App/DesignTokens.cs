@@ -128,10 +128,18 @@ public static class DesignTokens
     public const string QuickActionChipStyle = "QuickActionChipStyle";
     public const string QuickActionTextStyle = "QuickActionTextStyle";
     public const string QuickActionKeyCapTextStyle = "QuickActionKeyCapTextStyle";
+    public const string ButtonActionBarStyle = "Button.ActionBarStyle";
+    public const string ButtonActionBarOutlineStyle = "Button.ActionBarOutlineStyle";
+    public const string ButtonActionBarDangerOutlineStyle = "Button.ActionBarDangerOutlineStyle";
+    public const string ActionBarGridStyle = "ActionBarGridStyle";
+    public const string FieldEditorTallStyle = "FieldEditorTallStyle";
+    public const string KpiCardStyle = "KpiCardStyle";
+    public const string StatusStripDotStyle = "StatusStripDotStyle";
     public const string MoneyPositiveTextStyle = "MoneyPositiveTextStyle";
     public const string StatusSuccessTitleTextStyle = "StatusSuccessTitleTextStyle";
     public const string StatusBarLeadTextStyle = "StatusBarLeadTextStyle";
     public const string MethodTabButtonStyle = "MethodTabButtonStyle";
+    public const string PaymentMethodListButtonStyle = "PaymentMethodListButtonStyle";
     public const string ScanEditorStyle = "ScanEditorStyle";
     public const string FieldLabelStyle = "FieldLabelStyle";
     public const string DialogWindowStyle = "DialogWindowStyle";
@@ -181,9 +189,11 @@ public static class DesignTokens
         CardStyle, BannerSuccessStyle, BannerWarningStyle, BannerErrorStyle, BannerInfoBgStyle,
         DataGridLowStockRowStyle, DataGridRowStyle, NavRailItemStyle, NavRailTextStyle, NavRailKeyCapStyle, NavRailKeyCapTextStyle,
         QuickActionChipStyle, QuickActionTextStyle, QuickActionKeyCapTextStyle,
+        ButtonActionBarStyle, ButtonActionBarOutlineStyle, ButtonActionBarDangerOutlineStyle, ActionBarGridStyle, FieldEditorTallStyle, KpiCardStyle,
+        StatusStripDotStyle,
         MoneyPositiveTextStyle, StatusSuccessTitleTextStyle, StatusBarLeadTextStyle, MethodTabButtonStyle,
         ScanEditorStyle, FieldLabelStyle, DialogWindowStyle, HelpOverlayStyle,
-        StatusDotStyle, KeyCapStyle, PlaceholderStyle, PlaceholderTextStyle, StatusGlyphTextStyle, LowStockSkuTextStyle,
+        StatusDotStyle, PaymentMethodListButtonStyle, KeyCapStyle, PlaceholderStyle, PlaceholderTextStyle, StatusGlyphTextStyle, LowStockSkuTextStyle,
         ErrorTemplateTextBox, ErrorTemplatePasswordBox, ErrorTextStyle,
     };
 }

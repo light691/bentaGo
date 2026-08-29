@@ -16,10 +16,12 @@
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="*" />
-            <RowDefinition Height="28" />
+            <RowDefinition Height="32" />
         </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="208" />
+            <!-- Rail 216 + the content ScreenPadding (24) lands screen content
+                 exactly at x=240 (round-6 reference alignment). -->
+            <ColumnDefinition Width="216" />
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
 
@@ -69,23 +71,35 @@
             </Border>
         </Grid>
 
-        <!-- Status bar: brand lead, honest demo segment, version (the SQLite/EF
-             segment arrives only with the BG-003 merge - not claimed here). -->
-        <StatusBar Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2">
-            <StatusBarItem>
-                <!-- Real U+00B7 middot (XAML does not decode HTML entities). -->
-                <TextBlock x:Name="StatusLeadText" Text="Offline · local data"
-                           Style="{StaticResource StatusBarLeadTextStyle}" />
-            </StatusBarItem>
-            <StatusBarItem>
-                <TextBlock Text="{Binding StatusText}" Style="{StaticResource StatusTextStyle}" />
-            </StatusBarItem>
-            <StatusBarItem>
-                <TextBlock Text="{Binding SimulatedLabel}" Style="{StaticResource StatusTextStyle}" />
-            </StatusBarItem>
-            <StatusBarItem HorizontalAlignment="Right">
-                <TextBlock Text="{Binding VersionText}" Style="{StaticResource StatusTextStyle}" />
-            </StatusBarItem>
-        </StatusBar>
+        <!-- Status strip (round-6, reference-faithful): light full-width strip
+             below the rail; green dot + dark "Offline — local data" lead,
+             muted simulated-data segment, version right. No SQLite/EF claim
+             on this branch (lands with the BG-003 merge). -->
+        <Border Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
+                Background="{DynamicResource Brush.Surface.Sunken}"
+                BorderBrush="{DynamicResource Brush.Border.Default}"
+                BorderThickness="0,1,0,0">
+            <Grid Margin="16,0,16,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Orientation="Horizontal">
+                    <Border Style="{StaticResource StatusStripDotStyle}" VerticalAlignment="Center" />
+                    <TextBlock x:Name="StatusLeadText" Text="Offline — local data"
+                               Style="{StaticResource StatusBarLeadTextStyle}"
+                               Margin="8,0,0,0"
+                               VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding SimulatedLabel}"
+                               Style="{StaticResource StatusTextStyle}"
+                               Margin="24,0,0,0"
+                               VerticalAlignment="Center" />
+                </StackPanel>
+                <TextBlock Grid.Column="2" Text="{Binding VersionText}"
+                           Style="{StaticResource StatusTextStyle}"
+                           VerticalAlignment="Center" />
+            </Grid>
+        </Border>
     </Grid>
 </Window>

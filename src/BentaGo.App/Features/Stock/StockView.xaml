@@ -2,11 +2,15 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ui="clr-namespace:BentaGo.App.Ui">
+    <!-- Round-6 reference alignment: wide search at the content origin
+         (x=240), toggle right-aligned, and a fully-parked stock-action row
+         at the bottom (BG-005 wires the actions - no commands bound here). -->
     <Grid Margin="{StaticResource ScreenPadding}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <StackPanel Grid.Row="0">
@@ -22,7 +26,7 @@
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
             <TextBox Grid.Column="0"
-                     Style="{StaticResource ScanEditorStyle}"
+                     Style="{StaticResource StockSearchEditorStyle}"
                      Text="{Binding SearchQuery, UpdateSourceTrigger=PropertyChanged}"
                      MaxWidth="420"
                      HorizontalAlignment="Left"
@@ -66,5 +70,31 @@
                 <DataGridTextColumn Header="Last movement" Binding="{Binding LastMovementText}" Width="170" />
             </DataGrid.Columns>
         </DataGrid>
+
+        <!-- Bottom parked stock-action row: equal widths, all disabled - no
+             commands, no bindings (BG-005 wires these). -->
+        <Grid Grid.Row="3" Style="{StaticResource ActionBarGridStyle}" Margin="{StaticResource Thickness.M}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Button Grid.Column="0" Content="Add Item (F6)"
+                    Style="{StaticResource Button.ActionBarStyle}" IsEnabled="False" />
+            <Button Grid.Column="2" Content="Edit (F7)"
+                    Style="{StaticResource Button.ActionBarStyle}" IsEnabled="False" />
+            <Button Grid.Column="4" Content="Adjust Stock (F8)"
+                    Style="{StaticResource Button.ActionBarStyle}" IsEnabled="False" />
+            <Button Grid.Column="6" Content="Price Update (F9)"
+                    Style="{StaticResource Button.ActionBarStyle}" IsEnabled="False" />
+            <Button Grid.Column="8" Content="Print (F11)"
+                    Style="{StaticResource Button.ActionBarStyle}" IsEnabled="False" />
+        </Grid>
     </Grid>
 </UserControl>

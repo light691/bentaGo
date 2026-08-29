@@ -26,16 +26,20 @@ public sealed class StatusBarAndLayoutTests
     public StatusBarAndLayoutTests(AppShellStaFixture sta) => _sta = sta;
 
     [Fact]
-    public void StatusBarLeadSegmentUsesTheLiteralMiddot()
+    public void StatusBarLeadSegmentUsesTheLiteralEmDash()
     {
         _sta.Run(() =>
         {
             using var session = ShellSession.Open(_sta);
             TextBlock? lead = session.Window.FindName("StatusLeadText") as TextBlock;
             Assert.NotNull(lead);
-            Assert.Equal("Offline · local data", lead.Text);
+            // Round-6: the reference status strip lead reads "Offline — local
+            // data" with a literal U+2014 em dash (XAML never decodes HTML
+            // entities, so &mdash; would render as text).
+            Assert.Equal("Offline — local data", lead.Text);
+            Assert.DoesNotContain("&mdash;", lead.Text);
             Assert.DoesNotContain("&middot;", lead.Text);
-            Assert.Contains('\u00B7', lead.Text);
+            Assert.Contains('\u2014', lead.Text);
         });
     }
 
