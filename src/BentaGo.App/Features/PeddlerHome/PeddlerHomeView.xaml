@@ -113,6 +113,47 @@
                         Margin="{StaticResource Thickness.S}"
                         ui:FocusTarget.Id="Home.EndTripButton" />
             </StackPanel>
+
+            <!-- Quick Actions (Keyboard First): reference-style chip bar.
+                 F2 Scan and F12 End Trip bind existing commands; F8/F11 are
+                 parked (visible-disabled, NO binding) like the Alt+4 item. -->
+            <TextBlock Text="Quick Actions (Keyboard First)"
+                       Style="{StaticResource FieldLabelStyle}"
+                       Margin="{StaticResource Thickness.L}" />
+            <StackPanel Orientation="Horizontal" Margin="{StaticResource Thickness.S}">
+                <Button Style="{StaticResource QuickActionChipStyle}"
+                        Command="{Binding NewSaleCommand}"
+                        ui:FocusTarget.Id="Home.QuickAction.Scan">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="F2" Style="{StaticResource QuickActionKeyCapTextStyle}" />
+                        <TextBlock Text="Scan" Style="{StaticResource QuickActionTextStyle}" />
+                    </StackPanel>
+                </Button>
+                <Button Style="{StaticResource QuickActionChipStyle}"
+                        IsEnabled="False"
+                        ui:FocusTarget.Id="Home.QuickAction.Pay">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="F8" Style="{StaticResource QuickActionKeyCapTextStyle}" />
+                        <TextBlock Text="Pay" Style="{StaticResource QuickActionTextStyle}" />
+                    </StackPanel>
+                </Button>
+                <Button Style="{StaticResource QuickActionChipStyle}"
+                        IsEnabled="False"
+                        ui:FocusTarget.Id="Home.QuickAction.Print">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="F11" Style="{StaticResource QuickActionKeyCapTextStyle}" />
+                        <TextBlock Text="Print" Style="{StaticResource QuickActionTextStyle}" />
+                    </StackPanel>
+                </Button>
+                <Button Style="{StaticResource QuickActionChipStyle}"
+                        Command="{Binding EndTripCommand}"
+                        ui:FocusTarget.Id="Home.QuickAction.EndTrip">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="F12" Style="{StaticResource QuickActionKeyCapTextStyle}" />
+                        <TextBlock Text="End Trip" Style="{StaticResource QuickActionTextStyle}" />
+                    </StackPanel>
+                </Button>
+            </StackPanel>
         </StackPanel>
     </Grid>
 </UserControl>

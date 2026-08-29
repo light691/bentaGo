@@ -6,10 +6,11 @@
          Theme.xaml — tokens and system states only (bg-004-synthesis §4).
          Brushes are consumed via DynamicResource (live high-contrast swap);
          scalars (sizes/spacing/corners) via StaticResource.
-         Hue values are PROVISIONAL: the reference image
-         (designs/bentago-wpf-mvp-screen-set.png) was not readable in the
-         design session. Token structure is the contract; hues may be tuned
-         by a later visual pass.
+         Hue values FINALIZED in round-4: the rail navy (#01274F), primary
+         action green (#03873F) and secondary navy (#2B4F75) were
+         pixel-sampled from designs/bentago-wpf-mvp-screen-set.png by the
+         operator (vision pass) and approved. Token structure is the
+         contract; the earlier provisional flag is lifted.
          ================================================================ -->
 
     <!-- Surfaces -->
@@ -25,11 +26,22 @@
     <SolidColorBrush x:Key="Brush.Text.OnAccent" Color="#FFFFFF" />
     <SolidColorBrush x:Key="Brush.Text.OnBrand" Color="#FFFFFF" />
 
-    <!-- Brand / accent -->
-    <SolidColorBrush x:Key="Brush.Accent" Color="#0B6E4F" />
-    <SolidColorBrush x:Key="Brush.Accent.Hover" Color="#0A5C41" />
-    <SolidColorBrush x:Key="Brush.Accent.Pressed" Color="#07462F" />
-    <SolidColorBrush x:Key="Brush.Brand" Color="#14532D" />
+    <!-- Brand / accent (round-4: hues pixel-sampled from
+         designs/bentago-wpf-mvp-screen-set.png and FINALIZED; the provisional
+         flag is lifted). Accent = primary-action green; Brand = deep navy. -->
+    <SolidColorBrush x:Key="Brush.Accent" Color="#03873F" />
+    <SolidColorBrush x:Key="Brush.Accent.Hover" Color="#027236" />
+    <SolidColorBrush x:Key="Brush.Accent.Pressed" Color="#025C2D" />
+    <SolidColorBrush x:Key="Brush.Brand" Color="#01274F" />
+
+    <!-- Brand navy ramp (rail + secondary navy text) -->
+    <SolidColorBrush x:Key="Brush.Brand.Rail" Color="#01274F" />
+    <SolidColorBrush x:Key="Brush.Brand.Rail.Hover" Color="#082F5A" />
+    <SolidColorBrush x:Key="Brush.Brand.Rail.Selected" Color="#0E3A68" />
+    <SolidColorBrush x:Key="Brush.Brand.Rail.Border" Color="#1B4A77" />
+    <SolidColorBrush x:Key="Brush.Brand.Rail.KeycapBg" Color="#0B3768" />
+    <SolidColorBrush x:Key="Brush.Brand.Rail.KeycapText" Color="#D7E3F1" />
+    <SolidColorBrush x:Key="Brush.Brand.Secondary" Color="#2B4F75" />
 
     <!-- Borders -->
     <SolidColorBrush x:Key="Brush.Border.Default" Color="#D7DAE0" />
@@ -75,11 +87,13 @@
     <FontWeight x:Key="FontWeight.Semi">SemiBold</FontWeight>
 
     <!-- Named text styles -->
+    <!-- DisplayTextStyle is used for the two big TOTALS only (Sales + Payment)
+         - retinted navy so totals carry the brand colour (round-4). -->
     <Style x:Key="DisplayTextStyle" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource Font.Family.Primary}" />
         <Setter Property="FontSize" Value="{StaticResource FontSize.Display}" />
         <Setter Property="FontWeight" Value="{StaticResource FontWeight.Strong}" />
-        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Brand.Secondary}" />
     </Style>
     <Style x:Key="HeaderTextStyle" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource Font.Family.Primary}" />
@@ -117,7 +131,8 @@
         <Setter Property="FontFamily" Value="{StaticResource Font.Family.Primary}" />
         <Setter Property="FontSize" Value="{StaticResource FontSize.Body}" />
         <Setter Property="FontWeight" Value="{StaticResource FontWeight.Strong}" />
-        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.Primary}" />
+        <!-- Money amounts carry the brand navy (round-4). -->
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Brand.Secondary}" />
     </Style>
 
     <!-- ====================== Spacing / metrics ====================== -->
@@ -159,5 +174,112 @@
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
+    </Style>
+
+    <!-- ============ Round-4 brand text / chip styles ============
+         Declared after the Corner.* and FocusVisual.* tokens they reference
+         (StaticResource within one dictionary resolves backwards only). -->
+    <!-- Positive money (payment dialog Change etc.): brand-green accent. -->
+    <Style x:Key="MoneyPositiveTextStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource Font.Family.Primary}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Body}" />
+        <Setter Property="FontWeight" Value="{StaticResource FontWeight.Strong}" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Accent}" />
+    </Style>
+
+    <!-- BALANCED banner title: green accent where the reference shows it. -->
+    <Style x:Key="StatusSuccessTitleTextStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource Font.Family.Primary}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Title}" />
+        <Setter Property="FontWeight" Value="{StaticResource FontWeight.Semi}" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Status.Success}" />
+    </Style>
+
+    <!-- Rail: light text on the dark navy surface, navy-tinted chip chrome. -->
+    <Style x:Key="NavRailTextStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource Font.Family.Primary}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Body}" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.OnBrand}" />
+    </Style>
+    <Style x:Key="NavRailKeyCapStyle" TargetType="Border">
+        <Setter Property="Background" Value="{DynamicResource Brush.Brand.Rail.KeycapBg}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Brush.Brand.Rail.Border}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="{StaticResource Corner.S}" />
+        <Setter Property="Padding" Value="6,1" />
+        <Setter Property="MinWidth" Value="28" />
+        <Setter Property="HorizontalAlignment" Value="Center" />
+    </Style>
+    <Style x:Key="NavRailKeyCapTextStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource Font.Family.Primary}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Caption}" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Brand.Rail.KeycapText}" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="HorizontalAlignment" Value="Center" />
+    </Style>
+
+    <!-- Quick Actions chips: green live, greyed-parked. Content inherits the
+         button foreground, so a disabled chip greys text without view literals. -->
+    <Style x:Key="QuickActionChipStyle" TargetType="Button">
+        <Setter Property="FontFamily" Value="{StaticResource Font.Family.Primary}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Body}" />
+        <Setter Property="FontWeight" Value="{StaticResource FontWeight.Semi}" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text.OnAccent}" />
+        <Setter Property="MinHeight" Value="44" />
+        <Setter Property="Padding" Value="14,0" />
+        <Setter Property="Margin" Value="0,0,8,0" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusVisual.Default}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Chrome"
+                            Background="{DynamicResource Brush.Accent}"
+                            BorderBrush="{DynamicResource Brush.Accent}"
+                            BorderThickness="1"
+                            CornerRadius="{StaticResource Corner.M}"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter HorizontalAlignment="Center"
+                                          VerticalAlignment="Center"
+                                          RecognizesAccessKey="False" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource Brush.Accent.Hover}" />
+                            <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource Brush.Accent.Hover}" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource Brush.Accent.Pressed}" />
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource Brush.Focus}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource Brush.State.Disabled.Bg}" />
+                            <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource Brush.State.Disabled.Border}" />
+                            <Setter Property="Foreground" Value="{DynamicResource Brush.State.Disabled.Fg}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <Style x:Key="QuickActionTextStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource Font.Family.Primary}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Body}" />
+        <Setter Property="FontWeight" Value="{StaticResource FontWeight.Semi}" />
+    </Style>
+    <Style x:Key="QuickActionKeyCapTextStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource Font.Family.Primary}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Caption}" />
+        <Setter Property="Margin" Value="0,0,6,0" />
+    </Style>
+
+    <!-- Status bar lead: brand navy. -->
+    <Style x:Key="StatusBarLeadTextStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource Font.Family.Primary}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Status}" />
+        <Setter Property="FontWeight" Value="{StaticResource FontWeight.Semi}" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Brand.Secondary}" />
     </Style>
 </ResourceDictionary>

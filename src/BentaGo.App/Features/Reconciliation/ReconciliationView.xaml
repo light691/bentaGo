@@ -106,7 +106,7 @@
                             Visibility="{Binding IsBalanced, Converter={StaticResource BoolToVisibility}}">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="&#xE73E;" Style="{StaticResource StatusGlyphTextStyle}" />
-                            <TextBlock Text="{Binding BannerText}" Style="{StaticResource TitleTextStyle}" />
+                            <TextBlock Text="{Binding BannerText}" Style="{StaticResource StatusSuccessTitleTextStyle}" />
                         </StackPanel>
                     </Border>
                     <Border Style="{StaticResource Banner.WarningStyle}"
@@ -131,7 +131,7 @@
 
                 <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="{StaticResource Thickness.M}">
                     <Button Content="Save Draft"
-                            Style="{StaticResource Button.SecondaryStyle}"
+                            Style="{StaticResource Button.PrimaryStyle}"
                             Command="{Binding SaveDraftCommand}"
                             Margin="{StaticResource Thickness.S}" />
                     <Button Content="Print Summary"

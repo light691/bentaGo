@@ -57,7 +57,7 @@
                          HorizontalAlignment="Left" />
                 <StackPanel Orientation="Horizontal" Margin="{StaticResource Thickness.M}">
                     <TextBlock Text="Change  " Style="{StaticResource LabelTextStyle}" VerticalAlignment="Center" />
-                    <TextBlock Text="{Binding ChangeText}" Style="{StaticResource MoneyTextStyle}" />
+                    <TextBlock Text="{Binding ChangeText}" Style="{StaticResource MoneyPositiveTextStyle}" />
                 </StackPanel>
                 <UniformGrid Rows="4" Columns="4" MaxWidth="304" HorizontalAlignment="Left">
                     <Button Content="7" Style="{StaticResource Button.KeypadStyle}" Command="{Binding AppendDigitCommand}" CommandParameter="7" />

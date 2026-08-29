@@ -26,8 +26,8 @@
         <!-- Left rail: BG-004 shell navigation (Alt+1..5 shell-scoped). -->
         <Border Grid.Row="0"
                 Grid.Column="0"
-                Background="{DynamicResource Brush.Surface.Sunken}"
-                BorderBrush="{DynamicResource Brush.Divider}"
+                Background="{DynamicResource Brush.Brand.Rail}"
+                BorderBrush="{DynamicResource Brush.Brand.Rail.Border}"
                 BorderThickness="0,0,1,0">
             <ItemsControl ItemsSource="{Binding RailItems}" Margin="8,16,8,16">
                 <ItemsControl.ItemTemplate>
@@ -39,12 +39,13 @@
                                 ui:FocusTarget.Id="{Binding FocusTargetId}">
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Stretch">
                                 <TextBlock Text="{Binding Label}"
-                                           Style="{StaticResource BodyTextStyle}"
+                                           Style="{StaticResource NavRailTextStyle}"
                                            VerticalAlignment="Center" />
-                                <Border Style="{StaticResource KeyCapStyle}" Margin="10,0,0,0">
+                                <!-- Navy-tinted keycap chips: readable on the
+                                     dark rail (round-4). -->
+                                <Border Style="{StaticResource NavRailKeyCapStyle}" Margin="10,0,0,0">
                                     <TextBlock Text="{Binding KeyCap}"
-                                               Style="{StaticResource CaptionTextStyle}"
-                                               VerticalAlignment="Center" />
+                                               Style="{StaticResource NavRailKeyCapTextStyle}" />
                                 </Border>
                             </StackPanel>
                         </Button>
@@ -68,8 +69,13 @@
             </Border>
         </Grid>
 
-        <!-- Status bar: status, simulated-data annotation, version. -->
+        <!-- Status bar: brand lead, honest demo segment, version (the SQLite/EF
+             segment arrives only with the BG-003 merge - not claimed here). -->
         <StatusBar Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2">
+            <StatusBarItem>
+                <TextBlock Text="Offline &middot; local data"
+                           Style="{StaticResource StatusBarLeadTextStyle}" />
+            </StatusBarItem>
             <StatusBarItem>
                 <TextBlock Text="{Binding StatusText}" Style="{StaticResource StatusTextStyle}" />
             </StatusBarItem>

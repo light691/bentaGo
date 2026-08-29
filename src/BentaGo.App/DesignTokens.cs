@@ -49,6 +49,16 @@ public static class DesignTokens
     public const string StateDisabledFgBrush = "Brush.State.Disabled.Fg";
     public const string StateDisabledBorderBrush = "Brush.State.Disabled.Border";
 
+    // ---- Brand ramp (round-4: pixel-sampled from
+    // designs/bentago-wpf-mvp-screen-set.png) ----
+    public const string BrandRailBrush = "Brush.Brand.Rail";
+    public const string BrandRailHoverBrush = "Brush.Brand.Rail.Hover";
+    public const string BrandRailSelectedBrush = "Brush.Brand.Rail.Selected";
+    public const string BrandRailBorderBrush = "Brush.Brand.Rail.Border";
+    public const string BrandRailKeycapBgBrush = "Brush.Brand.Rail.KeycapBg";
+    public const string BrandRailKeycapTextBrush = "Brush.Brand.Rail.KeycapText";
+    public const string BrandSecondaryBrush = "Brush.Brand.Secondary";
+
     // ---- Payment method accents ----
     public const string PayCashBrush = "Brush.Pay.Cash";
     public const string PayGcashBrush = "Brush.Pay.Gcash";
@@ -111,6 +121,15 @@ public static class DesignTokens
     public const string BannerInfoBgStyle = "Banner.InfoBgStyle";
     public const string DataGridLowStockRowStyle = "DataGrid.LowStockRowStyle";
     public const string NavRailItemStyle = "NavRailItemStyle";
+    public const string NavRailTextStyle = "NavRailTextStyle";
+    public const string NavRailKeyCapStyle = "NavRailKeyCapStyle";
+    public const string NavRailKeyCapTextStyle = "NavRailKeyCapTextStyle";
+    public const string QuickActionChipStyle = "QuickActionChipStyle";
+    public const string QuickActionTextStyle = "QuickActionTextStyle";
+    public const string QuickActionKeyCapTextStyle = "QuickActionKeyCapTextStyle";
+    public const string MoneyPositiveTextStyle = "MoneyPositiveTextStyle";
+    public const string StatusSuccessTitleTextStyle = "StatusSuccessTitleTextStyle";
+    public const string StatusBarLeadTextStyle = "StatusBarLeadTextStyle";
     public const string MethodTabButtonStyle = "MethodTabButtonStyle";
     public const string ScanEditorStyle = "ScanEditorStyle";
     public const string FieldLabelStyle = "FieldLabelStyle";
@@ -143,6 +162,8 @@ public static class DesignTokens
         StatusSuccessBgBrush, StatusWarningBgBrush, StatusErrorBgBrush, StatusInfoBgBrush,
         FocusBrush,
         StateDisabledBgBrush, StateDisabledFgBrush, StateDisabledBorderBrush,
+        BrandRailBrush, BrandRailHoverBrush, BrandRailSelectedBrush, BrandRailBorderBrush,
+        BrandRailKeycapBgBrush, BrandRailKeycapTextBrush, BrandSecondaryBrush,
         PayCashBrush, PayGcashBrush, PayMayaBrush, PayBankBrush, PayCreditBrush,
         FontFamilyPrimary, FontFamilyIconGlyphs,
         FontSizeDisplay, FontSizeHeader, FontSizeTitle, FontSizeBody, FontSizeLabel, FontSizeStatus, FontSizeCaption,
@@ -157,7 +178,9 @@ public static class DesignTokens
         ButtonPrimaryStyle, ButtonSecondaryStyle, ButtonDangerStyle, ButtonQuietStyle,
         ButtonKeypadStyle, KeypadButtonAccentStyle,
         CardStyle, BannerSuccessStyle, BannerWarningStyle, BannerErrorStyle, BannerInfoBgStyle,
-        DataGridLowStockRowStyle, NavRailItemStyle, MethodTabButtonStyle,
+        DataGridLowStockRowStyle, NavRailItemStyle, NavRailTextStyle, NavRailKeyCapStyle, NavRailKeyCapTextStyle,
+        QuickActionChipStyle, QuickActionTextStyle, QuickActionKeyCapTextStyle,
+        MoneyPositiveTextStyle, StatusSuccessTitleTextStyle, StatusBarLeadTextStyle, MethodTabButtonStyle,
         ScanEditorStyle, FieldLabelStyle, DialogWindowStyle, HelpOverlayStyle,
         StatusDotStyle, KeyCapStyle, PlaceholderStyle, PlaceholderTextStyle, StatusGlyphTextStyle, LowStockSkuTextStyle,
         ErrorTemplateTextBox, ErrorTemplatePasswordBox, ErrorTextStyle,

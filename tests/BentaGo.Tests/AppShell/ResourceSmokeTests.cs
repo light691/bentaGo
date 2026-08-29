@@ -145,7 +145,9 @@ public sealed class ResourceSmokeTests
 
             var primary = FindByName<Button>(host.Window, "ProbePrimary");
             var primaryChrome = (Border)primary.Template.FindName("Chrome", primary);
-            Assert.Equal(Color.FromRgb(0x0B, 0x6E, 0x4F), ((SolidColorBrush)primaryChrome.Background).Color);
+            // Round-4: the accent is finalized to the reference green #03873F
+            // (was provisional #0B6E4F); this assertion tracks the brand token.
+            Assert.Equal(Color.FromRgb(0x03, 0x87, 0x3F), ((SolidColorBrush)primaryChrome.Background).Color);
 
             var keypad = FindByName<Button>(host.Window, "ProbeKeypad");
             Assert.Equal(72, keypad.Width);
