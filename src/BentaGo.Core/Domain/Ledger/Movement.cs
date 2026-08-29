@@ -184,3 +184,17 @@ public sealed record TripReopen : Movement
     public required TripId TripId { get; init; }
     public required string Reason { get; init; }
 }
+
+/// <summary>
+/// Cancellation of a trip before any sale (docs/01:45), with the authorized
+/// reason. No balance effect — the revert of the trip's loads is a separate,
+/// preceding TransferOut/TransferIn pair per load line, committed in the same
+/// batch (BG-005c; the cancel marker itself never touches stock).
+/// </summary>
+public sealed record TripCancel : Movement
+{
+    public override MovementKind Kind => MovementKind.TripCancel;
+    public override MovementEffect Effect => MovementEffect.None;
+    public required TripId TripId { get; init; }
+    public required string Reason { get; init; }
+}

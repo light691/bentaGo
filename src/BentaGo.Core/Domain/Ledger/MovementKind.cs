@@ -23,6 +23,7 @@ public enum MovementKind
     CountObserved,       // physical observation, no balance effect; document: CountRef
     TripClose,           // lifecycle, no balance effect; document: CloseRef
     TripReopen,          // lifecycle, no balance effect; document: ReopenRef
+    TripCancel,          // lifecycle, no balance effect; document: CancelRef (BG-005c)
 }
 
 /// <summary>

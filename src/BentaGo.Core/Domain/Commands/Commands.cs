@@ -147,6 +147,16 @@ public sealed record ReopenCommand(
     UserId By,
     DateTimeOffset NowUtc);
 
+/// <summary>
+/// Cancels a trip before any sale, with an authorized reason (docs/01:45).
+/// The service/builder reverts any issued loads in the same transaction.
+/// </summary>
+public sealed record CancelTripCommand(
+    TripId Trip,
+    string Reason,
+    UserId By,
+    DateTimeOffset NowUtc);
+
 public sealed record NewTripCommand(
     TripId Id,
     PeddlerId Peddler,

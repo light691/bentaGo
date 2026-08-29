@@ -73,6 +73,8 @@ public static class BentaGoHost
         services.AddSingleton<BentaGo.Application.Contracts.ICountService, BentaGo.Application.Services.CountService>();
         services.AddSingleton<BentaGo.Application.Contracts.ICloseService, BentaGo.Application.Services.CloseService>();
         services.AddSingleton<BentaGo.Application.Contracts.IReopenService, BentaGo.Application.Services.ReopenService>();
+        services.AddSingleton<BentaGo.Application.Contracts.ICancelTripService, BentaGo.Application.Services.CancelTripService>();
+        services.AddSingleton<BentaGo.Application.Contracts.ITripReadService, BentaGo.Application.Services.TripReadService>();
         services.AddSingleton<BentaGo.Application.Contracts.IPrintTicketStore, BentaGo.Infrastructure.PrintTickets.PrintTicketStore>();
 
         services.AddSingleton<IRestoreService>(sp => new RestoreService(

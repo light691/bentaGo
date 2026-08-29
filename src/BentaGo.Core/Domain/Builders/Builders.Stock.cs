@@ -3,6 +3,7 @@ using BentaGo.Core.Domain.Commands;
 using BentaGo.Core.Domain.Documents;
 using BentaGo.Core.Domain.Ledger;
 using BentaGo.Core.Domain.Payments;
+using BentaGo.Core.Domain.Trips;
 
 namespace BentaGo.Core.Domain.Builders;
 
@@ -18,6 +19,8 @@ public sealed record CloseDraft(DailyClose Document, IReadOnlyList<Movement> Mov
 
 public sealed record ReopenDraft(ReopenRef Document, IReadOnlyList<Movement> Movements);
 
+public sealed record CancelDraft(CancelRef Document, IReadOnlyList<Movement> Movements);
+
 public sealed record TripDraft(Trip Document, IReadOnlyList<Movement> Movements);
 
 public static class TripBuilder
@@ -27,6 +30,28 @@ public static class TripBuilder
         if (ctx.FindTrip(cmd.Id) is not null)
         {
             return Result<TripDraft>.Fail(new DomainError("DUP_TRIP", $"trip {cmd.Id} already exists"));
+        }
+
+        // One active trip per peddler (docs/00:47, docs/01:75). A peddler
+        // occupies the single slot from Draft until a terminal state — letting
+        // a second Draft exist would let loads create two active trips
+        // retroactively, so the check covers every non-terminal status. The
+        // service runs this inside the store's registered-document set; the
+        // SQLite store commits the trip in its own one-row transaction.
+        foreach (Trip existingTrip in ctx.Trips)
+        {
+            if (existingTrip.Peddler != cmd.Peddler)
+            {
+                continue;
+            }
+
+            TripStatus existing = ctx.State.Trip(existingTrip.Id).Status;
+            if (existing is not (TripStatus.Closed or TripStatus.Cancelled))
+            {
+                return Result<TripDraft>.Fail(new DomainError(
+                    "TRIP_ALREADY_ACTIVE",
+                    $"peddler {cmd.Peddler} already has an active trip {existingTrip.Id} ({existing}); one active trip per peddler"));
+            }
         }
 
         var trip = new Trip(cmd.Id, cmd.Peddler, cmd.Location, cmd.NowUtc, cmd.By);
@@ -55,6 +80,21 @@ public static class LoadBuilder
         if (trip is null)
         {
             return Result<LoadDraft>.Fail(new DomainError("TRIP_UNKNOWN", $"no trip {cmd.Trip}"));
+        }
+
+        // Loads are legal in Draft/Loading/Active ("initial and additional
+        // loads on the same day" — docs/01:88); a terminal trip never takes
+        // stock. The fold re-checks every transfer; this is the explicit
+        // phase gate so the caller sees the lifecycle vocabulary.
+        TripStatus loadStatus = ctx.State.Trip(cmd.Trip).Status;
+        if (loadStatus == TripStatus.Closed)
+        {
+            return Result<LoadDraft>.Fail(new DomainError("TRIP_CLOSED", $"trip {cmd.Trip} is closed and cannot be loaded"));
+        }
+
+        if (loadStatus == TripStatus.Cancelled)
+        {
+            return Result<LoadDraft>.Fail(new DomainError("TRIP_CANCELLED", $"trip {cmd.Trip} is cancelled and cannot be loaded"));
         }
 
         var errors = new List<DomainError>();
@@ -187,6 +227,11 @@ public static class CloseBuilder
             return Result<CloseDraft>.Fail(new DomainError("TRIP_CLOSED", $"trip {cmd.Trip} is already closed"));
         }
 
+        if (status == TripStatus.Cancelled)
+        {
+            return Result<CloseDraft>.Fail(new DomainError("TRIP_CANCELLED", $"trip {cmd.Trip} is cancelled and cannot be closed"));
+        }
+
         if (status == TripStatus.Planned)
         {
             return Result<CloseDraft>.Fail(new DomainError("TRIP_NOT_OPEN", $"trip {cmd.Trip} is not open"));
@@ -234,5 +279,97 @@ public static class ReopenBuilder
         };
 
         return Result<ReopenDraft>.Ok(new ReopenDraft(new ReopenRef(cmd.Trip), movements));
+    }
+}
+
+/// <summary>
+/// Cancellation of a trip before any sale (docs/01:45), with an authorized
+/// reason. The state machine (Draft/Loading only) is the phase gate; the
+/// revert of each issued load line is a TransferOut(from the trip location)
+/// + TransferIn(to the load's original source, derived from the movement
+/// stream) pair carrying the SAME LoadRef — one atomic batch with the
+/// TripCancel marker (BG-005c). "Cancelled trips don't create stock deltas"
+/// (brief): the marker itself has no balance effect; the revert is what puts
+/// stock back.
+/// </summary>
+public static class CancelBuilder
+{
+    public static Result<CancelDraft> Build(LedgerContext ctx, IReadOnlyList<Movement> movements, CancelTripCommand cmd)
+    {
+        Trip? trip = ctx.FindTrip(cmd.Trip);
+        if (trip is null)
+        {
+            return Result<CancelDraft>.Fail(new DomainError("TRIP_UNKNOWN", $"no trip {cmd.Trip}"));
+        }
+
+        if (string.IsNullOrWhiteSpace(cmd.Reason))
+        {
+            return Result<CancelDraft>.Fail(new DomainError("REASON_REQUIRED", "a cancel needs an authorized reason"));
+        }
+
+        bool hasSales = false;
+        foreach (Sale sale in ctx.Sales)
+        {
+            if (sale.Trip == cmd.Trip)
+            {
+                hasSales = true;
+                break;
+            }
+        }
+
+        // The docs' phase gate through the pure machine: cancellation is
+        // legal only from Draft/Loading (never after a sale — docs/01:45).
+        TripPhase phase = TripLifecycle.PhaseOf(ctx.State.Trip(cmd.Trip), hasSales);
+        Result<TripPhase> gate = TripLifecycle.Transition(phase, TripAction.Cancel);
+        if (gate.IsFailure)
+        {
+            return Result<CancelDraft>.Fail(gate.Errors);
+        }
+
+        var reverted = new List<Movement>();
+        foreach (StockLoad load in ctx.Loads)
+        {
+            if (load.Trip != cmd.Trip)
+            {
+                continue;
+            }
+
+            foreach (StockLoadLine line in load.Lines)
+            {
+                LocationId? source = SourceOf(movements, load.Id, line.ProductId);
+                if (source is null)
+                {
+                    return Result<CancelDraft>.Fail(new DomainError(
+                        "TRIP_CANCEL_SOURCE_UNKNOWN",
+                        $"cannot revert load {load.Id}: no TransferOut movement found for product {line.ProductId}"));
+                }
+
+                reverted.Add(Moves.TransferOut(
+                    0, cmd.NowUtc, cmd.By, new LoadRef(load.Id), line.ProductId, trip.Location, line.Quantity));
+                reverted.Add(Moves.TransferIn(
+                    0, cmd.NowUtc, cmd.By, new LoadRef(load.Id), line.ProductId, source.Value, line.Quantity));
+            }
+        }
+
+        reverted.Add(Moves.TripCancel(
+            0, cmd.NowUtc, cmd.By, new CancelRef(cmd.Trip), cmd.Trip, cmd.Reason));
+        return Result<CancelDraft>.Ok(new CancelDraft(new CancelRef(cmd.Trip), reverted));
+    }
+
+    /// <summary>The location a load line left from: the stream's TransferOut carrying that LoadRef.</summary>
+    private static LocationId? SourceOf(IReadOnlyList<Movement> movements, LoadId loadId, ProductId product)
+    {
+        foreach (Movement movement in movements)
+        {
+            if (movement is TransferOut transferOut
+                && transferOut.Document is LoadRef loadRef
+                && loadRef.Id == loadId
+                && transferOut.ProductId == product)
+            {
+                return transferOut.LocationId;
+            }
+        }
+
+        return null;
     }
 }
