@@ -1,5 +1,5 @@
 {
-  "generation": 7,
+  "generation": 8,
   "stack": [
     {
       "id": "BG-001",
@@ -58,11 +58,27 @@
       "notes": "BG-005 slice c: trips/stock-loads/peddler-isolation. Pure TripLifecycle (6-state incl Cancelled, pinned transition table), TripCancel movement kind + migration BG005c_01 (CHECK reasons), atomic load revert, one-active-trip (service+txn), peddler-scoped services (explicit param - IActorContext carries user id only), on-hand from movements only. 298/298 branch + merged main, format 0 diagnostics. Also fixed latent RefreshFromDatabase Context-rebuild bug + OrderBy on branded records. Audits reuse REOPEN/CLOSE categories (no TRIP.* set - follow-up recorded)."
     },
     {
+      "id": "BG-005d-core",
+      "branch": "main",
+      "state": "MERGED",
+      "mergeCommit": "52f3e90",
+      "mergedAt": "2026-08-30T00:15:00+08:00",
+      "notes": "BG-005 d-core: F8 session actor binding (AUTH_ACTOR_NOT_SIGNED_IN/AUTH_ACTOR_MISMATCH before store lookup; login-success sets actor; logout gap documented for 5d-ui), F3 auth-state+audit compensation (cross-connection txn impossible - documented), F7 RestoreService Users admin-row verify, F4 contract rewording + parity test. +16 tests; 314/314 branch + merged main."
+    },
+    {
+      "id": "ui-rework",
+      "branch": "main",
+      "state": "MERGED",
+      "mergeCommit": "3debaf7+d876ae9",
+      "mergedAt": "2026-08-30T00:30:00+08:00",
+      "notes": "Luna design pass (#9, merged first on stale base - caught + re-delivered correctly) + operator pass 2 (#10, rebased on current main, 0 conflicts, delta = 13 pass-2 files). Palette #0A2E4F approved. 314/314 merged main, review pack rail-gated PASS, format 0 diagnostics. Process note: first push of rebased head was rejected (non-fast-forward) and #9 merged a stale remote head; corrected via #10 after exact-delta verification - pushed test of the review discipline, no content lost."
+    },
+    {
       "id": "BG-005",
       "branch": "bg-005",
       "state": "NEXT",
-      "dependsOn": ["BG-003", "BG-004", "BG-005a", "BG-005b", "BG-005c"],
-      "notes": "Remaining: 5d-core (F8 actor binding, F3 auth atomicity, F7 restore Users-row verify - dispatched, queue/bg-005d-core-brief.md), 5d-ui (admin views - after operator ui-rework lands; interaction-change gate). Docs/02:100 category round (TRIP.* set + terminal/reason on non-auth rows) recorded as follow-up."
+      "dependsOn": ["BG-003", "BG-004", "BG-005a", "BG-005b", "BG-005c", "BG-005d-core", "ui-rework"],
+      "notes": "Remaining: 5d-audit-categories (TRIP.* set + terminal/reason - dispatched), 5d-ui (admin screens on reworked design - interaction-changing, STOPS at merge-ready for operator click). After BG-005: docs/02:100 category round complete, BG-006 next (sales/search/scanner/cart/payments/checkout)."
     }
   ],
   "note": "Frontier gen 6 after BG-005b merge (delegated). 279 tests green on merged main; dotnet format --verify-no-changes established as a REAL gate (0 diagnostics) after repo-wide EOL normalization (.gitattributes eol=lf + sweeps at 8d16a8d/6f18f79/3615bba). Known auth limitation: pushes touching .github/workflows/windows.yml are rejected (OAuth App lacks workflow scope) - one trailing-newline fix for that file is held locally; content, not pushed. ui-rework parked by operator instruction. BG-005c dispatch next."
