@@ -1,0 +1,23 @@
+name,description,Category,rp_inclusive,wp_inclusive,barcode1,barcode2,Warehouse,s_discR,s_discPWD_SC,s_PWD_SC_perc,s_discAth,s_ask_qty,stock_qty,cost,has_expiry,expiration_date
+Del Monte ACE Pineapple Juice 220ml,Del Monte ACE Pineapple Juice 220ml,Canned Juices,39.00,39.00,4806515910543,,Stock,False,False,0.00,False,True,11.00,29.96,False,6/18/2026 12:00:00 AM
+Del Monte Sweetened Pineapple Juice 220ml,Del Monte Sweetened Pineapple Juice 220ml,Canned Juices,35.00,35.00,,,Stock,True,False,0.00,False,True,-21.00,29.74,False,6/18/2026 12:00:00 AM
+Sky Flakes Crackers 200g,Sky Flakes Crackers 200g,BISCUIT/SNACK,22.50,0.00,4806515910544,,Stock,True,False,0.00,False,True,12.00,18.50,False,12/27/2025 12:00:00 AM
+Lucky Me Pancit Canton 80g,Lucky Me Pancit Canton 80g,Noodles,,16.00,4806515910545,,Stock,True,False,0.00,False,True,30.00,12.40,False,12/27/2025 12:00:00 AM
+Silver Swan Soy Sauce 385ml,Silver Swan Soy Sauce 385ml,Condiments,42.00,40.00,,,Stock,True,False,0.00,False,True,20.00,34.00,False,6/18/2026 12:00:00 AM
+Kopiko Blanca 28g,Kopiko Blanca 28g,CANDIES,7.00,7.00,,,Stock,True,False,0.00,False,False,40.00,5.20,False,12/27/2025 12:00:00 AM
+Kopiko Blanca 28g,Kopiko Blanca 28g,CANDIES,7.00,7.00,,,Stock,True,False,0.00,False,False,40.00,5.20,False,12/27/2025 12:00:00 AM
+Binder Clip 1" Black,Binder Clip 1" Black,COLGATE,3.00,3.00,4806525912394,,Stock,True,True,20.00,False,False,10.00,1.50,False,12/6/2025 12:00:00 AM
+GILAS PAPER PLATE 9",GILAS PAPER PLATE 9",HOME ESSENTIALS,35.00,0.00,4806515910543,,Stock,True,False,0.00,False,False,-203.00,26.50,False,5/11/2026 12:00:00 AM
+Datu Puti Vinegar 385ml,Datu Puti Vinegar 385ml,Condiments,65.005,38.00,4806515910546,,Stock,False,False,0.00,False,True,0.00,30.00,False,6/18/2026 12:00:00 AM
+Bear Brand Powdered Milk 300g,Bear Brand Powdered Milk 300g,BREAKFAST CEREAL,95.00,95.00,4806515910547,,Stock,True,False,0.00,False,True,6.00,82.00,True,2026-06-18 12:00:00 AM
+,,CANDIES,10.00,10.00,4806515910548,,Stock,True,False,0.00,False,False,5.00,8.00,False,12/6/2025 12:00:00 AM
+Carlos De Peso Premium Egg Coffee 3in1 20s,Carlos De Peso Premium Egg Coffee 3in1 20s,Coffee,120.00,100.00,4806515910551,,Stock,False,False,0.00,False,False,24.00,98.00,False,6/18/2026 12:00:00 AM
+Sunny Orange Drink 220ml,Sunny Orange Drink 220ml,Beverages,12.50,12.50,4806515910552,,Stock,False,False,0.00,False,True,30.00,9.40,False,6/18/2026 12:00:00 AM
+Clear Water 350ml,Clear Water 350ml,Beverages,10.00,8.50,4806515910553,,Stock,False,False,0.00,False,True,0.00,6.20,False,6/18/2026 12:00:00 AM
+Piattos Cheese 85g,Piattos Cheese 85g,BISCUIT/SNACK,25.00,0.00,4806515910554,,Stock,True,False,0.00,False,True,15.00,19.00,False,12/27/2025 12:00:00 AM
+CDO Corned Beef 150g,CDO Corned Beef 150g,Canned Goods,45.00,42.00,4806515910555,,Stock,True,False,0.00,False,True,8.00,37.00,True,10/5/2026 12:00:00 AM
+Magnolia Chunky Chicken 155g,Magnolia Chunky Chicken 155g,Canned Goods,48.00,46.00,4806515910556,,Stock,True,True,20.00,False,True,9.00,40.00,False,12/6/2025 12:00:00 AM
+Kopiko Coffee 28g 3in1,Kopiko Coffee 28g 3in1,Coffee,7.00,7.00,4806515910557,,Stock,False,False,0.00,True,False,36.00,5.60,False,12/27/2025 12:00:00 AM
+Silver Swan Vinegar 385ml,Silver Swan Vinegar 385ml,Condiments,38.00,-3.00,4806515910558,,Stock,False,False,0.00,False,True,5.00,30.00,False,6/18/2026 12:00:00 AM
+Beef-Meat Loaf-Sausage 155g,Beef-Meat Loaf-Sausage 155g,Beef-Meat Loaf-Sausage,44.00,42.00,4806515910559,,Stock,True,False,0.00,False,True,11.00,36.00,False,12/27/2025 12:00:00 AM
+Datu Puti Vinegar 385ml Big,Datu Puti Vinegar 385ml Big,Condiments,80.00,76.00,4806515910560,1234567890123,Stock,False,False,0.00,False,True,4.00,64.00,False,6/18/2026 12:00:00 AM

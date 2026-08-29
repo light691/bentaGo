@@ -56,8 +56,8 @@ public sealed class MigrationTests : IDisposable
         await using var context = await host.GetRequiredService<IDbContextFactory<BentaGoDbContext>>()
             .CreateDbContextAsync();
         string[] applied = (await context.Database.GetAppliedMigrationsAsync()).ToArray();
-        Assert.Equal(4, applied.Length); // InitialCreate + BG003_01 + BG003_02 + BG005_01
-        Assert.EndsWith("BG005_01_AddIdentityAndAudit", applied[^1]);
+        Assert.Equal(5, applied.Length); // InitialCreate + BG003_01 + BG003_02 + BG005_01 + BG005b_01
+        Assert.EndsWith("BG005b_01_AddProductCatalog", applied[^1]);
 
         await using var connection = new SqliteConnection($"Data Source={DbPath(root)};Mode=ReadOnly;Pooling=False");
         await connection.OpenAsync();
@@ -78,6 +78,7 @@ public sealed class MigrationTests : IDisposable
         Assert.True(await TableExistsAsync(connection, "AuditEvents"));
         Assert.True(await TableExistsAsync(connection, "Users"));
         Assert.True(await TableExistsAsync(connection, "Peddlers"));
+        Assert.True(await TableExistsAsync(connection, "Products")); // BG-005b catalog
 
         // Append-only triggers on Movements.
         Assert.True(await TriggerExistsAsync(connection, "Movements_NoUpdate"));
@@ -85,7 +86,7 @@ public sealed class MigrationTests : IDisposable
 
         // A second migrate converges.
         await initializer.EnsureCreatedOrMigrateAsync();
-        Assert.Equal(4, (await context.Database.GetAppliedMigrationsAsync()).Count());
+        Assert.Equal(5, (await context.Database.GetAppliedMigrationsAsync()).Count());
 
         await connection.CloseAsync();
     }
@@ -119,10 +120,11 @@ public sealed class MigrationTests : IDisposable
         var initializer = host.GetRequiredService<DbInitializer>();
         await initializer.EnsureCreatedOrMigrateAsync();
 
-        Assert.Equal(4, await CountRowsAsync(dbPath, "__EFMigrationsHistory"));
+        Assert.Equal(5, await CountRowsAsync(dbPath, "__EFMigrationsHistory"));
         Assert.True(await TableExistsAsync(dbPath, "IdempotencyKeys"));
         Assert.True(await TableExistsAsync(dbPath, "Users"));
         Assert.True(await TableExistsAsync(dbPath, "Peddlers"));
+        Assert.True(await TableExistsAsync(dbPath, "Products")); // BG-005b catalog
 
         // Rows and totals survived the upgrade verbatim.
         Assert.Equal(movementsBefore, await CountRowsAsync(dbPath, "Movements"));
@@ -135,7 +137,7 @@ public sealed class MigrationTests : IDisposable
         await using var context = await host.GetRequiredService<IDbContextFactory<BentaGoDbContext>>()
             .CreateDbContextAsync();
         string[] applied = (await context.Database.GetAppliedMigrationsAsync()).ToArray();
-        Assert.EndsWith("BG005_01_AddIdentityAndAudit", applied[^1]);
+        Assert.EndsWith("BG005b_01_AddProductCatalog", applied[^1]);
     }
 
     private static async Task<bool> TableExistsAsync(SqliteConnection connection, string name)
