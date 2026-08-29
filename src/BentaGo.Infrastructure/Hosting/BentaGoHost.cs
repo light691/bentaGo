@@ -1,4 +1,5 @@
 using System.IO;
+using BentaGo.Application.Contracts;
 using BentaGo.Infrastructure.Backup;
 using BentaGo.Infrastructure.Configuration;
 using BentaGo.Infrastructure.Logging;
@@ -42,7 +43,15 @@ public static class BentaGoHost
         services.AddSingleton<DbInitializer>();
 
         services.AddSingleton<IPasswordHasher, BCryptPasswordHasher>();
-        services.AddSingleton<BentaGo.Application.Contracts.ILoginService, LoginService>();
+        services.AddSingleton<Func<DateTimeOffset>>(() => DateTimeOffset.UtcNow);
+        services.AddSingleton<LoginService>();
+        services.AddSingleton<BentaGo.Application.Contracts.ILoginService>(sp =>
+            sp.GetRequiredService<LoginService>());
+        services.AddSingleton<BentaGo.Application.Contracts.IAuthenticationService>(sp =>
+            sp.GetRequiredService<LoginService>());
+        services.AddSingleton<BentaGo.Application.Contracts.IActorContext, BentaGo.Application.Services.ActorContext>();
+        services.AddSingleton<BentaGo.Application.Contracts.IUserAccountStore, UserAccountStore>();
+        services.AddSingleton<BentaGo.Application.Contracts.IUserAccountService, BentaGo.Application.Services.UserAccountService>();
         services.AddSingleton<IAdminSeeder, AdminSeeder>();
         services.AddSingleton<IBackupService, BackupService>();
 

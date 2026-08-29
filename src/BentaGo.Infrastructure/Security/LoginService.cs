@@ -1,46 +1,111 @@
 using BentaGo.Application.Contracts;
-using BentaGo.Infrastructure.Persistence;
-using Microsoft.EntityFrameworkCore;
+using BentaGo.Core.Domain;
+using BentaGo.Core.Domain.Documents;
+using BentaGo.Core.Domain.Identity;
 
 namespace BentaGo.Infrastructure.Security;
 
 /// <summary>
-/// Placeholder user store backed by the seeded admin key/value rows.
-/// BG-005 replaces this with real users and roles.
+/// Real authentication (BG-005a): resolves the account through
+/// <see cref="IUserAccountStore"/> (the Users table), verifies the password
+/// with BCrypt via <see cref="IPasswordHasher"/>, enforces the lockout
+/// policy (<see cref="AccountLockout"/>: 5 fails / 15 minutes), and records
+/// an AuditEvent for EVERY attempt through the ledger store. Implements BOTH
+/// <see cref="IAuthenticationService"/> (the rich AuthResult) and the
+/// UNCHANGED <see cref="ILoginService"/> (bool) so the WPF shell compiles and
+/// runs untouched.
+///
+/// Audit rules: failure messages are fixed generic strings that never reveal
+/// whether a username exists (docs/03:33); the actor is the attributed user
+/// when the username maps to one, otherwise <see cref="UserId.Anonymous"/>;
+/// terminal is the machine name per docs/01:77.
 /// </summary>
-public sealed class LoginService : ILoginService
+public sealed class LoginService : IAuthenticationService, ILoginService
 {
-    private const string UsernameKey = "seed.admin.username";
-    private const string PasswordHashKey = "seed.admin.passwordHash";
-
-    private readonly IDbContextFactory<BentaGoDbContext> _factory;
+    private readonly IUserAccountStore _store;
     private readonly IPasswordHasher _passwordHasher;
+    private readonly ILedgerStore _ledger;
+    private readonly Func<DateTimeOffset> _clock;
 
-    public LoginService(IDbContextFactory<BentaGoDbContext> factory, IPasswordHasher passwordHasher)
+    public LoginService(IUserAccountStore store, IPasswordHasher passwordHasher, ILedgerStore ledger, Func<DateTimeOffset> clock)
     {
-        _factory = factory;
+        _store = store;
         _passwordHasher = passwordHasher;
+        _ledger = ledger;
+        _clock = clock;
     }
 
-    public async Task<bool> AuthenticateAsync(string username, string password, CancellationToken cancellationToken = default)
+    /// <summary>The rich authentication path (BG-005a).</summary>
+    public Task<AuthResult> AuthenticateAsync(string username, string password, CancellationToken cancellationToken = default) =>
+        AuthenticateCoreAsync(username, password, cancellationToken);
+
+    /// <summary>
+    /// Placeholder-shell compatibility: the SAME authentication (audits and
+    /// lockout included) reduced to the bool the WPF shell expects.
+    /// </summary>
+    async Task<bool> ILoginService.AuthenticateAsync(string username, string password, CancellationToken cancellationToken)
     {
+        AuthResult result = await AuthenticateCoreAsync(username, password, cancellationToken);
+        return result.Success;
+    }
+
+    private async Task<AuthResult> AuthenticateCoreAsync(string username, string password, CancellationToken cancellationToken)
+    {
+        // Blank submits are not attempts: no audit, generic failure (the shell
+        // never sends them; they cannot leak anything).
         if (string.IsNullOrWhiteSpace(username) || password is null)
         {
-            return false;
+            return AuthResult.InvalidCredentials;
         }
 
-        await using var context = await _factory.CreateDbContextAsync(cancellationToken);
-        var rows = await context.AppSettings
-            .Where(s => s.Key == UsernameKey || s.Key == PasswordHashKey)
-            .ToDictionaryAsync(s => s.Key, s => s.Value, cancellationToken);
+        DateTimeOffset now = _clock();
 
-        if (!rows.TryGetValue(UsernameKey, out var expectedUsername) ||
-            !rows.TryGetValue(PasswordHashKey, out var hash))
+        User? user = await _store.FindByUsernameAsync(username, cancellationToken);
+        if (user is null)
         {
-            return false;
+            AuditLogin(UserId.Anonymous, now,
+                AuthenticationAudit.LoginFailureCategory, AuthenticationAudit.InvalidCredentialsMessage);
+            return AuthResult.InvalidCredentials;
         }
 
-        return string.Equals(expectedUsername, username, StringComparison.Ordinal)
-               && _passwordHasher.Verify(password, hash);
+        if (AccountLockout.IsLocked(user, now))
+        {
+            // Locked: refuse BEFORE any credential work; counter untouched.
+            AuditLogin(user.Id, now,
+                AuthenticationAudit.LoginFailureCategory, AuthenticationAudit.AccountLockedMessage);
+            return AuthResult.AccountLocked;
+        }
+
+        // A deactivated account can never sign in; the response stays generic
+        // so existence is not revealed through the failure text.
+        if (user.DeactivatedUtc is not null)
+        {
+            AuditLogin(user.Id, now,
+                AuthenticationAudit.LoginFailureCategory, AuthenticationAudit.InvalidCredentialsMessage);
+            return AuthResult.InvalidCredentials;
+        }
+
+        if (!_passwordHasher.Verify(password, user.PasswordHash))
+        {
+            User updated = AccountLockout.OnFailedAttempt(user, now);
+            await _store.UpdateAsync(updated, cancellationToken);
+            AuditLogin(user.Id, now,
+                AuthenticationAudit.LoginFailureCategory, AuthenticationAudit.InvalidCredentialsMessage);
+            return AuthResult.InvalidCredentials;
+        }
+
+        // Success: clear the failure state and record the happy path.
+        await _store.UpdateAsync(AccountLockout.OnSuccess(user), cancellationToken);
+        AuditLogin(user.Id, now,
+            AuthenticationAudit.LoginSuccessCategory, AuthenticationAudit.LoginSuccessMessage);
+        return AuthResult.Ok(user.Id, user.Role);
+    }
+
+    /// <summary>One audit row per attempt, in its own tiny transaction (lane-9 style).</summary>
+    private void AuditLogin(UserId actor, DateTimeOffset when, string category, string message)
+    {
+        _ledger.RecordAudit(new AuditEvent(
+            -1, actor, when, category, message, Ref: null,
+            Terminal: Environment.MachineName, Reason: null));
     }
 }

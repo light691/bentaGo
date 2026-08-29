@@ -385,19 +385,26 @@ public sealed partial class SqliteLedgerStore
         command.ExecuteNonQuery();
     }
 
-    private static void InsertAudit(SqliteConnection connection, AuditEvent audit)
+    /// <summary>
+    /// Inserts an audit row WITHOUT a caller-supplied sequence: the
+    /// AuditEvents PK on Sequence is the SQLite rowid identity (BG-005a),
+    /// so the row gets the next identity and <c>last_insert_rowid()</c>
+    /// returns it to the caller. The -1 placeholder is never stored.
+    /// </summary>
+    private static long InsertAudit(SqliteConnection connection, AuditEvent audit)
     {
         using var command = connection.CreateCommand();
         command.CommandText =
             """
-            INSERT INTO "AuditEvents" ("sequence", "actor_id", "when_utc", "category", "message", "doc_kind", "doc_id")
-            VALUES ($seq, $actor, $when, $category, $message, $docKind, $docId)
+            INSERT INTO "AuditEvents" ("actor_id", "when_utc", "category", "message", "doc_kind", "doc_id", "terminal", "reason")
+            VALUES ($actor, $when, $category, $message, $docKind, $docId, $terminal, $reason)
             """;
-        command.Parameters.AddWithValue("$seq", audit.Sequence);
         command.Parameters.AddWithValue("$actor", D(audit.Actor));
         command.Parameters.AddWithValue("$when", IsoUtc(audit.WhenUtc));
         command.Parameters.AddWithValue("$category", audit.Category);
         command.Parameters.AddWithValue("$message", audit.Message);
+        command.Parameters.AddWithValue("$terminal", (object?)audit.Terminal ?? DBNull.Value);
+        command.Parameters.AddWithValue("$reason", (object?)audit.Reason ?? DBNull.Value);
         if (audit.Ref is null)
         {
             command.Parameters.AddWithValue("$docKind", DBNull.Value);
@@ -410,6 +417,10 @@ public sealed partial class SqliteLedgerStore
         }
 
         command.ExecuteNonQuery();
+
+        using var idCommand = connection.CreateCommand();
+        idCommand.CommandText = "SELECT last_insert_rowid()";
+        return Convert.ToInt64(idCommand.ExecuteScalar());
     }
 
     private List<AuditEvent> ReadAudits(SqliteConnection connection)
@@ -417,7 +428,7 @@ public sealed partial class SqliteLedgerStore
         var audits = new List<AuditEvent>();
         using var command = connection.CreateCommand();
         command.CommandText =
-            "SELECT \"sequence\", \"actor_id\", \"when_utc\", \"category\", \"message\", \"doc_kind\", \"doc_id\" FROM \"AuditEvents\" ORDER BY \"rowid\"";
+            "SELECT \"sequence\", \"actor_id\", \"when_utc\", \"category\", \"message\", \"doc_kind\", \"doc_id\", \"terminal\", \"reason\" FROM \"AuditEvents\" ORDER BY \"rowid\"";
         using SqliteDataReader reader = command.ExecuteReader();
         while (reader.Read())
         {
@@ -430,7 +441,9 @@ public sealed partial class SqliteLedgerStore
                 ParseIso(reader.GetString(2)),
                 reader.GetString(3),
                 reader.GetString(4),
-                reference));
+                reference,
+                reader.IsDBNull(7) ? null : reader.GetString(7),
+                reader.IsDBNull(8) ? null : reader.GetString(8)));
         }
 
         return audits;

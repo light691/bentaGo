@@ -126,8 +126,14 @@ public interface ILedgerStore
     /// batch mapped to its committed range.</summary>
     Result<AppendReceipt> Append(IReadOnlyList<Movement> movements);
 
-    /// <summary>A standalone tiny transaction (lane-9 style audit rows).</summary>
-    void RecordAudit(AuditEvent audit);
+    /// <summary>
+    /// Records a standalone audit row in its own tiny transaction (lane-9
+    /// style) and returns the PERSISTED identity sequence (BG-005a: the
+    /// AuditEvents PK on Sequence is assigned by the store — the caller's
+    /// <c>-1</c> placeholder is replaced by the DB identity; the in-memory
+    /// store assigns the next incremental sequence).
+    /// </summary>
+    long RecordAudit(AuditEvent audit);
 
     IReadOnlyList<AuditEvent> Audits { get; }
 

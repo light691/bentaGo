@@ -1,5 +1,8 @@
+using BentaGo.Application.Contracts;
 using BentaGo.Core.Domain;
+using BentaGo.Core.Domain.Identity;
 using BentaGo.Infrastructure.Persistence;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 
 namespace BentaGo.Infrastructure.Security;
@@ -10,13 +13,19 @@ public interface IAdminSeeder
 }
 
 /// <summary>
-/// Seeds the initial administrator placeholder (username + bcrypt hash of
-/// "admin"). Idempotent: a second run inserts nothing.
+/// Seeds the initial administrator (username 'admin', BCrypt hash of 'admin',
+/// Role.Admin) as a real Users row (BG-005a). Idempotent: a second run
+/// inserts nothing, and the hash is computed at most once per run even when
+/// both rows need it. The legacy AppSettings seed.* rows are ALSO kept
+/// (restore verification and bootstrap tests rely on them) but are no longer
+/// consulted by login — existing data roots that carry them keep working
+/// untouched, and a fresh root still satisfies the BG-001 first-run contract.
 /// </summary>
 public sealed class AdminSeeder : IAdminSeeder
 {
     private const string UsernameKey = "seed.admin.username";
     private const string PasswordHashKey = "seed.admin.passwordHash";
+    private const string AdminUsername = "admin";
 
     private readonly IDbContextFactory<BentaGoDbContext> _factory;
     private readonly IPasswordHasher _passwordHasher;
@@ -31,27 +40,43 @@ public sealed class AdminSeeder : IAdminSeeder
     {
         await using var context = await _factory.CreateDbContextAsync(cancellationToken);
 
-        bool alreadySeeded = await context.AppSettings
+        string? adminHash = null;
+        string Hash() => adminHash ??= _passwordHasher.Hash("admin");
+
+        bool hasAppRows = await context.AppSettings
             .AnyAsync(s => s.Key == UsernameKey, cancellationToken);
-        if (alreadySeeded)
+        if (!hasAppRows)
         {
-            return;
+            context.AppSettings.Add(new AppSettingKeyValue { Key = UsernameKey, Value = AdminUsername });
+            context.AppSettings.Add(new AppSettingKeyValue { Key = PasswordHashKey, Value = Hash() });
         }
 
-        context.AppSettings.Add(new AppSettingKeyValue { Key = UsernameKey, Value = "admin" });
-        context.AppSettings.Add(new AppSettingKeyValue
+        bool hasAdminUser = await context.Users
+            .AnyAsync(u => u.Username == AdminUsername, cancellationToken);
+        if (!hasAdminUser)
         {
-            Key = PasswordHashKey,
-            Value = _passwordHasher.Hash("admin"),
-        });
+            context.Users.Add(new User
+            {
+                Id = new UserId(Guid.NewGuid()),
+                Username = AdminUsername,
+                PasswordHash = Hash(),
+                Role = Role.Admin,
+                PeddlerLink = null,
+                FailedAttempts = 0,
+                LockedUntilUtc = null,
+                DeactivatedUtc = null,
+                CreatedBy = UserId.Anonymous,
+                CreatedUtc = DateTimeOffset.UtcNow,
+            });
+        }
 
         try
         {
             await context.SaveChangesAsync(cancellationToken);
         }
-        catch (Microsoft.Data.Sqlite.SqliteException)
+        catch (SqliteException)
         {
-            // A concurrent boot seeded the same keys between our check and
+            // A concurrent boot seeded the same rows between our check and
             // save. The rows now exist, which is the wanted end state.
         }
     }
