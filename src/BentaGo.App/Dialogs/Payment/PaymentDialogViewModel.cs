@@ -188,6 +188,14 @@ public sealed class PaymentDialogViewModel : DialogViewModelBase<PaymentDialogRe
     {
         Total = total;
         SelectedMethodId = CashId;
+        // Cash is the default already, so the property setter is a no-op and
+        // the option flags are never synced; hydrate them explicitly so the
+        // selected method renders green-filled (round-6 visual contract).
+        foreach (MethodOption option in MethodOptions)
+        {
+            option.IsSelected = option.Id == SelectedMethodId;
+        }
+
         AmountReceivedText = "";
         CustomerName = "";
         Reference = "";

@@ -29,7 +29,7 @@
                      Style="{StaticResource StockSearchEditorStyle}"
                      Text="{Binding SearchQuery, UpdateSourceTrigger=PropertyChanged}"
                      MaxWidth="420"
-                     HorizontalAlignment="Left"
+                     HorizontalAlignment="Stretch"
                      ui:FocusTarget.Id="Stock.StockSearchBox" />
             <Button Grid.Column="1"
                     Content="{Binding LowOnlyLabel}"
