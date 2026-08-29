@@ -1,0 +1,10 @@
+# BG-006 perf probe — 50000 products, 100000 movements, 1000 lookups, 100 checkouts (1 warm-up excluded)
+head	8ff4cd979778091ab2dc91b4a9e019e2670d49c6
+seed	seed catalog	5495 ms
+seed	seed movements	72295 ms
+metric	bg-006 lookup P95	3 ms	rule <= 100 ms
+metric	bg-006 lookup median	2 ms
+metric	bg-006 session checkout P95	118 ms	rule <= 2000 ms
+metric	bg-006 session checkout median	47 ms
+baseline	bg-005 search (ProductStore.FindBySkuAsync) P95	1 ms
+baseline	bg-003 txn (ICheckoutService.Checkout) P95	152 ms
