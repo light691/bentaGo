@@ -1,9 +1,9 @@
 id	track	state	branch	pr	head	brief
-BG-001	foundation	pending	bg-001	-	-	Package A foundation, pinned SDK, backups
-BG-002	domain	pending	bg-002	-	-	Domain model, invariants, scenario builder
-BG-003	persist	pending	bg-003	-	-	EF Core persisting ledger, atomic ops
-BG-004	shell	pending	bg-004	-	-	WPF shell and six-screen design system
-BG-005	admin	pending	bg-005	-	-	Auth, catalog, trips, loads, CSV exchange
+BG-001	foundation	MERGED	main	#1	716c95f	Package A foundation, pinned SDK, backups, login shell; squash-merged, 12/12 + foundation verify
+BG-002	domain	MERGED	main	#2	1e82759	Domain model, invariants, scenario builder; 2 audit rounds, 43/43, golden scenario
+BG-003	persist	MERGED	main	#3	b65469a	SQLite persist the ledger + atomic ops behind widened ILedgerStore; 59/59 + verify
+BG-004	shell	MERGE-GATE	bg-004-glm7	-	c6bf973	WPF shell + design system; interaction-changing => stop at merge-ready. 127/127, review pack PASS (rail-gated), 6 PNGs navy verified. Operator UI rework in progress (Codex, root checkout, uncommitted). Merge gate pending operator click.
+BG-005	admin	NEXT	bg-005	-	-	Auth, catalog, trips, stock loads, CSV exchange (docs/05 287-339). After BG-004 merge. Carries BG-001 deferred audit findings 3+4 (auth/audit logging) + client Product.csv v2-contract import unit.
 BG-006	sales	pending	bg-006	-	-	Search, scanner, cart, payments, checkout
 BG-007	hardware	pending	bg-007	-	-	Receipts, ESC/POS, diagnostics, corrections
 BG-008	close	pending	bg-008	-	-	Close, counts, variance, reports, exports
