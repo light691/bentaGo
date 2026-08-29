@@ -188,7 +188,17 @@ public sealed class MainViewModel : ViewModelBase
 
     public ICommand FocusSearchCommand { get; }
 
-    public IReadOnlyList<RailItemViewModel> RailItems { get; private set; } = Array.Empty<RailItemViewModel>();
+    public IReadOnlyList<RailItemViewModel> RailItems
+    {
+        get => _railItems;
+        // SetProperty is mandatory here: BuildRail reassigns the list after
+        // the session role loads (admin entries), and a plain auto-property
+        // never notifies the ItemsControl - the rail would keep the startup
+        // 5 items (captured by the live lane).
+        private set => SetProperty(ref _railItems, value);
+    }
+
+    private IReadOnlyList<RailItemViewModel> _railItems = Array.Empty<RailItemViewModel>();
 
     /// <summary>
     /// The window-level gesture surface: catalog id -&gt; (command, parameter).
