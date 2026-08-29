@@ -41,6 +41,31 @@ public sealed class ProductStore(IDbContextFactory<BentaGoDbContext> factory) : 
         return await context.Products.SingleOrDefaultAsync(p => p.Sku == sku, cancellationToken);
     }
 
+    public async Task<Product?> FindByBarcodeAsync(string barcode, CancellationToken cancellationToken = default)
+    {
+        await using var context = await factory.CreateDbContextAsync(cancellationToken);
+        // Exact TEXT equality — leading zeros are significant by construction
+        // (barcodes are verbatim strings, never rewrapped as numbers; the
+        // IX_Products_Barcode unique index serves this).
+        return await context.Products.SingleOrDefaultAsync(p => p.Barcode == barcode, cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<Product>> SearchByNameAsync(
+        string namePart, int limit, CancellationToken cancellationToken = default)
+    {
+        await using var context = await factory.CreateDbContextAsync(cancellationToken);
+        string pattern = "%" + EscapeLike(namePart) + "%";
+        return await context.Products
+            .Where(p => EF.Functions.Like(p.Name, pattern))
+            .OrderBy(p => p.Name)
+            .ThenBy(p => p.Sku)
+            .Take(limit)
+            .ToListAsync(cancellationToken);
+    }
+
+    private static string EscapeLike(string value) =>
+        value.Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_");
+
     public async Task<IReadOnlyList<Product>> GetAllAsync(CancellationToken cancellationToken = default)
     {
         await using var context = await factory.CreateDbContextAsync(cancellationToken);
