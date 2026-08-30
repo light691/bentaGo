@@ -12,7 +12,9 @@ using BentaGo.Core.Common;
 using BentaGo.Core.Domain;
 using BentaGo.Core.Domain.Builders;
 using BentaGo.Core.Domain.Display;
+using BentaGo.Core.Domain.Documents;
 using BentaGo.Core.Domain.Payments;
+using BentaGo.Core.Domain.Receipts;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace BentaGo.App.Features.Sales;
@@ -36,6 +38,10 @@ public sealed class SalesViewModel : ValidatableViewModelBase, IRetainableScreen
     private readonly IFocusService _focus;
     private readonly ICheckoutSessionFactory _sessionFactory;
     private readonly IProductSearchService _search;
+    private readonly IPrintService _print;
+    private readonly IPrintJobStore _printJobs;
+    private readonly ILedgerStore _store;
+    private readonly IScannerDiagnostics _scanner;
     private EventHandler _sessionChanged = (_, _) => { };
     private ICheckoutSession? _session;
     private string _scanBoxText = "";
@@ -46,6 +52,10 @@ public sealed class SalesViewModel : ValidatableViewModelBase, IRetainableScreen
     private bool _isSessionReady;
     private string? _sessionStateMessage;
     private string? _actionError;
+    private string? _printStatusText;
+    private SaleId? _lastSaleId;
+    private string? _lastReceiptNumber;
+    private bool _isPrinting;
 
     public SalesViewModel(IServiceProvider services)
     {
@@ -54,6 +64,10 @@ public sealed class SalesViewModel : ValidatableViewModelBase, IRetainableScreen
         _focus = services.GetRequiredService<IFocusService>();
         _sessionFactory = services.GetRequiredService<ICheckoutSessionFactory>();
         _search = services.GetRequiredService<IProductSearchService>();
+        _print = services.GetRequiredService<IPrintService>();
+        _printJobs = services.GetRequiredService<IPrintJobStore>();
+        _store = services.GetRequiredService<ILedgerStore>();
+        _scanner = services.GetRequiredService<IScannerDiagnostics>();
 
         ScanCommand = new RelayCommand(async _ => await ScanAsync(ScanBoxText));
         ProductSearchCommand = new RelayCommand(async _ => await RunSearchAsync());
@@ -69,6 +83,8 @@ public sealed class SalesViewModel : ValidatableViewModelBase, IRetainableScreen
         ClearSearchCommand = new RelayCommand(_ => ClearScanAndSearch());
         FocusScanCommand = new RelayCommand(_ => _focus.Request(AutomationIds.SalesScanBox));
         FocusSearchCommand = new RelayCommand(_ => _focus.Request(AutomationIds.SalesSearchBox));
+        PrintCommand = new RelayCommand(async _ => await PrintLastAsync(), _ => !IsPrinting);
+        ReprintCommand = new RelayCommand(async _ => await ReprintLastAsync(), _ => !IsPrinting);
     }
 
     /// <summary>MainViewModel calls this when the Sales screen is navigated to;
@@ -129,6 +145,12 @@ public sealed class SalesViewModel : ValidatableViewModelBase, IRetainableScreen
 
     /// <summary>F7: cycle None → Pwd → Senior → None on the selected line.</summary>
     public ICommand ApplyDiscountCommand { get; }
+
+    /// <summary>F11: prints/retries the last receipt (reprints when already printed).</summary>
+    public ICommand PrintCommand { get; }
+
+    /// <summary>Prints a labelled REPRINT copy of the last receipt.</summary>
+    public ICommand ReprintCommand { get; }
 
     public ICommand ClearSearchCommand { get; }
 
@@ -275,6 +297,37 @@ public sealed class SalesViewModel : ValidatableViewModelBase, IRetainableScreen
         }
     }
 
+    /// <summary>Printed / "Printer needs attention" (docs/03 §7 copy).</summary>
+    public string? PrintStatusText
+    {
+        get => _printStatusText;
+        private set => SetProperty(ref _printStatusText, value);
+    }
+
+    /// <summary>True when the last print failed and the job can be retried.</summary>
+    public bool HasPrintAttention
+    {
+        get => _hasPrintAttention;
+        private set => SetProperty(ref _hasPrintAttention, value);
+    }
+
+    private bool _hasPrintAttention;
+
+    public bool CanPrint => HasReceipt && !IsPrinting;
+
+    public bool IsPrinting
+    {
+        get => _isPrinting;
+        private set
+        {
+            if (SetProperty(ref _isPrinting, value))
+            {
+                OnPropertyChanged(nameof(CanPrint));
+                NotifyCartCommands();
+            }
+        }
+    }
+
     /// <summary>
     /// Scan/type submit: the search service matches exact SKU → barcode →
     /// name infix (scanner CR trimmed at the service boundary). An exact hit
@@ -301,6 +354,10 @@ public sealed class SalesViewModel : ValidatableViewModelBase, IRetainableScreen
             ScanError = FriendlyError(found.Errors.FirstOrDefault()?.Code ?? "SEARCH_FAILED");
             return;
         }
+
+        // BG-007 scanner diagnostics: the RAW box text (suffix included) and
+        // the matched product are recorded before the trimmed service search.
+        _scanner.RecordScan(text, found.Value.Count == 1 ? found.Value[0].Product.Name : null, DateTimeOffset.Now);
 
         if (found.Value.Count == 1)
         {
@@ -519,12 +576,102 @@ public sealed class SalesViewModel : ValidatableViewModelBase, IRetainableScreen
                       $"({payments})";
         HasReceipt = true;
         ActionError = null;
+        _lastSaleId = saved.SaleId;
+        _lastReceiptNumber = saved.ReceiptNumber;
+
+        // BG-007: the print happens AFTER the commit (docs/03 §7) — the sale
+        // is saved either way; a failed print shows "Printer needs attention"
+        // and leaves one recoverable job for retry/reprint.
+        await PrintAfterCommitAsync(saved.SaleId);
 
         // The sale is saved; the next scan starts a NEW sale on the same trip.
         _session.Changed -= _sessionChanged;
         _session = null;
         IsSessionReady = false;
         await EnsureSessionAsync();
+    }
+
+    private async Task PrintAfterCommitAsync(SaleId saleId)
+    {
+        IsPrinting = true;
+        try
+        {
+            _store.Bind();
+            Sale? committed = _store.Context.FindSale(saleId);
+            if (committed is null)
+            {
+                PrintStatusText = "Sale saved. Printer needs attention.";
+                HasPrintAttention = true;
+                return;
+            }
+
+            PrintOutcome outcome = await _print.PrintAfterCommitAsync(committed);
+            PrintStatusText = outcome.UserMessage;
+            HasPrintAttention = outcome.Status != PrintJobStatus.Printed;
+        }
+        finally
+        {
+            IsPrinting = false;
+        }
+    }
+
+    /// <summary>F11: reprints the last receipt (or retries a failed job).</summary>
+    private async Task PrintLastAsync()
+    {
+        if (_lastSaleId is null)
+        {
+            return;
+        }
+
+        IsPrinting = true;
+        try
+        {
+            PrintJob? existing = await _printJobs.FindBySaleAsync(_lastSaleId.Value, reprintInclusive: false);
+            PrintOutcome outcome = existing is { Status: PrintJobStatus.Failed }
+                ? await _print.RetryAsync(_lastSaleId.Value)
+                : await ReprintAsync();
+
+            PrintStatusText = outcome.UserMessage;
+            HasPrintAttention = outcome.Status != PrintJobStatus.Printed;
+        }
+        finally
+        {
+            IsPrinting = false;
+        }
+    }
+
+    private async Task<PrintOutcome> ReprintAsync()
+    {
+        if (_lastSaleId is null)
+        {
+            return new PrintOutcome("", PrintJobStatus.Failed, "NO_SALE", IsReprint: true, 0);
+        }
+
+        _store.Bind();
+        Sale? committed = _store.Context.FindSale(_lastSaleId.Value);
+        return committed is null
+            ? new PrintOutcome(_lastReceiptNumber ?? "", PrintJobStatus.Failed, "NO_SALE", IsReprint: true, 0)
+            : await _print.ReprintAsync(committed);
+    }
+
+    private async Task ReprintLastAsync()
+    {
+        if (_lastSaleId is null)
+        {
+            return;
+        }
+
+        IsPrinting = true;
+        try
+        {
+            PrintOutcome outcome = await ReprintAsync();
+            PrintStatusText = outcome.UserMessage;
+            HasPrintAttention = outcome.Status != PrintJobStatus.Printed;
+        }
+        finally
+        {
+            IsPrinting = false;
+        }
     }
 
     private void ClearCart()
@@ -543,6 +690,10 @@ public sealed class SalesViewModel : ValidatableViewModelBase, IRetainableScreen
         ReceiptText = null;
         HasReceipt = false;
         ActionError = null;
+        PrintStatusText = null;
+        HasPrintAttention = false;
+        _lastSaleId = null;
+        _lastReceiptNumber = null;
         NotifyCartChanged();
     }
 
