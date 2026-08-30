@@ -1,0 +1,7 @@
+# BG-007 perf probe — 30 runs after 1 warm-up (fake adapter; real-device runs in the device pass)
+head	791a770
+baseline	plain-text 100-line render P95	0.03 ms
+baseline	fake-adapter transport P95	0.22 ms
+metric	bg-007 ESC/POS 100-line render P95	0.17 ms	rule <= 200 ms
+metric	bg-007 print-command→first-write P95	67.77 ms	rule <= 1000 ms
+verdict	print perf	PASS
