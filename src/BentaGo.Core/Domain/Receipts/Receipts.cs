@@ -2,6 +2,7 @@ using System.Text;
 using BentaGo.Core.Domain.Documents;
 using BentaGo.Core.Domain.Identity;
 using BentaGo.Core.Domain.Payments;
+using BentaGo.Core.Domain.Reconciliation;
 using BentaGo.Core.Domain.Trips;
 
 namespace BentaGo.Core.Domain.Receipts;
@@ -22,7 +23,9 @@ public sealed record ReceiptDocument(
     Money Total,
     Money Change,
     bool IsReprint,
-    string? ReferenceNote)
+    string? ReferenceNote,
+    ReceiptKind Kind = ReceiptKind.Sale,
+    CloseSummary? Close = null)
 {
     public static ReceiptDocument FromSale(
         Sale sale,
@@ -70,6 +73,88 @@ public sealed record ReceiptDocument(
             IsReprint: false,
             referenceNote);
     }
+
+    /// <summary>
+    /// Builds the close-summary snapshot from the committed reconciliation
+    /// report (BG-008 Slice C). The store header is printed only when
+    /// supplied; the amount is the report's own fold-derived math (Slice A),
+    /// never recomputed here. The document is a <see cref="ReceiptKind.CloseSummary"/>
+    /// with <see cref="Close"/> carrying the close-only facts, so the sale
+    /// path (Kind stays <see cref="ReceiptKind.Sale"/>, Close stays null) is
+    /// byte-stable.
+    /// </summary>
+    public static ReceiptDocument FromCloseSummary(
+        ReconciliationReport report,
+        CloseId closeId,
+        DateTimeOffset closedUtc,
+        string? storeName,
+        string? storeAddress,
+        string? storeContact,
+        string? storeTin,
+        string? notes,
+        int lineWidth = 42)
+    {
+        if (lineWidth < 20)
+        {
+            throw new ArgumentOutOfRangeException(nameof(lineWidth), "receipt width must be >= 20 columns");
+        }
+
+        var fundRows = new List<CloseFundRow>(report.CashRows.Count);
+        foreach (CashVarianceRow cash in report.CashRows)
+        {
+            fundRows.Add(new CloseFundRow(
+                cash.Fund == Fund.PhysicalCash ? "Physical Cash" : cash.Fund.ToString(),
+                cash.Expected,
+                cash.Counted,
+                cash.Variance));
+        }
+
+        var stockRows = new List<CloseStockRow>(report.StockRows.Count);
+        foreach (StockVarianceRow stock in report.StockRows)
+        {
+            stockRows.Add(new CloseStockRow(
+                stock.Sku,
+                stock.ProductName,
+                stock.ExpectedUnits,
+                stock.CountedUnits,
+                stock.QuantityVariance,
+                stock.ValueVariance));
+        }
+
+        ReportTotals totals = report.Totals;
+        return new ReceiptDocument(
+            new ReceiptMeta(
+                $"CLOSE-{closeId.Value:D}",
+                closedUtc,
+                report.Peddler,
+                report.Trip),
+            Array.Empty<ReceiptLine>(),
+            Money.Zero,
+            Money.Zero,
+            totals.SalesTotal,
+            Money.Zero,
+            IsReprint: false,
+            null,
+            ReceiptKind.CloseSummary,
+            new CloseSummary(
+                storeName,
+                storeAddress,
+                storeContact,
+                storeTin,
+                closeId.Value.ToString("D"),
+                fundRows,
+                stockRows,
+                new CloseTotals(
+                    totals.Sales,
+                    totals.SalesTotal,
+                    totals.Returns,
+                    totals.RefundTotal,
+                    totals.ExpectedCash,
+                    totals.CountedCash,
+                    totals.CashVariance,
+                    totals.CashLabel.ToString()),
+                notes));
+    }
 }
 
 /// <summary>Header block: receipt number, date/time, peddler/trip ids.</summary>
@@ -81,6 +166,56 @@ public sealed record ReceiptMeta(
 
 /// <summary>One item line at the captured unit price and quantity.</summary>
 public sealed record ReceiptLine(string Name, Money UnitPrice, Quantity Quantity, Money Discount);
+
+/// <summary>The kind of document a receipt snapshot represents (BG-008 Slice C).</summary>
+public enum ReceiptKind
+{
+    /// <summary>A committed sale (BG-007 sale path — byte-stable).</summary>
+    Sale,
+
+    /// <summary>A trip close-summary (BG-008 Slice C).</summary>
+    CloseSummary,
+}
+
+/// <summary>
+/// The close-summary payload (BG-008 Slice C): everything the close receipt
+/// renders that is not part of the sale line model. The store header is
+/// printed only when supplied; <see cref="CloseId"/> is the footer identity a
+/// reprint keeps across the REPRINT label.
+/// </summary>
+public sealed record CloseSummary(
+    string? StoreName,
+    string? StoreAddress,
+    string? StoreContact,
+    string? StoreTin,
+    string CloseId,
+    IReadOnlyList<CloseFundRow> FundRows,
+    IReadOnlyList<CloseStockRow> StockRows,
+    CloseTotals Totals,
+    string? Notes);
+
+/// <summary>One countable fund's expected/counted/variance row.</summary>
+public sealed record CloseFundRow(string Fund, Money Expected, Money Counted, Money Variance);
+
+/// <summary>One product-route cell's expected/counted/variance row.</summary>
+public sealed record CloseStockRow(
+    string Sku,
+    string Product,
+    int ExpectedUnits,
+    int? CountedUnits,
+    int? QuantityVariance,
+    Money? ValueVariance);
+
+/// <summary>The close rollup numbers (fold-derived by Slice A, never recomputed).</summary>
+public sealed record CloseTotals(
+    int Sales,
+    Money SalesTotal,
+    int Returns,
+    Money RefundTotal,
+    Money ExpectedCash,
+    Money CountedCash,
+    Money CashVariance,
+    string CashLabel);
 
 /// <summary>
 /// The ESC/POS 80 mm byte encoder (BG-007): INIT (ESC @), bold state,
@@ -94,7 +229,10 @@ public sealed class EscPos80mmEncoder : IReceiptEncoder
     public const int NominalColumns = 42;
 
     /// <summary>Column width used when rendering from JSON (unused bytes).</summary>
-    public byte[] Encode(ReceiptDocument document)
+    public byte[] Encode(ReceiptDocument document) =>
+        document.Kind == ReceiptKind.CloseSummary ? EncodeClose(document) : EncodeSale(document);
+
+    private static byte[] EncodeSale(ReceiptDocument document)
     {
         var buffer = new MemoryStream();
         Write(buffer, 0x1B, 0x40); // ESC @ init
@@ -141,6 +279,104 @@ public sealed class EscPos80mmEncoder : IReceiptEncoder
 
         WriteText(buffer, $"R#{document.Meta.ReceiptNumber} {document.Meta.CreatedUtc:yyyy-MM-dd HH:mm}");
         WriteText(buffer, $"TRIP {document.Meta.Trip.Value} PDL {document.Meta.Peddler.Value}");
+
+        buffer.WriteByte(0x1D);
+        buffer.WriteByte(0x56);
+        buffer.WriteByte(0x42); // GS V 66: full cut with feed
+        return buffer.ToArray();
+    }
+
+    private static byte[] EncodeClose(ReceiptDocument document)
+    {
+        var buffer = new MemoryStream();
+        Write(buffer, 0x1B, 0x40); // ESC @ init
+
+        CloseSummary close = document.Close
+            ?? throw new InvalidOperationException("a CloseSummary receipt is missing its Close payload");
+
+        // Store header — printed only when supplied, every line padded to the
+        // nominal width so the reprint layout never exceeds 42 columns.
+        WriteBold(buffer, true);
+        WriteText(buffer, PadCenter("CLOSE SUMMARY", NominalColumns));
+        WriteBold(buffer, false);
+        if (!string.IsNullOrWhiteSpace(close.StoreName))
+        {
+            WriteText(buffer, PadCenter(close.StoreName.Trim(), NominalColumns));
+        }
+        if (!string.IsNullOrWhiteSpace(close.StoreAddress))
+        {
+            foreach (string wrapped in Wrap(close.StoreAddress.Trim(), NominalColumns))
+            {
+                WriteText(buffer, PadCenter(wrapped, NominalColumns));
+            }
+        }
+        if (!string.IsNullOrWhiteSpace(close.StoreContact))
+        {
+            WriteText(buffer, PadCenter(close.StoreContact.Trim(), NominalColumns));
+        }
+        if (!string.IsNullOrWhiteSpace(close.StoreTin))
+        {
+            WriteText(buffer, PadCenter($"TIN {close.StoreTin.Trim()}", NominalColumns));
+        }
+        WriteText(buffer, PadCenter(new string('=', NominalColumns), NominalColumns));
+
+        WriteText(buffer, $"CLOSED {document.Meta.CreatedUtc:yyyy-MM-dd HH:mm}");
+        WriteText(buffer, $"TRIP {document.Meta.Trip.Value} PDL {document.Meta.Peddler.Value}");
+        WriteText(buffer, $"CLOSE {close.CloseId}");
+
+        if (document.IsReprint)
+        {
+            WriteBold(buffer, true);
+            WriteText(buffer, PadCenter("REPRINT", NominalColumns));
+            WriteBold(buffer, false);
+        }
+
+        // Per-fund rows (Slice A reports the countable physical-cash fund).
+        foreach (CloseFundRow fund in close.FundRows)
+        {
+            WriteText(buffer, PadLeft($"{fund.Fund} EXPECTED {fund.Expected.ToPesos().ToString("0.00")}", NominalColumns));
+            WriteText(buffer, PadLeft($"{fund.Fund} COUNTED  {fund.Counted.ToPesos().ToString("0.00")}", NominalColumns));
+            WriteText(buffer, PadLeft($"{fund.Fund} VARIANCE {fund.Variance.ToPesos().ToString("0.00")}", NominalColumns));
+        }
+
+        // Stock variance summary rows (expected -> counted (variance)).
+        WriteText(buffer, PadCenter("STOCK VARIANCE", NominalColumns));
+        foreach (CloseStockRow stock in close.StockRows)
+        {
+            string counted = stock.CountedUnits?.ToString() ?? "-";
+            string variance = stock.QuantityVariance?.ToString() ?? "-";
+            foreach (string line in Wrap($"{stock.Sku} {stock.Product} x{stock.ExpectedUnits}->{counted} ({variance})", NominalColumns))
+            {
+                WriteText(buffer, line);
+            }
+            if (stock.ValueVariance is { } value)
+            {
+                WriteText(buffer, PadLeft($"VALUE VAR {value.ToPesos().ToString("0.00")}", NominalColumns));
+            }
+        }
+
+        // Totals rollup.
+        WriteText(buffer, PadCenter(new string('=', NominalColumns), NominalColumns));
+        CloseTotals totals = close.Totals;
+        WriteText(buffer, PadLeft($"SALES {totals.Sales}  TOTAL {totals.SalesTotal.ToPesos().ToString("0.00")}", NominalColumns));
+        WriteText(buffer, PadLeft($"RETURNS {totals.Returns}  REFUND {totals.RefundTotal.ToPesos().ToString("0.00")}", NominalColumns));
+        WriteText(buffer, PadLeft($"CASH EXPECTED {totals.ExpectedCash.ToPesos().ToString("0.00")}", NominalColumns));
+        WriteText(buffer, PadLeft($"CASH COUNTED  {totals.CountedCash.ToPesos().ToString("0.00")}", NominalColumns));
+        WriteText(buffer, PadLeft($"CASH VARIANCE {totals.CashVariance.ToPesos().ToString("0.00")} ({totals.CashLabel})", NominalColumns));
+
+        if (!string.IsNullOrWhiteSpace(close.Notes))
+        {
+            WriteBold(buffer, false);
+            WriteText(buffer, "NOTES");
+            foreach (string line in Wrap(close.Notes.Trim(), NominalColumns))
+            {
+                WriteText(buffer, line);
+            }
+        }
+
+        // Small machine-readable footer identity (reprint keeps it).
+        WriteText(buffer, PadCenter(new string('-', NominalColumns), NominalColumns));
+        WriteText(buffer, $"#{close.CloseId}");
 
         buffer.WriteByte(0x1D);
         buffer.WriteByte(0x56);
