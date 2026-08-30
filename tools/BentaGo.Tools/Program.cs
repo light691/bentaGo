@@ -39,6 +39,7 @@ try
         "lanes" when commandLine.Length > 1 && commandLine[1] == "bg-003" => await RunLanesAsync(commandLine.Skip(2).ToArray()),
         "perf" when commandLine.Length > 1 && commandLine[1] == "bg-003" => await RunPerfAsync(commandLine.Skip(2).ToArray()),
         "perf" when commandLine.Length > 1 && commandLine[1] == "bg-007" => await RunPrintPerfAsync(commandLine.Skip(2).ToArray()),
+        "perf" when commandLine.Length > 1 && commandLine[1] == "bg-008" => await RunBg008PerfAsync(commandLine.Skip(2).ToArray()),
         "foundation" when commandLine.Length > 1 && commandLine[1] == "migrate" => await RunMigrateAsync(commandLine.Skip(2).ToArray()),
         "foundation" when commandLine.Length > 1 && commandLine[1] == "backup" => await RunBackupAsync(commandLine.Skip(2).ToArray()),
         "foundation" when commandLine.Length > 1 && commandLine[1] == "restore" => await RunRestoreAsync(commandLine.Skip(2).ToArray()),
@@ -83,6 +84,10 @@ static void PrintHelp()
           perf bg-003                    BG-003 perf harness: baselines first, then P95 checkout and
                                          rebuild over a 10k-product / 100k-movement seeded file.
                                           Options: --data-root <dir>
+          perf bg-008                    BG-008 perf probe: baselines (bg-003 aggregation, bg-006
+                                         history load) first, then close-calc and report-render P95
+                                         over a 10,000-sale / 50,000-movement seeded file.
+                                           Options: --data-root <dir>, --out <tsv>, --head <sha>
           foundation migrate             Migrate the database schema to the latest version.
                                           Options: --data-root <dir> (default: BENTAGO_DATA_ROOT or a fresh temp dir)
           foundation backup              Create a verified backup of the active database.
@@ -597,6 +602,16 @@ static async Task<int> RunPrintPerfAsync(string[] args)
     string outPath = Opt(opts, "out") ?? "perf.tsv";
     string head = Opt(opts, "head") ?? Environment.GetEnvironmentVariable("BENTAGO_HEAD") ?? "unknown";
     return await BentaGo.Tools.PrintPerfRunner.RunAsync(root, outPath, head);
+}
+
+static async Task<int> RunBg008PerfAsync(string[] args)
+{
+    Dictionary<string, string> opts = ParseOptions(args);
+    string root = Opt(opts, "data-root")
+        ?? Path.Combine(Path.GetTempPath(), "bg008-perf-" + Guid.NewGuid().ToString("N"));
+    string outPath = Opt(opts, "out") ?? "perf.tsv";
+    string head = Opt(opts, "head") ?? Environment.GetEnvironmentVariable("BENTAGO_HEAD") ?? "unknown";
+    return await BentaGo.Tools.Bg008PerfRunner.RunAsync(root, outPath, head);
 }
 
 static int RunStatus()
