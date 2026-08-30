@@ -61,6 +61,9 @@ public static class ObservableObjectFactory
         services.AddSingleton<IProductStore, ProductStore>();
         services.AddSingleton<IProductImportService, ProductImportService>();
         services.AddSingleton<AdminReadService>();
+        // BG-008 Slice B: the reconciliation screen renders the Slice A
+        // report projection (pure over the ledger read surface).
+        services.AddSingleton<BentaGo.Application.Contracts.IReconciliationReportService, BentaGo.Application.Services.ReconciliationReportService>();
 
         services.AddTransient<MainViewModel>();
         services.AddTransient<LoginViewModel>();

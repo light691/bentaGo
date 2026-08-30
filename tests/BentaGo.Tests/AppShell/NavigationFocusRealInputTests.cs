@@ -117,12 +117,23 @@ public sealed class NavigationFocusRealInputTests
     {
         _sta.Run(() =>
         {
-            using var session = RealSession.Open(_sta);
+            // BG-008 Slice B: Ctrl+S saves the draft through the REAL count
+            // use case, so the session needs the seeded trip and the seller
+            // actor (the seed signs the seller in) — an empty count is refused.
+            using var session = RealSession.Open(
+                _sta, username: SalesSeed.SellerUsername, password: SalesSeed.SellerPassword);
             session.Activate();
             _sta.PumpIdle();
             session.Navigation.Navigate(ScreenKeys.Reconciliation);
             _sta.PumpIdle();
             WaitFor(() => session.FocusedElementId() == AutomationIds.ReconciliationActualCashBox);
+
+            var reconciliation = session.ViewModel.Current as ReconciliationViewModel
+                ?? session.Services.GetRequiredService<ReconciliationViewModel>();
+            WaitFor(() => reconciliation.CountRows.Count > 0); // activation rehydrated the real rows
+            Assert.True(reconciliation.HasTrip, reconciliation.FatalMessage ?? "no trip");
+            var countGrid = reconciliation.CountRows.First(r => r.Sku == SalesSeed.SardinesSku);
+            countGrid.CountedText = "50"; // balanced count of the full load
 
             // Live attempt first: a real Ctrl+S chord. The test host's
             // desktop cannot own foreground (verified empirically), so when
@@ -135,8 +146,6 @@ public sealed class NavigationFocusRealInputTests
             _sta.PumpIdle();
             _sta.PumpIdle();
 
-            var reconciliation = session.ViewModel.Current as ReconciliationViewModel
-                ?? session.Services.GetRequiredService<ReconciliationViewModel>();
             if (!reconciliation.DraftSaved)
             {
                 var binding = session.Window.InputBindings.OfType<KeyBinding>()
@@ -146,7 +155,9 @@ public sealed class NavigationFocusRealInputTests
             }
 
             Assert.True(reconciliation.DraftSaved, "Ctrl+S did not fire the save-draft command");
-            Assert.Equal("Draft saved (simulated)", reconciliation.DraftStatusText);
+            Assert.Equal("Draft saved (count recorded)", reconciliation.DraftStatusText);
+            Assert.False(reconciliation.IsClosed);
+            Assert.Single(session.Services.GetRequiredService<SqliteLedgerStore>().Context.Counts);
         });
     }
 
