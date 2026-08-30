@@ -1,0 +1,117 @@
+<UserControl x:Class="BentaGo.App.Features.Admin.AdminDevicesView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="clr-namespace:BentaGo.App.Ui">
+    <!-- BG-007 devices (admin): printer profile + test receipt and scanner
+         diagnostics (raw untrimmed input with the exact suffix and matched
+         product). The scanner list is live data from IScannerDiagnostics. -->
+    <UserControl.InputBindings>
+        <KeyBinding Key="F5" Command="{Binding RefreshCommand}" />
+    </UserControl.InputBindings>
+
+    <Grid Margin="{StaticResource ScreenPadding}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0">
+            <TextBlock Text="ADMIN · DEVICES" Style="{StaticResource PageEyebrowTextStyle}" />
+            <TextBlock Text="Printer &amp; Scanner" Style="{StaticResource HeaderTextStyle}" />
+            <TextBlock Text="Printer profile, test receipt, and scanner input diagnostics."
+                       Style="{StaticResource StatusTextStyle}" />
+        </StackPanel>
+
+        <Border Grid.Row="1" Style="{StaticResource ActionPanelStyle}" Margin="{StaticResource Thickness.RowGap}">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel VerticalAlignment="Center">
+                    <TextBlock Text="Printer profile" Style="{StaticResource TitleTextStyle}" />
+                    <TextBlock Text="Selects the printer adapter for the next print. The simulated printer captures receipts without hardware."
+                               Style="{StaticResource StatusTextStyle}"
+                               Margin="{StaticResource Thickness.XS}" />
+                    <ComboBox ItemsSource="{Binding Profiles}"
+                              SelectedValue="{Binding SelectedProfile}"
+                              SelectedValuePath="Profile"
+                              DisplayMemberPath="Label"
+                              MinWidth="320"
+                              HorizontalAlignment="Left"
+                              Margin="{StaticResource Thickness.XS}"
+                              ui:FocusTarget.Id="Admin.Devices.Profile" />
+                </StackPanel>
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                    <Button Content="Save Profile"
+                            Style="{StaticResource Button.SecondaryStyle}"
+                            Command="{Binding SaveCommand}"
+                            MinWidth="160"
+                            Margin="{StaticResource Thickness.XS}"
+                            ui:FocusTarget.Id="Admin.Devices.Save" />
+                    <Button Content="Test Receipt"
+                            Style="{StaticResource Button.SecondaryStyle}"
+                            Command="{Binding TestPrintCommand}"
+                            MinWidth="160"
+                            Margin="{StaticResource Thickness.XS}"
+                            ui:FocusTarget.Id="Admin.Devices.TestPrint" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <Border Grid.Row="2"
+                Style="{StaticResource Banner.InfoBgStyle}"
+                Margin="{StaticResource Thickness.RowGap}">
+            <TextBlock Text="{Binding StatusText}" Style="{StaticResource BodyTextStyle}" TextWrapping="Wrap" />
+        </Border>
+
+        <Border Grid.Row="3" Style="{StaticResource ActionPanelStyle}" Margin="{StaticResource Thickness.RowGap}">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel VerticalAlignment="Center">
+                    <TextBlock Text="Scanner diagnostics" Style="{StaticResource TitleTextStyle}" />
+                    <TextBlock Text="Raw wedge input shown verbatim (suffix included) with the matched product."
+                               Style="{StaticResource StatusTextStyle}"
+                               Margin="{StaticResource Thickness.XS}" />
+                </StackPanel>
+                <Button Grid.Column="1"
+                        Content="Refresh"
+                        Style="{StaticResource Button.SecondaryStyle}"
+                        Command="{Binding RefreshCommand}"
+                        MinWidth="120"
+                        VerticalAlignment="Center"
+                        ui:FocusTarget.Id="Admin.Devices.Refresh" />
+            </Grid>
+        </Border>
+
+        <ItemsControl Grid.Row="4"
+                      ItemsSource="{Binding Diagnostics}"
+                      Margin="{StaticResource Thickness.RowGap}"
+                      ui:FocusTarget.Id="Admin.Devices.ScanList">
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <Border Style="{StaticResource CardStyle}" Margin="{StaticResource Thickness.XS}">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource TitleTextStyle}">
+                                <Run Text="# " /><Run Text="{Binding Ordinal}" />
+                                <Run Text=" · " /><Run Text="{Binding Suffix, StringFormat='suffix {0}'}" />
+                            </TextBlock>
+                            <TextBlock Text="{Binding Raw, StringFormat='RAW> {0}'}"
+                                       Style="{StaticResource BodyTextStyle}"
+                                       Margin="{StaticResource Thickness.XS}" />
+                            <TextBlock Text="{Binding MatchedProduct, StringFormat='MATCH> {0}',
+                                                TargetNullValue='MATCH> (none)'}"
+                                       Style="{StaticResource StatusTextStyle}" />
+                        </StackPanel>
+                    </Border>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+    </Grid>
+</UserControl>

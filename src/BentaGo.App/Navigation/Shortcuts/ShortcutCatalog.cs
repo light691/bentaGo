@@ -141,6 +141,6 @@ public static class ShortcutCatalog
         E("backup", "Ctrl+Alt+B", Key.B, ModifierKeys.Control | ModifierKeys.Alt, ScopeShell,
           "Create backup (admin)", ShortcutStatus.Reserved, "docs/03 Ctrl+Alt+B"),
         E("hardware-test", "Ctrl+Alt+T", Key.T, ModifierKeys.Control | ModifierKeys.Alt, ScopeShell,
-          "Hardware test (admin)", ShortcutStatus.Reserved, "docs/03 Ctrl+Alt+T"),
+          "Open printer/scanner diagnostics (admin)", ShortcutStatus.Active, "docs/03 Ctrl+Alt+T (BG-007)"),
     ];
 }

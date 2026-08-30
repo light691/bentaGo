@@ -66,4 +66,12 @@ public static class AutomationIds
     public const string AdminImportConfirm = "Admin.Import.Confirm";
     public const string AdminOverviewRefresh = "Admin.Overview.Refresh";
     public const string AdminOverviewPeddlerTabs = "Admin.Overview.PeddlerTabs";
+
+    // BG-007: printer profile + test receipt + scanner diagnostics.
+    public const string RailAdminDevices = "Rail.AdminDevices";
+    public const string AdminDevicesProfile = "Admin.Devices.Profile";
+    public const string AdminDevicesSave = "Admin.Devices.Save";
+    public const string AdminDevicesTestPrint = "Admin.Devices.TestPrint";
+    public const string AdminDevicesRefresh = "Admin.Devices.Refresh";
+    public const string AdminDevicesScanList = "Admin.Devices.ScanList";
 }

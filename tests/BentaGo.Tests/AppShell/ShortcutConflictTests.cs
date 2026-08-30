@@ -99,7 +99,6 @@ public sealed class ShortcutConflictTests : IDisposable
         {
             ["lock"] = ShortcutStatus.Reserved,               // Ctrl+Alt+L
             ["backup"] = ShortcutStatus.Reserved,             // Ctrl+Alt+B
-            ["hardware-test"] = ShortcutStatus.Reserved,      // Ctrl+Alt+T
             ["hold-cart"] = ShortcutStatus.Future,            // F4
             ["refresh"] = ShortcutStatus.Future,              // F5
             ["new-sale"] = ShortcutStatus.Future,             // Ctrl+N

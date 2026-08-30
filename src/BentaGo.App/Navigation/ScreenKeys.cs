@@ -21,6 +21,7 @@ public static class ScreenKeys
     public const string AdminUsers = "admin-users";
     public const string AdminImport = "admin-import";
     public const string AdminOverview = "admin-overview";
+    public const string AdminDevices = "admin-devices";
 
     // Reserved for BG-005; catalogued so the help overlay renders them greyed.
     public const string Transactions = "transactions";
