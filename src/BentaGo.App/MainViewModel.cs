@@ -329,6 +329,13 @@ public sealed class MainViewModel : ViewModelBase
         {
             _ = transactions.OnActivatedAsync();
         }
+        else if (e.ViewModel is ReconciliationViewModel reconciliation)
+        {
+            // BG-008 Slice B: the real read models (fold, counts, report,
+            // approvers) rehydrate on every activation — the screen's
+            // refresh is this navigation hook (F5 stays a Future entry).
+            _ = reconciliation.OnActivatedAsync();
+        }
     }
 
     private void BuildRail()

@@ -65,6 +65,16 @@ public static class AutomationIds
     // Reconciliation
     public const string ReconciliationActualCashBox = "Reconciliation.ActualCashBox";
     public const string ReconciliationSubmitButton = "Reconciliation.SubmitCloseButton";
+    // BG-008 Slice B: real count entry, close receipt, reopen, report.
+    public const string ReconciliationSaveDraftButton = "Reconciliation.SaveDraftButton";
+    public const string ReconciliationNotesBox = "Reconciliation.NotesBox";
+    public const string ReconciliationCountGrid = "Reconciliation.CountGrid";
+    public const string ReconciliationErrorBanner = "Reconciliation.ErrorBanner";
+    public const string ReconciliationCloseReceipt = "Reconciliation.CloseReceipt";
+    public const string ReconciliationReopenButton = "Reconciliation.ReopenButton";
+    public const string ReconciliationReopenReasonBox = "Reconciliation.ReopenReasonBox";
+    public const string ReconciliationReopenApproverPicker = "Reconciliation.ReopenApproverPicker";
+    public const string ReconciliationReportCard = "Reconciliation.ReportCard";
 
     // Admin (BG-005d): user management, catalog import, admin overview.
     public const string RailAdminUsers = "Rail.AdminUsers";
