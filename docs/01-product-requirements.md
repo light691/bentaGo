@@ -1,161 +1,205 @@
-# BentaGo Product Requirements Document
+# BentaGo product requirements
 
-**Status:** MVP handoff baseline  
-**Product:** BentaGo  
-**Tagline:** Offline-first peddling POS for route-based grocery selling  
-**Platform:** Windows laptop POS  
-**Primary hardware:** USB barcode scanner and thermal receipt printer  
-**Integration:** CSV import/export with the existing grocery POS
+**Status:** store-POS reference
+**Product:** BentaGo
+**Definition:** the main point of sale for one Philippine store
+**Platform:** Windows desktop, WPF
+**Primary hardware:** USB barcode scanner and 80mm thermal receipt printer, ESC/POS, 42 columns
+**Storage:** local SQLite, offline first
+**Currency:** integer Philippine peso centavos
+**Timezone:** Asia/Manila
 
 ## 1. Product definition
 
-In this project, “peddling” means route or van sales: a salesperson takes selected inventory out of the grocery store, sells directly to customers while travelling, accepts cash or other payment, and later returns unsold stock and remits money.
+BentaGo is the main point of sale for one store. One Windows machine sits at the store counter. One operator works the till at a time. The system runs fully offline. No cloud service exists. A sale never needs a network. Data lives in a local SQLite database on the machine.
 
-BentaGo is a separate operational system for that movement. It must preserve enough evidence for the store owner to answer: what was loaded, who received it, what was sold, what was returned or damaged, what remains, and how much money was remitted.
+The register opens in the morning, sells all day, and closes the drawer at night. The day, not a route, is the accounting unit. Stock enters the store through purchases and receiving. A customer may buy on credit, recorded as utang. Corrections and the day close are audited.
 
-## 2. Problem and objective
+The receipt is the source of truth for a sale. The receipt header comes from the store profile: name, address, contact, and TIN.
 
-The client already has a grocery POS for in-store sales, but that workflow does not represent stock held by multiple travelling sellers. BentaGo must make route selling fast while keeping each peddler’s inventory and cash accountable.
+The store has one warehouse and one till. Multi-till is a future idea only. At most one line in this document and in the program plan mentions that multi-till may come later.
 
-Core objective: allow a peddler to receive allocated stock, sell offline, print a receipt, and close a trip; allow an admin to reconcile the resulting cash and inventory and exchange reliable files with the main POS.
+## 2. Users and roles
 
-## 3. Users and roles
+Three roles apply to the whole system. Every sensitive action records the actor, the terminal, the time, and the reason.
 
-### Peddler
+### Cashier
 
-Starts a trip, views assigned stock, sells, accepts payment, prints receipts, records returns/damage/loss, and performs their own close. They see only their permitted operational data.
+Operates the register. Opens the day, sells, accepts payment, prints receipts, and performs the day close within the allowed grant. Sees counter data only.
 
-### Store Admin / Owner
+### Supervisor
 
-Manages products, peddlers, users, stock loads, imports, overrides, returns to store, adjustments, reports, backups, printer settings, and final reconciliation.
+Works within the cashier grant and adds overrides. Approves corrections that a cashier cannot approve, approves a reopen, and reviews reports. Cannot manage users or store configuration.
 
-### Supervisor / Encoder
+### Admin
 
-Loads stock, assists with imports and reports, and reviews transactions. Permissions may exclude user management, configuration, and high-risk adjustments.
+Owns everything. Manages users and roles, the catalog and catalog import, the store profile, devices, backup and restore, and the final review of accounts and reports.
 
-Users and peddlers are separate concepts. A person can change role or stop selling while historical transactions remain intact.
+One person holds one role at a time. A person can change role while historical transactions remain intact.
 
-## 4. Operating model
+## 3. Operating model
 
-Each peddler is an inventory location. Main Store → Peddler Juan and Main Store → Peddler Pedro are distinct balances. A peddler cannot sell another peddler’s stock.
+### Day lifecycle
 
-### Trip lifecycle
+A day is a shift. The store opens the register, sells all day, and closes the drawer at night.
 
-`Draft → Loading → Active → Reconciling → Closed`  
-Cancellation is permitted only before sales, with an authorized reason.
+The lifecycle is day open, then sales, then day close. A day close compares expected cash to counted cash and labels the result `BALANCED`, `SHORTAGE`, or `OVERAGE`. A close may include an optional physical count per product, with variance and notes, and a close statement print. A closed day is locked. A reopen requires approval, with a reason and an approver, and the prior close remains visible.
 
-1. Admin creates a trip for a peddler.
-2. Main store issues an initial or additional stock load.
-3. Peddler starts the trip and sells from that location.
-4. Sales reduce peddler stock and create inventory movements.
-5. Peddler records returns, damage, loss, and any approved expenses or adjustments.
-6. Unsold goods may be returned to the main store.
-7. Peddler counts/remits payment and submits the trip close.
-8. Admin reviews variances and closes or reopens with a reason.
+### Receiving
 
-## 5. Reconciliation model
+Stock enters only through purchases and receiving. A receiving record has a supplier, line items, unit cost, date, reference, and notes. Each line records a movement. A receiving starts as a draft and becomes submitted. Only a submitted receiving changes on-hand stock. A submitted receiving is locked. Reopening it requires authorization. All stock belongs to the one store warehouse.
 
-Cash is reconciled daily; full physical inventory counting is daily only if the client wants strict control, otherwise at return or weekly.
+### Customer credit, or utang
 
-`Expected cash = cash sales - cash refunds - approved cash expenses/adjustments`.
+A customer may buy on credit. The system keeps named customers, an outstanding balance, a pay-down, and a ledger of every credit and payment. A credit sale creates a receivable and is excluded from expected cash.
 
-Non-cash sales remain revenue but are excluded from expected physical cash. Credit/utang is recorded as receivable and excluded from cash remittance.
+### Corrections
 
-For each product:
+Four correction types exist. Each requires a reason and, where the grant requires, an approver. Each creates a reversing movement. Original records remain visible.
 
-`Expected remaining = starting stock + loads - sold - damaged - lost - returned to store + returns to stock ± adjustments`.
+- `VOID` cancels a sale.
+- `RETURN` references an original receipt and never returns more than sold.
+- `DAMAGE-LOSS` records damaged or lost stock.
+- `ADJUSTMENT` records a manual change to stock.
 
-The system compares expected cash/stock with actual remitted/count values and labels the result balanced, shortage, or overage. Variances are never silently corrected.
+A difference at day close is never corrected silently.
 
-## 6. MVP functional scope
+## 4. Reconciliation model
 
-### Authentication and session
+### Expected cash
 
-- Local username/password login with role permissions.
-- Start/end shift or trip and one active trip per peddler unless an admin overrides.
-- Lock closed trips against casual editing.
-- Record actor, time, terminal, and reason for sensitive actions.
+```text
+Expected cash = cash sales - cash refunds - approved cash expenses
+```
+
+Compare expected cash to counted cash.
+
+- Counted equals expected: `BALANCED`.
+- Counted is less than expected: `SHORTAGE`. The shortage is expected minus counted.
+- Counted is more than expected: `OVERAGE`. The overage is counted minus expected.
+
+A close statement carries the expected amount, the counted amount, the difference, and the label. The operator records notes.
+
+### Expected on hand
+
+An optional physical count applies to a day. For each product:
+
+```text
+Expected on hand = prior on hand + received - sold - damaged - lost - returned - adjusted
+```
+
+For each counted product, `variance = counted - expected`. A non-zero variance appears on the close statement with the expected amount, the counted amount, and the value of the variance. The operator records a reason for every variance.
+
+### Non-cash and credit
+
+Cash, GCash, Maya, and Bank Transfer sales are revenue. Only cash sales, cash refunds, and approved cash expenses affect expected cash. GCash, Maya, and Bank Transfer are non-cash and raise revenue without raising expected cash. A credit sale is utang and is a receivable, excluded from expected cash.
+
+No variance is corrected without a recorded reason and an approver.
+
+## 5. Functional scope
+
+### Session
+
+- Login and role picker with local username and password.
+- Lock screen.
+- Day open starts a register session. The day is open or closed.
+- Reopen with approval, a reason, and an approver. The prior close remains.
+- Sensitive actions record the actor, terminal, time, and reason.
 
 ### Catalog
 
-- SKU, barcode, name, category, unit, cost, selling price, active flag, created/updated timestamps.
-- Barcodes are unique; manual-sale products may have no barcode.
-- Inactive products remain available in historical reports but cannot be newly sold.
+- SKU, barcode, name, category, unit, cost, selling price, active flag, and created and updated timestamps.
+- Barcodes are unique. A manual-sale product may have no barcode.
+- An inactive product appears in historical reports but cannot be newly sold.
 
-### Stock loading
+### Receiving
 
-- Create a load document with load number, peddler, date, source, lines, encoder, and notes.
-- Support initial and additional loads on the same day.
-- Validate availability in Main Store before approving a load.
-- Increase peddler inventory and record a movement for every line.
+- Create a receiving record with supplier, line items, unit cost, date, reference, and notes.
+- Draft, then submitted. Submit commits each line as a movement and raises on-hand stock.
+- A submitted receiving is locked. Reopening it requires authorization.
+- One store warehouse. All stock sits in that one location.
 
 ### Sales
 
-- Barcode scan adds a product; scanning again increments quantity.
+- A barcode scan adds a product. A repeat scan increments the quantity.
 - Manual search by SKU, barcode, or name.
-- Cart quantity changes, line discount if permitted, subtotal, total, and optional customer.
-- Payment types: Cash, GCash, Maya, Bank Transfer, Credit/Utang, and Split Payment.
-- Cash payment calculates change.
-- Checkout saves sale, payment lines, inventory movement, and audit event atomically.
-- Receipt prints after a successful save; a printer failure must not duplicate the sale.
+- Cart: quantity change, line discount where permitted, subtotal, total, and optional customer.
+- Payment methods: Cash, GCash, Maya, Bank Transfer, Credit and Utang, and Split.
+- Cash computes change. Split payment lines equal the sale total.
+- Checkout saves the sale, lines, payments, movements, and audit event atomically.
+- The receipt prints after a successful save. A printer failure must not duplicate the sale. A sale is committed once.
 
-### Returns, voids, and adjustments
+### Corrections
 
-- Void requires a reason and may require an admin PIN.
-- Return references the original sale and prevents returning more than sold.
-- Valid return-to-stock restores peddler inventory; return-to-store transfers it to Main Store.
-- Damage, spoilage, loss, and corrections require a reason and permission.
+- `VOID`, `RETURN`, `DAMAGE-LOSS`, and `ADJUSTMENT`, each with a reason and an approver where required.
+- `RETURN` references the original receipt and never returns more than sold.
+- Each correction creates a reversing movement. Original records remain visible.
 
-### Closing and reports
+### Day close and reports
 
-- Daily sales summary, payment breakdown, expected cash, actual remittance, difference, notes, and close status.
-- Optional physical count by product with variance.
-- Reports: sales, products, payments, peddlers, inventory movements, load/sold/remaining, reconciliation, and exceptions.
-- CSV export plus printable closing summary.
+- Expected cash versus counted cash, with a variance banner for `BALANCED`, `SHORTAGE`, or `OVERAGE`.
+- Notes field.
+- Optional physical count per product with variance.
+- Close statement print.
+- Reopen with approval, a reason, and an approver. The prior close remains.
+- Reports: daily sales, payment breakdown, receivable, exceptions, inventory, and reconciliation.
 
-### Import/export
+### Import and export
 
-Import product catalog and stock-load CSV files. Export transaction detail, summarized inventory movements, reconciliation, and closing reports. Every import has a preview, validation result, row errors, operator, timestamp, source filename, and immutable import log.
+- Catalog import matches columns by header name, shows a preview, validates rows, reports row errors, and writes an immutable import log that records the operator, timestamp, and source filename. An error report lists rejected rows without guessing a mapping.
+- Exports: transaction detail, reconciliation, inventory, and receivable CSV. Each export uses RFC-4180, is invariant, and uses Asia/Manila dates.
+
+### Store profile and first-run wizard
+
+- Store profile: name, address, contact, and TIN. The profile supplies the receipt header.
+- First-run wizard: store profile, admin account, and a printer and scanner test. The wizard runs on first launch.
+
+### Devices
+
+- USB barcode scanner, keyboard HID. Focus returns to the scan input after each scan.
+- 80mm thermal printer, ESC/POS, 42 columns. The receipt is the source of truth.
+- Cash drawer with kick. The drawer opens on checkout and on day-close print.
+- Printer test, scanner diagnostics, and drawer test.
+
+## 6. MVP inclusion list
+
+The store POS MVP includes session and day lifecycle, catalog, receiving, sales, corrections, day close and reports, import and export, store profile and first-run wizard, and devices.
+
+The MVP runs one store, one till, and one warehouse. Multi-till is future only.
 
 ## 7. Business rules
 
-- Inventory must never change without a corresponding movement record.
-- A sale cannot have zero lines, inactive products, or insufficient stock unless an explicit role-based override exists.
-- Sale numbers and load numbers are unique and human-readable; internal IDs are UUIDs.
-- Split payment totals must equal sale total.
-- Cash change applies only to the cash component.
-- A sale is committed once; retrying a print must not create another sale.
-- Voids and returns create reversing movements; original records remain visible.
-- Manual adjustments require a reason; large adjustments require approval.
-- Closed trips are immutable except through a controlled reopen workflow.
+- Inventory never changes without a corresponding movement record.
+- A sale cannot have zero lines, an inactive product, or insufficient stock unless an explicit role-based override exists.
+- Sale numbers and receiving references are unique and human-readable. Internal IDs are GUIDs.
+- Split payment totals equal the sale total. Cash change applies only to the cash component.
+- A sale is committed once. Retrying a print must not create another sale.
+- Voids and returns create reversing movements. Original records remain visible.
+- Manual adjustments require a reason. Large adjustments require approval.
+- A closed day is immutable except through a controlled reopen with approval.
+- Money is integer Philippine peso centavos. Date boundaries use Asia/Manila.
+- A difference at day close is labeled and recorded, never silently corrected.
 
-## 8. Non-functional requirements
+## 8. Hardware profile
 
-- Fully usable without internet.
-- Product lookup feels instant; normal checkout completes in under two seconds on target hardware.
-- App starts within five seconds on a reasonable Windows laptop.
-- SQLite writes are transaction-safe and resilient to normal power loss.
-- Automatic daily backup, with configurable retention and a restore check.
-- Keyboard-first interaction with large touch-friendly fallback controls.
-- Passwords hashed locally; sensitive actions auditable.
-- Clear import/export and hardware error messages suitable for non-technical staff.
+- Machine: one Windows machine at the store counter. 1366 by 768 minimum, 1920 by 1080 target.
+- Printer: 80mm thermal, ESC/POS, 42 columns. Receipts fit the 42-column width.
+- Scanner: USB barcode scanner, keyboard HID. Barcodes may carry leading zeros.
+- Drawer: cash drawer with kick.
+- Receipt: 80mm, 42 columns. Header from the store profile.
 
-## 9. Edge cases and mitigations
+## 9. Non-goals
 
-Duplicate barcodes: reject before import.  
-Scanner not focused: keep a dedicated scan input and visible focus state.  
-Printer disconnected: save first, then offer retry/reprint.  
-Double-click checkout: disable button while committing and use an idempotency key.  
-Power loss during checkout: use one database transaction and recover on restart.  
-Peddler forgets to close: show open-trip warning and let admin close/reconcile.  
-Negative inventory from bad import: reject load or require authorized override.  
-Missing products: keep rejected rows in an error report; do not guess mappings.
+- No multi-till sync in the MVP. Multi-till is future only.
+- No cloud. No network dependency.
+- No loyalty program.
+- No online payments. GCash, Maya, and Bank Transfer are recorded as payment methods. The point of sale does not connect to a provider and does not process a payment online.
+- No promotion engine, no customer-specific pricing, and no commission.
+- No route selling, no per-seller stock locations, and no outbound stock issuance to a seller.
+- No GPS or route planning, no digital receipts, no Bluetooth or mobile version, and no direct integration with another point-of-sale system.
 
-## 10. MVP acceptance criteria
+## 10. Conventions
 
-The MVP is ready for pilot when a peddler can sell using a scanner and printer while offline; stock, sale, payment, and ledger records remain consistent; receipts can be retried without duplicate sales; daily cash close works; returns and variances are visible; CSV reports can be reconciled to the main store; backups restore successfully; and an admin can explain every inventory difference from the movement history.
-
-## 11. Deferred enhancements
-
-Cloud sync, central dashboard, multiple-device synchronization, customer ledger, customer-specific pricing, route planning/GPS, commissions, expenses, promotions, digital receipts, Bluetooth/mobile version, payment-provider APIs, and direct integration with the main POS.
-
+- Money is integer Philippine peso centavos. The system stores exact minor units and never uses floating point for money.
+- A date boundary uses Asia/Manila. A day is a day in Asia/Manila local time. The day close rolls over at midnight in Asia/Manila.
+- Offline first. Login, sale, print, day close, report, and backup never wait for a network.
