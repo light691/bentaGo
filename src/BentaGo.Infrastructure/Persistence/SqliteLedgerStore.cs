@@ -52,6 +52,8 @@ public sealed partial class SqliteLedgerStore : ILedgerStore, IDisposable, IAsyn
     private IReadOnlyList<Return> _docsReturns = Array.Empty<Return>();
     private IReadOnlyList<StockLoad> _docsLoads = Array.Empty<StockLoad>();
     private IReadOnlyList<SaleVoid> _docsVoids = Array.Empty<SaleVoid>();
+    private IReadOnlyList<PhysicalCount> _docsCounts = Array.Empty<PhysicalCount>();
+    private IReadOnlyList<DailyClose> _docsCloses = Array.Empty<DailyClose>();
 
     // Open-attempt staging: documents registered since the last Bind (D5).
     private readonly List<Sale> _stagedSales = new();
@@ -71,7 +73,7 @@ public sealed partial class SqliteLedgerStore : ILedgerStore, IDisposable, IAsyn
         _paths = paths;
         _debug = debug ?? new DebugOptions();
         _connectionString = $"Data Source={DbPath()};Pooling=False";
-        _context = new LedgerContext(_state, _docsTrips, _docsSales, _docsReturns, _docsLoads, _docsVoids);
+        _context = new LedgerContext(_state, _docsTrips, _docsSales, _docsReturns, _docsLoads, _docsVoids, _docsCounts, _docsCloses);
     }
 
     public LedgerContext Context
@@ -188,7 +190,7 @@ public sealed partial class SqliteLedgerStore : ILedgerStore, IDisposable, IAsyn
         IReadOnlyList<SaleVoid> voids = _docsVoids.Concat(_stagedVoids).ToList();
 
         _state.BindDocuments(_docsTrips, sales, returns, loads, voids);
-        Context = new LedgerContext(_state, _docsTrips.ToList(), sales, returns, loads, voids);
+        Context = new LedgerContext(_state, _docsTrips.ToList(), sales, returns, loads, voids, _docsCounts.ToList(), _docsCloses.ToList());
     }
 
     // ------------------------------------------------------------------
@@ -322,7 +324,7 @@ public sealed partial class SqliteLedgerStore : ILedgerStore, IDisposable, IAsyn
                     _audits.AddRange(persistedAudits);
                 }
 
-                Context = new LedgerContext(_state, _docsTrips.ToList(), sales, returns, loads, voids);
+                Context = new LedgerContext(_state, _docsTrips.ToList(), sales, returns, loads, voids, _docsCounts.ToList(), _docsCloses.ToList());
                 ClearStaged();
                 return Result<AppendOutcome>.Ok(new AppendOutcome(
                     new AppendReceipt(first, sequence - 1), Replayed: false, ReplayedPayload: null));
@@ -473,6 +475,8 @@ public sealed partial class SqliteLedgerStore : ILedgerStore, IDisposable, IAsyn
             _docsReturns = docs.Returns;
             _docsLoads = docs.Loads;
             _docsVoids = docs.Voids;
+            _docsCounts = docs.Counts;
+            _docsCloses = docs.Closes;
             Context = RefreshContext();
             return new RebuildReceipt(
                 rebuilt.LastSequence,
@@ -668,6 +672,8 @@ public sealed partial class SqliteLedgerStore : ILedgerStore, IDisposable, IAsyn
         _docsReturns = docs.Returns;
         _docsLoads = docs.Loads;
         _docsVoids = docs.Voids;
+        _docsCounts = docs.Counts;
+        _docsCloses = docs.Closes;
         _headLastSequence = lastSeq;
         _headDocumentsVersion = docsVersion;
         Context = RefreshContext();
@@ -681,11 +687,13 @@ public sealed partial class SqliteLedgerStore : ILedgerStore, IDisposable, IAsyn
         _docsReturns = docs.Returns;
         _docsLoads = docs.Loads;
         _docsVoids = docs.Voids;
+        _docsCounts = docs.Counts;
+        _docsCloses = docs.Closes;
     }
 
     private LedgerContext RefreshContext() =>
         new(_state, _docsTrips.ToList(), _docsSales.ToList(), _docsReturns.ToList(),
-            _docsLoads.ToList(), _docsVoids.ToList());
+            _docsLoads.ToList(), _docsVoids.ToList(), _docsCounts.ToList(), _docsCloses.ToList());
 
     private void ClearStaged()
     {

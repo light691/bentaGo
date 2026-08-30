@@ -19,7 +19,9 @@ public sealed partial class SqliteLedgerStore
         IReadOnlyList<Sale> Sales,
         IReadOnlyList<Return> Returns,
         IReadOnlyList<StockLoad> Loads,
-        IReadOnlyList<SaleVoid> Voids);
+        IReadOnlyList<SaleVoid> Voids,
+        IReadOnlyList<PhysicalCount> Counts,
+        IReadOnlyList<DailyClose> Closes);
 
     private void InsertTrip(SqliteConnection connection, Trip trip)
     {
@@ -307,7 +309,9 @@ public sealed partial class SqliteLedgerStore
         List<Return> returns = ReadReturns(connection);
         List<StockLoad> loads = ReadLoads(connection);
         List<SaleVoid> voids = ReadVoids(connection);
-        return new DocumentSets(trips, sales, returns, loads, voids);
+        List<PhysicalCount> counts = ReadCounts(connection);
+        List<DailyClose> closes = ReadCloses(connection);
+        return new DocumentSets(trips, sales, returns, loads, voids, counts, closes);
     }
 
     private static List<Trip> ReadTrips(SqliteConnection connection)
@@ -521,5 +525,81 @@ public sealed partial class SqliteLedgerStore
         }
 
         return voids;
+    }
+
+    /// <summary>
+    /// Reads the physical-count documents (with their per-line notes) that the
+    /// reconciliation projection exposes through <see cref="LedgerContext.Counts"/>.
+    /// </summary>
+    private static List<PhysicalCount> ReadCounts(SqliteConnection connection)
+    {
+        var groups = new Dictionary<CountId, List<CountLine>>();
+        using (var lineCommand = connection.CreateCommand())
+        {
+            lineCommand.CommandText =
+                "SELECT \"count_id\", \"product_id\", \"observed\", \"notes\" FROM \"CountLines\" ORDER BY \"rowid\"";
+            using SqliteDataReader lineReader = lineCommand.ExecuteReader();
+            while (lineReader.Read())
+            {
+                var countId = new CountId(ParseGuid(lineReader.GetString(0)));
+                if (!groups.TryGetValue(countId, out List<CountLine>? lines))
+                {
+                    lines = new List<CountLine>();
+                    groups[countId] = lines;
+                }
+
+                string? notes = lineReader.IsDBNull(3) ? null : lineReader.GetString(3);
+                lines.Add(new CountLine(
+                    new ProductId(ParseGuid(lineReader.GetString(1))),
+                    Quantity.Of(checked((int)lineReader.GetInt64(2))),
+                    notes));
+            }
+        }
+
+        var counts = new List<PhysicalCount>();
+        using var command = connection.CreateCommand();
+        command.CommandText =
+            "SELECT \"id\", \"location_id\", \"by\", \"when_utc\" FROM \"PhysicalCounts\" ORDER BY \"when_utc\", \"id\"";
+        using SqliteDataReader reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            var countId = new CountId(ParseGuid(reader.GetString(0)));
+            IReadOnlyList<CountLine> lines = groups.TryGetValue(countId, out List<CountLine>? found) ? found : Array.Empty<CountLine>();
+            counts.Add(new PhysicalCount(
+                countId,
+                new LocationId(ParseGuid(reader.GetString(1))),
+                lines,
+                new UserId(ParseGuid(reader.GetString(2))),
+                ParseIso(reader.GetString(3))));
+        }
+
+        return counts;
+    }
+
+    /// <summary>
+    /// Reads the daily-close documents (the submitted counted cash + notes) that
+    /// the reconciliation projection exposes through <see cref="LedgerContext.Closes"/>.
+    /// </summary>
+    private static List<DailyClose> ReadCloses(SqliteConnection connection)
+    {
+        var closes = new List<DailyClose>();
+        using var command = connection.CreateCommand();
+        command.CommandText =
+            "SELECT \"id\", \"trip_id\", \"expected_cash_centavos\", \"counted_cash_centavos\", \"variance_centavos\", \"notes\", \"by\", \"when_utc\" FROM \"DailyCloses\" ORDER BY \"when_utc\", \"id\"";
+        using SqliteDataReader reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            closes.Add(new DailyClose(
+                new CloseId(ParseGuid(reader.GetString(0))),
+                new TripId(ParseGuid(reader.GetString(1))),
+                new Money(reader.GetInt64(2)),
+                new Money(reader.GetInt64(3)),
+                new Money(reader.GetInt64(4)),
+                reader.IsDBNull(5) ? null : reader.GetString(5),
+                new UserId(ParseGuid(reader.GetString(6))),
+                ParseIso(reader.GetString(7))));
+        }
+
+        return closes;
     }
 }

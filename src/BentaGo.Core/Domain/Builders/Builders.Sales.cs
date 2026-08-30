@@ -17,7 +17,9 @@ public sealed record LedgerContext(
     IReadOnlyList<Sale> Sales,
     IReadOnlyList<Return> Returns,
     IReadOnlyList<StockLoad> Loads,
-    IReadOnlyList<SaleVoid> Voids)
+    IReadOnlyList<SaleVoid> Voids,
+    IReadOnlyList<PhysicalCount> Counts,
+    IReadOnlyList<DailyClose> Closes)
 {
     public Trip? FindTrip(TripId id)
     {
