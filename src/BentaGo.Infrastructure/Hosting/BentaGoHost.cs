@@ -92,6 +92,7 @@ public static class BentaGoHost
         services.AddSingleton<BentaGo.Application.Contracts.ICheckoutSessionFactory, BentaGo.Application.Services.CheckoutSessionFactory>();
         services.AddSingleton<BentaGo.Application.Contracts.ISaleQueryService, BentaGo.Application.Services.SaleQueryService>();
         services.AddSingleton<BentaGo.Application.Contracts.IProductSearchService, BentaGo.Application.Services.ProductSearchService>();
+        services.AddSingleton<BentaGo.Application.Contracts.IPrintJobStore, PrintJobStore>();
 
         services.AddSingleton<IRestoreService>(sp => new RestoreService(
             sp.GetRequiredService<IDataPathProvider>(),
