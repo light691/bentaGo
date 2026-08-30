@@ -267,7 +267,22 @@
                             Style="{StaticResource Banner.SuccessStyle}"
                             Margin="{StaticResource Thickness.RowGap}"
                             Visibility="{Binding HasReceipt, Converter={StaticResource BoolToVisibility}}">
-                        <TextBlock Text="{Binding ReceiptText}" Style="{StaticResource BodyTextStyle}" TextWrapping="Wrap" />
+                        <StackPanel>
+                            <TextBlock Text="{Binding ReceiptText}" Style="{StaticResource BodyTextStyle}" TextWrapping="Wrap" />
+                            <TextBlock Text="{Binding PrintStatusText}" Style="{StaticResource BodyTextStyle}"
+                                       TextWrapping="Wrap" Margin="{StaticResource Thickness.XS}" />
+                            <StackPanel Orientation="Horizontal" Margin="{StaticResource Thickness.S}">
+                                <Button Content="REPRINT"
+                                        Style="{StaticResource Button.ActionBarStyle}"
+                                        Command="{Binding ReprintCommand}"
+                                        Margin="{StaticResource Thickness.ColumnGap}"
+                                        ui:FocusTarget.Id="Sales.QuickAction.Reprint" />
+                                <Button Content="NEW SALE"
+                                        Style="{StaticResource Button.ActionBarStyle}"
+                                        Command="{Binding ClearCartCommand}"
+                                        ui:FocusTarget.Id="Sales.QuickAction.NewSale" />
+                            </StackPanel>
+                        </StackPanel>
                     </Border>
                 </Grid>
             </Border>
@@ -295,10 +310,10 @@
                     Style="{StaticResource Button.ActionBarStyle}"
                     Command="{Binding ApplyDiscountCommand}"
                     ui:FocusTarget.Id="Sales.QuickAction.Discount" />
-            <Button Grid.Column="4" Content="F11 Print"
+            <Button Grid.Column="4" Content="Ctrl+P Print"
                     Style="{StaticResource Button.ActionBarStyle}"
-                    IsEnabled="False"
-                    ToolTip="Printing will be enabled in a future release."
+                    Command="{Binding PrintCommand}"
+                    ToolTip="Print or reprint the last receipt."
                     ui:FocusTarget.Id="Sales.QuickAction.Print" />
             <Button Grid.Column="6" Content="CANCEL"
                     Style="{StaticResource Button.ActionBarDangerOutlineStyle}"

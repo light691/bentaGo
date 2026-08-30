@@ -109,7 +109,7 @@ public static class ShortcutCatalog
         E("new-sale", "Ctrl+N", Key.N, ModifierKeys.Control, ScopeScreen,
           "New sale", ShortcutStatus.Future, "docs/03 Ctrl+N"),
         E("print", "Ctrl+P", Key.P, ModifierKeys.Control, ScopeScreen,
-          "Print/reprint current document", ShortcutStatus.Future, "docs/03 Ctrl+P"),
+          "Print/reprint last receipt", ShortcutStatus.Active, "docs/03 Ctrl+P (BG-007)"),
         E("save-draft", "Ctrl+S", Key.S, ModifierKeys.Control, ScopeScreen,
           "Save draft", ShortcutStatus.Active, "docs/03 Ctrl+S"),
         E("focus-search", "Ctrl+F", Key.F, ModifierKeys.Control, ScopeScreen,

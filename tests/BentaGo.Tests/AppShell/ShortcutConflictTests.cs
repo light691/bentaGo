@@ -103,7 +103,6 @@ public sealed class ShortcutConflictTests : IDisposable
             ["hold-cart"] = ShortcutStatus.Future,            // F4
             ["refresh"] = ShortcutStatus.Future,              // F5
             ["new-sale"] = ShortcutStatus.Future,             // Ctrl+N
-            ["print"] = ShortcutStatus.Future,                // Ctrl+P
             ["reset"] = ShortcutStatus.Future,                // Ctrl+R
         };
 

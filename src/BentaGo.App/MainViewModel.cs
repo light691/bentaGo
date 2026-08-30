@@ -75,6 +75,10 @@ public sealed class MainViewModel : ViewModelBase
         DiscountCommand = new RelayCommand(
             _ => ForwardTo<SalesViewModel>(vm => vm.ApplyDiscountCommand.Execute(null)),
             _ => Current is SalesViewModel sales && sales.SelectedLine is not null);
+        // Ctrl+P (BG-007): print/reprint the last receipt.
+        PrintCommand = new RelayCommand(
+            _ => ForwardTo<SalesViewModel>(vm => vm.PrintCommand.Execute(null)),
+            _ => Current is SalesViewModel sales && sales.CanPrint);
         DeleteLineCommand = new RelayCommand(_ => ForwardTo<SalesViewModel>(vm => vm.RemoveLineCommand.Execute(vm.SelectedLine)));
         IncreaseQuantityCommand = new RelayCommand(_ => ForwardTo<SalesViewModel>(vm => vm.IncreaseQuantityCommand.Execute(null)));
         DecreaseQuantityCommand = new RelayCommand(_ => ForwardTo<SalesViewModel>(vm => vm.DecreaseQuantityCommand.Execute(null)));
@@ -184,6 +188,9 @@ public sealed class MainViewModel : ViewModelBase
 
     public ICommand DiscountCommand { get; }
 
+    /// <summary>Ctrl+P: print/reprint the last receipt (BG-007).</summary>
+    public ICommand PrintCommand { get; }
+
     public ICommand DeleteLineCommand { get; }
 
     public ICommand IncreaseQuantityCommand { get; }
@@ -225,6 +232,7 @@ public sealed class MainViewModel : ViewModelBase
             ["focus-scan"] = (FocusScanCommand, null),
             ["product-search"] = (ProductSearchCommand, null),
             ["discount"] = (DiscountCommand, null),
+            ["print"] = (PrintCommand, null),
             ["end-trip"] = (NavigateCommand, ScreenKeys.Reconciliation),
             ["checkout"] = (CheckoutCommand, null),
             ["cancel"] = (EscapeCommand, null),

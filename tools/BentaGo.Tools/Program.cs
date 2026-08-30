@@ -38,6 +38,7 @@ try
         "lane8-crash-worker" => await RunLane8CrashWorkerAsync(commandLine.Skip(1).ToArray()),
         "lanes" when commandLine.Length > 1 && commandLine[1] == "bg-003" => await RunLanesAsync(commandLine.Skip(2).ToArray()),
         "perf" when commandLine.Length > 1 && commandLine[1] == "bg-003" => await RunPerfAsync(commandLine.Skip(2).ToArray()),
+        "perf" when commandLine.Length > 1 && commandLine[1] == "bg-007" => await RunPrintPerfAsync(commandLine.Skip(2).ToArray()),
         "foundation" when commandLine.Length > 1 && commandLine[1] == "migrate" => await RunMigrateAsync(commandLine.Skip(2).ToArray()),
         "foundation" when commandLine.Length > 1 && commandLine[1] == "backup" => await RunBackupAsync(commandLine.Skip(2).ToArray()),
         "foundation" when commandLine.Length > 1 && commandLine[1] == "restore" => await RunRestoreAsync(commandLine.Skip(2).ToArray()),
@@ -586,6 +587,16 @@ static async Task<int> RunPerfAsync(string[] args)
         ?? Environment.GetEnvironmentVariable("BENTAGO_DATA_ROOT")
         ?? Path.Combine(Path.GetTempPath(), "bg003-perf-" + Guid.NewGuid().ToString("N"));
     return await BentaGo.Tools.PerfRunner.RunAsync(root);
+}
+
+static async Task<int> RunPrintPerfAsync(string[] args)
+{
+    Dictionary<string, string> opts = ParseOptions(args);
+    string root = Opt(opts, "data-root")
+        ?? Path.Combine(Path.GetTempPath(), "bg007-perf-" + Guid.NewGuid().ToString("N"));
+    string outPath = Opt(opts, "out") ?? "perf.tsv";
+    string head = Opt(opts, "head") ?? Environment.GetEnvironmentVariable("BENTAGO_HEAD") ?? "unknown";
+    return await BentaGo.Tools.PrintPerfRunner.RunAsync(root, outPath, head);
 }
 
 static int RunStatus()

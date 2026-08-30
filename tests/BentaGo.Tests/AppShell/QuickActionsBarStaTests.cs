@@ -99,8 +99,17 @@ public sealed class QuickActionsBarStaTests
             Assert.Null(pay.Command); // never bound - the Alt+4 pattern
             Assert.Null(discount);    // Home has no discount action
         }
-        Assert.False(print.IsEnabled, $"{screen} F11 Print chip must be parked (disabled)");
-        Assert.Null(print.Command); // never bound - the Alt+4 pattern
+        if (screen == "Sales")
+        {
+            // BG-007: F11 Print chip is live (prints/reprints the last receipt).
+            Assert.True(print.IsEnabled, $"{screen} Ctrl+P Print chip must be live");
+            Assert.NotNull(print.Command);
+        }
+        else
+        {
+            Assert.False(print.IsEnabled, $"{screen} F11 Print chip must be parked (disabled)");
+            Assert.Null(print.Command); // never bound - the Alt+4 pattern
+        }
 
         Button tall = (screen == "Sales" ? discount : pay)!;
         // Round-5 C: one Quick Actions row must show identical geometry -

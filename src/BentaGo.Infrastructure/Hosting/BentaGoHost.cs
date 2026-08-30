@@ -4,6 +4,7 @@ using BentaGo.Infrastructure.Backup;
 using BentaGo.Infrastructure.Configuration;
 using BentaGo.Infrastructure.Logging;
 using BentaGo.Infrastructure.Persistence;
+using BentaGo.Infrastructure.Printing;
 using BentaGo.Infrastructure.Security;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -93,6 +94,10 @@ public static class BentaGoHost
         services.AddSingleton<BentaGo.Application.Contracts.ISaleQueryService, BentaGo.Application.Services.SaleQueryService>();
         services.AddSingleton<BentaGo.Application.Contracts.IProductSearchService, BentaGo.Application.Services.ProductSearchService>();
         services.AddSingleton<BentaGo.Application.Contracts.IPrintJobStore, PrintJobStore>();
+        services.AddSingleton<BentaGo.Core.Domain.Receipts.IReceiptPrinter>(new FakeReceiptPrinter());
+        services.AddSingleton<BentaGo.Application.Contracts.IPrintService, BentaGo.Application.Services.PrintService>();
+        services.AddSingleton<BentaGo.Application.Contracts.IPrinterSettingsStore, PrinterSettingsStore>();
+        services.AddSingleton<BentaGo.Application.Contracts.IScannerDiagnostics, ScannerDiagnostics>();
 
         services.AddSingleton<IRestoreService>(sp => new RestoreService(
             sp.GetRequiredService<IDataPathProvider>(),
