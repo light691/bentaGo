@@ -131,6 +131,8 @@ public static class TwoPeddlersScenario
                 countId, routeAlice,
                 new[] { new CountLineCommand(sardines, Quantity.Of(38), null) },
                 userId, T5));
+            memory.RegisterCount(draft.Value.Document);
+            memory.Bind();
             memory.Append(draft.Value.Movements);
         }
 
@@ -150,6 +152,8 @@ public static class TwoPeddlersScenario
             var closeId = new CloseId(ids.Next("close-1"));
             var draft = CloseBuilder.Build(memory.Context, new CloseCommand(
                 closeId, tripAlice, Money.FromPesos(180m), null, userId, T6));
+            memory.RegisterClose(draft.Value.Document);
+            memory.Bind();
             memory.Append(draft.Value.Movements);
         }
 

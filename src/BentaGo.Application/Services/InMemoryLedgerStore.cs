@@ -26,6 +26,8 @@ public sealed class InMemoryLedgerStore : ILedgerStore
     private readonly List<Return> _returns = new();
     private readonly List<StockLoad> _loads = new();
     private readonly List<SaleVoid> _voids = new();
+    private readonly List<PhysicalCount> _counts = new();
+    private readonly List<DailyClose> _closes = new();
     private readonly List<AuditEvent> _audits = new();
     private readonly Dictionary<string, string> _idempotency = new();
     private long _auditSequence;
@@ -77,7 +79,7 @@ public sealed class InMemoryLedgerStore : ILedgerStore
         IReadOnlyList<SaleVoid> voids = Bound(_voids, _stagedVoids);
 
         State.BindDocuments(_trips, sales, returns, loads, voids);
-        Context = new LedgerContext(State, _trips.ToList(), sales, returns, loads, voids);
+        Context = new LedgerContext(State, _trips.ToList(), sales, returns, loads, voids, _counts.ToList(), _closes.ToList());
     }
 
     public Result<AppendOutcome> Append(AppendBatch batch)
@@ -198,7 +200,8 @@ public sealed class InMemoryLedgerStore : ILedgerStore
     }
 
     private LedgerContext NewContext() =>
-        new(State, _trips.ToList(), _sales.ToList(), _returns.ToList(), _loads.ToList(), _voids.ToList());
+        new(State, _trips.ToList(), _sales.ToList(), _returns.ToList(), _loads.ToList(), _voids.ToList(),
+            _counts.ToList(), _closes.ToList());
 
     private static IReadOnlyList<T> Bound<T>(List<T> committed, List<T> staged) =>
         committed.Concat(staged).ToList();
@@ -209,6 +212,8 @@ public sealed class InMemoryLedgerStore : ILedgerStore
         _returns.AddRange(_stagedReturns);
         _loads.AddRange(_stagedLoads);
         _voids.AddRange(_stagedVoids);
+        _counts.AddRange(_stagedCounts);
+        _closes.AddRange(_stagedCloses);
         ClearOpenAttempt();
     }
 
