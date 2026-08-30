@@ -48,6 +48,21 @@ public interface IPrintService
 
     /// <summary>Prints a NEW labelled copy (REPRINT) of a successful receipt.</summary>
     Task<PrintOutcome> ReprintAsync(Sale sale, CancellationToken ct = default);
+
+    /// <summary>
+    /// BG-008 Slice C: prints a CLOSE summary through the SAME pipeline after
+    /// the close commits (the close is already saved; a failed print leaves the
+    /// facts intact). The job snapshot is the close-summary document, so a
+    /// retry reprints the identical copy and a reprint keeps the original close
+    /// identity under the REPRINT label.
+    /// </summary>
+    Task<PrintOutcome> PrintCloseSummaryAsync(ReceiptDocument closeDocument, CancellationToken ct = default);
+
+    /// <summary>Prints the SAME close job again (idempotent retry).</summary>
+    Task<PrintOutcome> RetryCloseAsync(CloseId closeId, CancellationToken ct = default);
+
+    /// <summary>Prints a NEW labelled close copy (REPRINT) with the original close identity.</summary>
+    Task<PrintOutcome> ReprintCloseAsync(CloseId closeId, CancellationToken ct = default);
 }
 
 /// <summary>The outcome the UI renders ("Sale saved. Printer needs attention." on failure).</summary>

@@ -98,6 +98,7 @@ public static class BentaGoHost
         services.AddSingleton<BentaGo.Application.Contracts.IPrintService, BentaGo.Application.Services.PrintService>();
         services.AddSingleton<BentaGo.Application.Contracts.IPrinterSettingsStore, PrinterSettingsStore>();
         services.AddSingleton<BentaGo.Application.Contracts.IScannerDiagnostics, ScannerDiagnostics>();
+        services.AddSingleton<BentaGo.Application.Contracts.IReconciliationReportService, BentaGo.Application.Services.ReconciliationReportService>();
 
         services.AddSingleton<IRestoreService>(sp => new RestoreService(
             sp.GetRequiredService<IDataPathProvider>(),

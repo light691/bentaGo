@@ -1,6 +1,8 @@
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Input;
 using BentaGo.App.Data;
@@ -18,8 +20,10 @@ using BentaGo.Core.Domain.Documents;
 using BentaGo.Core.Domain.Identity;
 using BentaGo.Core.Domain.Ledger;
 using BentaGo.Core.Domain.Payments;
+using BentaGo.Core.Domain.Receipts;
 using BentaGo.Core.Domain.Reconciliation;
 using BentaGo.Core.Domain.Trips;
+using BentaGo.Infrastructure.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace BentaGo.App.Features.Reconciliation;
@@ -60,11 +64,14 @@ public sealed class ReconciliationViewModel : ValidatableViewModelBase, IRetaina
     private readonly ICloseService _closes;
     private readonly IReopenService _reopens;
     private readonly IReconciliationReportService _reports;
+    private readonly IPrintService _print;
+    private readonly IDataPathProvider _paths;
     private readonly AdminReadService _reads;
     private readonly IFocusService _focus;
     private readonly Func<DateTimeOffset> _clock;
 
     private string _actualCashText = "";
+    private string _exportStatusText = "";
     private string _closeNotesText = "";
     private string _reopenReasonText = "";
     private bool _isClosed;
@@ -100,6 +107,8 @@ public sealed class ReconciliationViewModel : ValidatableViewModelBase, IRetaina
         _closes = services.GetRequiredService<ICloseService>();
         _reopens = services.GetRequiredService<IReopenService>();
         _reports = services.GetRequiredService<IReconciliationReportService>();
+        _print = services.GetRequiredService<IPrintService>();
+        _paths = services.GetRequiredService<IDataPathProvider>();
         _reads = services.GetRequiredService<AdminReadService>();
         _focus = services.GetRequiredService<IFocusService>();
         _clock = services.GetRequiredService<Func<DateTimeOffset>>();
@@ -108,7 +117,9 @@ public sealed class ReconciliationViewModel : ValidatableViewModelBase, IRetaina
         SubmitCloseCommand = new RelayCommand(_ => SubmitClose(), _ => CanSubmitClose);
         ReopenCommand = new RelayCommand(_ => Reopen(), _ => CanReopen);
         CancelEditCommand = new RelayCommand(_ => CancelEdit());
-        PrintSummaryCommand = new RelayCommand(_ => { }, _ => false); // BG-008 Slice C (Ctrl+P parked)
+        PrintSummaryCommand = new RelayCommand(async _ => await PrintCloseSummaryAsync(), _ => CanPrintSummary);
+        ExportTransactionsCsvCommand = new RelayCommand(async _ => await ExportCsvAsync(transactions: true), _ => CanExport);
+        ExportReconciliationCsvCommand = new RelayCommand(async _ => await ExportCsvAsync(transactions: false), _ => CanExport);
         FocusCashCommand = new RelayCommand(_ => _focus.Request(AutomationIds.ReconciliationActualCashBox));
     }
 
@@ -197,6 +208,10 @@ public sealed class ReconciliationViewModel : ValidatableViewModelBase, IRetaina
     public ICommand CancelEditCommand { get; }
 
     public ICommand PrintSummaryCommand { get; }
+
+    public ICommand ExportTransactionsCsvCommand { get; }
+
+    public ICommand ExportReconciliationCsvCommand { get; }
 
     public ICommand FocusCashCommand { get; }
 
@@ -291,6 +306,7 @@ public sealed class ReconciliationViewModel : ValidatableViewModelBase, IRetaina
                 NotifySubmitGate();
                 NotifySaveGate();
                 NotifyReopenGate();
+                NotifyExportGate();
             }
         }
     }
@@ -306,6 +322,10 @@ public sealed class ReconciliationViewModel : ValidatableViewModelBase, IRetaina
                 OnPropertyChanged(nameof(CanSubmitClose));
                 NotifySaveGate();
                 NotifyReopenGate();
+                if (PrintSummaryCommand is RelayCommand print)
+                {
+                    print.NotifyCanExecuteChanged();
+                }
             }
         }
     }
@@ -321,6 +341,22 @@ public sealed class ReconciliationViewModel : ValidatableViewModelBase, IRetaina
         ? DraftSavedCopy
         : "Draft not saved";
 
+    /// <summary>Status line for the last CSV export / close-summary print
+    /// (the written path or the error copy).</summary>
+    public string ExportStatusText
+    {
+        get => _exportStatusText;
+        private set
+        {
+            if (SetProperty(ref _exportStatusText, value))
+            {
+                OnPropertyChanged(nameof(HasExportStatus));
+            }
+        }
+    }
+
+    public bool HasExportStatus => !string.IsNullOrEmpty(ExportStatusText);
+
     /// <summary>Gate: a resolvable open trip (draft counts never lock).</summary>
     public bool CanSaveDraft => HasTrip && !IsClosed;
 
@@ -329,6 +365,12 @@ public sealed class ReconciliationViewModel : ValidatableViewModelBase, IRetaina
 
     /// <summary>Gate: a closed trip (reopen is the authorized exit).</summary>
     public bool CanReopen => HasTrip && IsClosed;
+
+    /// <summary>Gate: a trip is on screen (the CSV exports need its data).</summary>
+    public bool CanExport => HasTrip;
+
+    /// <summary>Gate: a trip is on screen (the close summary prints from its close).</summary>
+    public bool CanPrintSummary => HasTrip;
 
     /// <summary>The screen-level corrective banner (submit/reopen rejections).
     /// The use case commits nothing on failure, so the banner is the only
@@ -603,6 +645,77 @@ public sealed class ReconciliationViewModel : ValidatableViewModelBase, IRetaina
     {
         SetFieldError(nameof(ActualCashText), null);
         ErrorBanner = null;
+    }
+
+    /// <summary>BG-008 Slice C: prints the close summary for the on-screen
+    /// trip through the BG-007 pipeline (the close is already committed; a
+    /// failed print leaves the facts intact). The job snapshot is the close
+    /// document, so a retry/reprint keeps the identical copy.</summary>
+    private async Task PrintCloseSummaryAsync()
+    {
+        if (!HasTrip)
+        {
+            ExportStatusText = "No close to print on this trip.";
+            return;
+        }
+
+        Result<ReconciliationReport> report = _reports.Build(_peddler, _trip.Id);
+        if (report.IsFailure)
+        {
+            ExportStatusText = "Could not build the close report.";
+            return;
+        }
+
+        DailyClose? close = _store.Context.Closes
+            .Where(c => c.Trip == _trip.Id)
+            .OrderBy(c => c.WhenUtc).ThenBy(c => c.Id.Value)
+            .LastOrDefault();
+        if (close is null)
+        {
+            ExportStatusText = "No close to print on this trip.";
+            return;
+        }
+
+        ReceiptDocument document = ReceiptDocument.FromCloseSummary(
+            report.Value, close.Id, close.WhenUtc, null, null, null, null, close.Notes);
+        PrintOutcome outcome = await _print.PrintCloseSummaryAsync(document);
+        ExportStatusText = outcome.Status == PrintJobStatus.Printed
+            ? $"Close summary printed ({outcome.ReceiptNumber})."
+            : "Close summary needs attention - you can retry or reprint later.";
+    }
+
+    /// <summary>BG-008 Slice C: writes the transactions or reconciliation CSV
+    /// (built by the Slice A report service) next to the data root's folder
+    /// through <see cref="IDataPathProvider"/>. The written path is surfaced
+    /// in <see cref="ExportStatusText"/>.</summary>
+    private async Task ExportCsvAsync(bool transactions)
+    {
+        if (!HasTrip)
+        {
+            ExportStatusText = "No trip to export.";
+            return;
+        }
+
+        Result<string> csv = transactions
+            ? _reports.BuildTransactionCsv(_peddler, _trip.Id)
+            : _reports.BuildReconciliationCsv(_peddler, _trip.Id);
+        if (csv.IsFailure)
+        {
+            ExportStatusText = "Could not build the CSV export.";
+            return;
+        }
+
+        string fileName = transactions ? "transactions.csv" : "reconciliation.csv";
+        string path = Path.Combine(_paths.DataDir, fileName);
+        try
+        {
+            await File.WriteAllTextAsync(path, csv.Value, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+            ExportStatusText = $"Exported {fileName} to {path}";
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+        {
+            ExportStatusText = $"Export failed: {ex.Message}";
+        }
     }
 
     private void RebuildTripDisplay()
@@ -932,6 +1045,27 @@ public sealed class ReconciliationViewModel : ValidatableViewModelBase, IRetaina
         }
 
         OnPropertyChanged(nameof(CanReopen));
+    }
+
+    private void NotifyExportGate()
+    {
+        if (PrintSummaryCommand is RelayCommand print)
+        {
+            print.NotifyCanExecuteChanged();
+        }
+
+        if (ExportTransactionsCsvCommand is RelayCommand transactions)
+        {
+            transactions.NotifyCanExecuteChanged();
+        }
+
+        if (ExportReconciliationCsvCommand is RelayCommand reconciliation)
+        {
+            reconciliation.NotifyCanExecuteChanged();
+        }
+
+        OnPropertyChanged(nameof(CanExport));
+        OnPropertyChanged(nameof(CanPrintSummary));
     }
 }
 

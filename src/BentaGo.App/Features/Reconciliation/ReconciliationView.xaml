@@ -224,29 +224,52 @@
                         </Border>
                     </Grid>
 
-                    <Grid Grid.Row="2" Margin="{StaticResource Thickness.M}">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <Button Grid.Column="0" Content="Save Draft"
-                                Style="{StaticResource Button.PrimaryStyle}"
-                                Command="{Binding SaveDraftCommand}"
-                                Margin="{StaticResource Thickness.ColumnGap}"
-                                ui:FocusTarget.Id="Reconciliation.SaveDraftButton" />
-                        <Button Grid.Column="1" Content="Print Summary"
-                                Style="{StaticResource Button.SecondaryStyle}"
-                                Command="{Binding PrintSummaryCommand}"
-                                Margin="{StaticResource Thickness.ColumnGap}" />
-                        <Button Grid.Column="2" Content="Submit Close"
-                                Style="{StaticResource Button.PrimaryStyle}"
-                                Command="{Binding SubmitCloseCommand}"
-                                IsDefault="True"
-                                MinWidth="140"
-                                Margin="{StaticResource Thickness.ColumnGap}"
-                                ui:FocusTarget.Id="Reconciliation.SubmitCloseButton" />
-                    </Grid>
+                    <StackPanel Grid.Row="2" Margin="{StaticResource Thickness.M}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Button Grid.Column="0" Content="Save Draft"
+                                    Style="{StaticResource Button.PrimaryStyle}"
+                                    Command="{Binding SaveDraftCommand}"
+                                    Margin="{StaticResource Thickness.ColumnGap}"
+                                    ui:FocusTarget.Id="Reconciliation.SaveDraftButton" />
+                            <Button Grid.Column="1" Content="Print Summary"
+                                    Style="{StaticResource Button.SecondaryStyle}"
+                                    Command="{Binding PrintSummaryCommand}"
+                                    Margin="{StaticResource Thickness.ColumnGap}" />
+                            <Button Grid.Column="2" Content="Submit Close"
+                                    Style="{StaticResource Button.PrimaryStyle}"
+                                    Command="{Binding SubmitCloseCommand}"
+                                    IsDefault="True"
+                                    MinWidth="140"
+                                    Margin="{StaticResource Thickness.ColumnGap}"
+                                    ui:FocusTarget.Id="Reconciliation.SubmitCloseButton" />
+                        </Grid>
+                        <!-- BG-008 Slice C exports: transaction + reconciliation
+                             CSV, written next to the data root by the VM. -->
+                        <Grid Margin="{StaticResource Thickness.XS}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Button Grid.Column="0" Content="Export Transactions CSV"
+                                    Style="{StaticResource Button.SecondaryStyle}"
+                                    Command="{Binding ExportTransactionsCsvCommand}"
+                                    Margin="{StaticResource Thickness.ColumnGap}" />
+                            <Button Grid.Column="1" Content="Export Reconciliation CSV"
+                                    Style="{StaticResource Button.SecondaryStyle}"
+                                    Command="{Binding ExportReconciliationCsvCommand}"
+                                    Margin="{StaticResource Thickness.ColumnGap}" />
+                        </Grid>
+                        <TextBlock Text="{Binding ExportStatusText}"
+                                   Style="{StaticResource CaptionTextStyle}"
+                                   Margin="{StaticResource Thickness.XS}"
+                                   TextWrapping="Wrap"
+                                   Visibility="{Binding HasExportStatus, Converter={StaticResource BoolToVisibility}}" />
+                    </StackPanel>
                 </Grid>
             </Grid>
 
