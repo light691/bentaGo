@@ -248,6 +248,21 @@ public static class VoidBuilder
             return Result<VoidDraft>.Fail(new DomainError("SALE_ALREADY_VOIDED", $"sale {sale.Id} is already voided"));
         }
 
+        Result<bool> tripGate = TripGate(ctx, sale.Trip);
+        if (tripGate.IsFailure)
+        {
+            return Result<VoidDraft>.Fail(tripGate.Errors);
+        }
+
+        // BG-007 approval policy: a void is a high-risk correction that
+        // records who approved it (the session service resolves approval for
+        // the accepted role; a self-approving operator fills its own id).
+        if (cmd.ApprovedBy is null)
+        {
+            return Result<VoidDraft>.Fail(new DomainError(
+                "VOID_APPROVAL_REQUIRED", "a void needs an operator approval"));
+        }
+
         var errors = new List<DomainError>();
         var movements = new List<Movement>(sale.Lines.Count + sale.Payments.Count);
 
@@ -293,8 +308,32 @@ public static class VoidBuilder
             return Result<VoidDraft>.Fail(errors);
         }
 
-        var @void = new SaleVoid(cmd.Id, sale.Id, cmd.Reason, cmd.By, cmd.NowUtc);
+        var @void = new SaleVoid(cmd.Id, sale.Id, cmd.Reason, cmd.By, cmd.NowUtc, cmd.ApprovedBy);
         return Result<VoidDraft>.Ok(new VoidDraft(@void, movements));
+    }
+
+    /// <summary>Corrections on a closed trip need an authorized reopen (BG-007, docs/05 lane 10).</summary>
+    internal static Result<bool> TripGate(LedgerContext ctx, TripId trip)
+    {
+        if (ctx.FindTrip(trip) is null)
+        {
+            return Result<bool>.Fail(new DomainError("TRIP_UNKNOWN", $"no trip {trip}"));
+        }
+
+        TripStatus status = ctx.State.Trip(trip).Status;
+        if (status == TripStatus.Closed)
+        {
+            return Result<bool>.Fail(new DomainError(
+                "TRIP_CLOSED_CORRECTION",
+                $"trip {trip} is closed; corrections need an authorized reopen"));
+        }
+
+        if (status == TripStatus.Cancelled)
+        {
+            return Result<bool>.Fail(new DomainError("TRIP_CANCELLED", $"trip {trip} is cancelled"));
+        }
+
+        return Result<bool>.Ok(true);
     }
 }
 
@@ -312,6 +351,12 @@ public static class ReturnBuilder
         if (state.Status == SaleStatus.Voided)
         {
             return Result<ReturnDraft>.Fail(new DomainError("SALE_VOIDED", $"sale {sale.Id} is voided"));
+        }
+
+        Result<bool> tripGate = VoidBuilder.TripGate(ctx, sale.Trip);
+        if (tripGate.IsFailure)
+        {
+            return Result<ReturnDraft>.Fail(tripGate.Errors);
         }
 
         if (cmd.Lines.Count == 0)
@@ -382,7 +427,7 @@ public static class ReturnBuilder
 
             movements.Add(Moves.ReturnToStock(
                 0, cmd.NowUtc, cmd.By, new ReturnRef(cmd.Id),
-                original.ProductId, sale.Location, line.Quantity, line.OriginalLine, issue.Value));
+                original.ProductId, line.Destination ?? sale.Location, line.Quantity, line.OriginalLine, issue.Value));
 
             if (line.RefundAmount.Centavos > 0)
             {

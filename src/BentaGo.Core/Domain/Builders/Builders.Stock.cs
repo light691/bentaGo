@@ -169,20 +169,43 @@ public static class AdjustmentBuilder
             return Result<AdjustmentDraft>.Fail(new DomainError("REASON_REQUIRED", "an adjustment needs a reason"));
         }
 
-        if (!cmd.Increase && ctx.State.StockOnHand(cmd.ProductId, cmd.Location).Units < cmd.Quantity.Units)
+        // BG-007 approval policy: adjustments move stock without a sale, so
+        // they record who approved (the session service resolves approval for
+        // the accepted role; a self-approving operator fills its own id).
+        if (cmd.ApprovedBy is null)
+        {
+            return Result<AdjustmentDraft>.Fail(new DomainError(
+                "ADJUSTMENT_APPROVAL_REQUIRED", "an adjustment needs an operator approval"));
+        }
+
+        Result<bool> tripGate = VoidBuilder.TripGate(ctx, cmd.Trip);
+        if (tripGate.IsFailure)
+        {
+            return Result<AdjustmentDraft>.Fail(tripGate.Errors);
+        }
+
+        bool decreases = cmd.Kind is AdjustmentKind.Decrease or AdjustmentKind.Damage or AdjustmentKind.Loss;
+        if (decreases && ctx.State.StockOnHand(cmd.ProductId, cmd.Location).Units < cmd.Quantity.Units)
         {
             return Result<AdjustmentDraft>.Fail(new DomainError("STOCK_INSUFFICIENT", "not enough stock to decrease"));
         }
 
-        var document = new Adjustment(cmd.Id, cmd.ProductId, cmd.Location, cmd.Reason, cmd.By, cmd.NowUtc);
-        var movements = new List<Movement>
+        Movement movement = cmd.Kind switch
         {
-            cmd.Increase
-                ? Moves.AdjustmentIncrease(0, cmd.NowUtc, cmd.By, new AdjustmentRef(cmd.Id), cmd.ProductId, cmd.Location, cmd.Quantity, cmd.Reason)
-                : Moves.AdjustmentDecrease(0, cmd.NowUtc, cmd.By, new AdjustmentRef(cmd.Id), cmd.ProductId, cmd.Location, cmd.Quantity, cmd.Reason),
+            AdjustmentKind.Increase => Moves.AdjustmentIncrease(
+                0, cmd.NowUtc, cmd.By, new AdjustmentRef(cmd.Id), cmd.ProductId, cmd.Location, cmd.Quantity, cmd.Reason),
+            AdjustmentKind.Decrease => Moves.AdjustmentDecrease(
+                0, cmd.NowUtc, cmd.By, new AdjustmentRef(cmd.Id), cmd.ProductId, cmd.Location, cmd.Quantity, cmd.Reason),
+            AdjustmentKind.Damage => Moves.Damage(
+                0, cmd.NowUtc, cmd.By, new AdjustmentRef(cmd.Id), cmd.ProductId, cmd.Location, cmd.Quantity, cmd.Reason),
+            AdjustmentKind.Loss => Moves.Loss(
+                0, cmd.NowUtc, cmd.By, new AdjustmentRef(cmd.Id), cmd.ProductId, cmd.Location, cmd.Quantity, cmd.Reason),
+            _ => throw new ArgumentOutOfRangeException(nameof(cmd.Kind)),
         };
 
-        return Result<AdjustmentDraft>.Ok(new AdjustmentDraft(document, movements));
+        var document = new Adjustment(
+            cmd.Id, cmd.Trip, cmd.ProductId, cmd.Location, cmd.Kind, cmd.Reason, cmd.By, cmd.NowUtc, cmd.ApprovedBy);
+        return Result<AdjustmentDraft>.Ok(new AdjustmentDraft(document, new[] { movement }));
     }
 }
 

@@ -1,5 +1,6 @@
 using BentaGo.Core.Domain.Builders;
 using BentaGo.Core.Domain.Identity;
+using BentaGo.Core.Domain.Ledger;
 using BentaGo.Core.Domain.Payments;
 
 namespace BentaGo.Core.Domain.Commands;
@@ -75,14 +76,16 @@ public sealed record VoidCommand(
     SaleId Sale,
     string Reason,
     UserId By,
-    DateTimeOffset NowUtc);
+    DateTimeOffset NowUtc,
+    UserId? ApprovedBy = null);
 
 public sealed record ReturnLineCommand(
     SaleLineId OriginalLine,
     Quantity Quantity,
     string Reason,
     PaymentMethod RefundMethod,
-    Money RefundAmount);
+    Money RefundAmount,
+    LocationId? Destination = null);
 
 public sealed record ReturnCommand(
     ReturnId Id,
@@ -118,13 +121,15 @@ public sealed record TransferCommand(
 
 public sealed record AdjustmentCommand(
     AdjustmentId Id,
+    TripId Trip,
     ProductId ProductId,
     LocationId Location,
-    bool Increase,
+    AdjustmentKind Kind,
     Quantity Quantity,
     string Reason,
     UserId By,
-    DateTimeOffset NowUtc);
+    DateTimeOffset NowUtc,
+    UserId? ApprovedBy = null);
 
 public sealed record CountLineCommand(ProductId ProductId, Quantity Observed, string? Notes);
 

@@ -396,8 +396,9 @@ static async Task<int> RunLedgerAsync(string[] args)
             case "void":
                 {
                     var voidId = new VoidId(Guid.NewGuid());
+                    UserId? approver = opts.ContainsKey("approved-by") ? new UserId(OptGuid(opts, "approved-by", "approver user id")) : null;
                     Result<VoidOutcome> result = host.GetRequiredService<IVoidService>().Void(new VoidCommand(
-                        voidId, new SaleId(OptGuid(opts, "sale", "sale id")), RequireOpt(opts, "reason"), by, when));
+                        voidId, new SaleId(OptGuid(opts, "sale", "sale id")), RequireOpt(opts, "reason"), by, when, approver));
                     return PrintSimple(result, "VOID", $"sale {opts["sale"]}");
                 }
 
@@ -422,17 +423,18 @@ static async Task<int> RunLedgerAsync(string[] args)
 
             case "adjustment":
                 {
-                    bool increase = opts.ContainsKey("increase");
+                    UserId? approver = opts.ContainsKey("approved-by") ? new UserId(OptGuid(opts, "approved-by", "approver user id")) : null;
                     var adjustmentId = new AdjustmentId(Guid.NewGuid());
                     Result<AdjustmentOutcome> result = host.GetRequiredService<IAdjustmentService>().Adjust(new AdjustmentCommand(
                         adjustmentId,
+                        new TripId(OptGuid(opts, "trip", "trip id")),
                         new ProductId(OptGuid(opts, "product", "product id")),
                         new LocationId(OptGuid(opts, "location", "location id")),
-                        increase,
+                        Enum.Parse<AdjustmentKind>(RequireOpt(opts, "kind")),
                         Quantity.Of(int.Parse(RequireOpt(opts, "qty"))),
                         RequireOpt(opts, "reason"),
-                        by, when));
-                    return PrintSimple(result, "ADJUSTMENT", increase ? "increase" : "decrease");
+                        by, when, approver));
+                    return PrintSimple(result, "ADJUSTMENT", opts["kind"]);
                 }
 
             case "count":

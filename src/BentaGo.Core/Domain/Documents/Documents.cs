@@ -1,3 +1,5 @@
+using BentaGo.Core.Domain.Identity;
+using BentaGo.Core.Domain.Ledger;
 using BentaGo.Core.Domain.Payments;
 
 namespace BentaGo.Core.Domain.Documents;
@@ -71,7 +73,7 @@ public sealed record PaymentLine(
     Money Tendered,
     Money Change);
 
-public sealed record SaleVoid(VoidId Id, SaleId OriginalSaleId, string Reason, UserId By, DateTimeOffset WhenUtc);
+public sealed record SaleVoid(VoidId Id, SaleId OriginalSaleId, string Reason, UserId By, DateTimeOffset WhenUtc, UserId? ApprovedBy = null);
 
 public sealed record Return(
     ReturnId Id,
@@ -94,11 +96,14 @@ public sealed record StockLoadLine(ProductId ProductId, string Sku, string Produ
 
 public sealed record Adjustment(
     AdjustmentId Id,
+    TripId Trip,
     ProductId ProductId,
     LocationId Location,
+    AdjustmentKind Kind,
     string Reason,
     UserId By,
-    DateTimeOffset WhenUtc);
+    DateTimeOffset WhenUtc,
+    UserId? ApprovedBy = null);
 
 public sealed record PhysicalCount(
     CountId Id,

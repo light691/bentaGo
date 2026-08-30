@@ -98,10 +98,12 @@ public static class TwoPeddlersScenario
             new[] { Line(ids, sardines, "Sardines", 10, Money.FromPesos(45m)) },
             new[] { NewPay(ids, PaymentMethod.Credit, Money.FromPesos(450m), cash: false, "Aling Nena") });
 
-        // Alice: void the kopi sale (customer changed their mind).
+        // Alice: void the kopi sale (customer changed their mind) — approved
+        // by the operator (BG-007 approval policy).
         {
             var voidId = new VoidId(ids.Next("void-1"));
-            var draft = VoidBuilder.Build(memory.Context, new VoidCommand(voidId, sale2.Id, "customer changed mind", userId, T3));
+            var draft = VoidBuilder.Build(memory.Context, new VoidCommand(
+                voidId, sale2.Id, "customer changed mind", userId, T3, ApprovedBy: userId));
             memory.RegisterVoid(draft.Value.Document);
             memory.Bind();
             memory.Append(draft.Value.Movements);
@@ -132,11 +134,12 @@ public static class TwoPeddlersScenario
             memory.Append(draft.Value.Movements);
         }
 
-        // Bob: damage 1 sardine in transit.
+        // Bob: damage 1 sardine in transit (approved by the operator).
         {
             var adjId = new AdjustmentId(ids.Next("damage-1"));
             var draft = AdjustmentBuilder.Build(memory.Context, new AdjustmentCommand(
-                adjId, sardines, routeBob, Increase: false, Quantity.Of(1), "crushed while peddling", userId, T5));
+                adjId, tripBob, sardines, routeBob, AdjustmentKind.Damage,
+                Quantity.Of(1), "crushed while peddling", userId, T5, ApprovedBy: userId));
             memory.Append(draft.Value.Movements);
         }
 

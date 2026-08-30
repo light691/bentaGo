@@ -233,7 +233,8 @@ public sealed class LedgerLaneTests
         Sale sale = h.CommitSale(5, Money.FromPesos(45m), PaymentMethod.Cash);
 
         var voidDraft = VoidBuilder.Build(h.Store.Context, new VoidCommand(
-            new VoidId(Guid.NewGuid()), sale.Id, "customer changed mind", h.User, h.Now.AddHours(2)));
+            new VoidId(Guid.NewGuid()), sale.Id, "customer changed mind", h.User, h.Now.AddHours(2),
+            ApprovedBy: h.User));
         h.Store.RegisterVoid(voidDraft.Value.Document);
         h.Store.Bind();
         h.Store.Append(voidDraft.Value.Movements);
@@ -279,7 +280,6 @@ public sealed class LedgerLaneTests
             new ReturnId(Guid.NewGuid()), sale.Id,
             new[] { new ReturnLineCommand(sale.Lines[0].Id, Quantity.Of(3), "also damaged", PaymentMethod.Cash, Money.FromPesos(135m)) },
             h.User, h.Now.AddHours(4)));
-
         Assert.True(second.IsFailure);
         Assert.Contains(second.Errors, e => e.Code == "RETURN_LIMIT");
         Assert.Equal(before, h.Store.Movements.Count);
