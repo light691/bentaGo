@@ -1,0 +1,8 @@
+# BG-008 perf probe — close calculation + report render, 10,000 sales / 50,000 movements, P95 after 3 warm-ups
+head	e3e6eaffb3cbffa63373e7cdc7498ed0afa96975
+seed	10000 sales / 50030 movements	15828 ms
+baseline	bg-003 ledger aggregation median	721.89 ms
+baseline	bg-006 history-load median	126.79 ms
+metric	bg-008 close calculation P95	1073.00 ms	rule <= 1000 ms
+metric	bg-008 report render P95	155.72 ms	rule <= 2000 ms
+verdict	close+report perf	FAIL

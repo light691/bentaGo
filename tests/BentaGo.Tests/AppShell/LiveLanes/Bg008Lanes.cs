@@ -214,6 +214,84 @@ public sealed class Bg008Lanes
         });
     }
 
+    // ------- Lane 10: the complete two-peddler scenario explains every
+    // difference from the screen (report rows + notes + exports) -------
+
+    [Fact]
+    public async Task L10_TwoPeddlersReconcile_ExplainsEveryDifferenceFromScreen()
+    {
+        if (!LiveLanesEnabled)
+            return;
+        await _sta.RunAsync(async () =>
+        {
+            using var session = await Bg008LaneSession.OpenAsync();
+            session.Navigation.Navigate(ScreenKeys.Reconciliation);
+            await WaitUntilAsync(() => session.Navigation.CurrentKey == ScreenKeys.Reconciliation);
+            var vm = (ReconciliationViewModel)session.ViewModel.Current!;
+
+            // The full two-peddler day is folded: Alice's trip is closed (+reopened)
+            // with counted cash 180.00 vs expected 284.00, so it SHORTs by 104.00.
+            bool hasReport = vm.HasReport;
+            bool hasClose = session.Store.Context.Closes.Any(c => c.Trip == session.AliceTrip);
+
+            vm.ActualCashText = "180";
+            _sta.PumpIdle();
+            bool bannerShort = vm.IsShort
+                && vm.BannerText.Contains("SHORT", StringComparison.Ordinal)
+                && vm.BannerText.Contains("104", StringComparison.Ordinal);
+
+            // Domain report: exactly the folds a reviewer reads.
+            ReconciliationReport report = session.Reports.Build(session.Alice, session.AliceTrip).Value;
+            bool cashExplained = report.Totals.ExpectedCash.Centavos == 28400
+                && report.Totals.CountedCash.Centavos == 18000
+                && report.Totals.CashVariance.Centavos == 10400
+                && report.Totals.CashLabel == VarianceLabel.Shortage;
+            bool stockExplained = report.StockRows.Single(r => r.Sku == "Sardines").CountedUnits == 38;
+            bool everyLineSigned = report.StockRows.All(r =>
+                (r.CountedUnits is null) == (r.QuantityVariance is null)
+                && (r.CountedUnits is null) == (r.ValueVariance is null));
+
+            // Screen report: the reviewer sees the same rows + notes.
+            bool screenCash = hasReport
+                && vm.Report!.CashLabelText == "SHORTAGE"
+                && vm.Report.ExpectedCashText.Contains("284", StringComparison.Ordinal)
+                && vm.Report.CountedCashText.Contains("180", StringComparison.Ordinal)
+                && vm.Report.CashVarianceText.Contains("104", StringComparison.Ordinal);
+            ReportStockRowView? sardines = hasReport
+                ? vm.Report!.StockRows.SingleOrDefault(r => r.Sku == "Sardines")
+                : null;
+            bool screenStock = sardines is not null
+                && sardines.ExpectedText == "36"
+                && sardines.CountedText == "38"
+                && sardines.QuantityVarianceText == "+2"
+                && sardines.ValueVarianceText.Contains("90.00", StringComparison.Ordinal);
+
+            // Exports surface the same explained differences.
+            vm.ExportReconciliationCsvCommand.Execute(null);
+            vm.ExportTransactionsCsvCommand.Execute(null);
+            await WaitUntilAsync(() => vm.HasExportStatus && vm.ExportStatusText.Contains("Exported", StringComparison.Ordinal));
+            bool filesExist = File.Exists(Path.Combine(session.Paths.DataDir, "reconciliation.csv"))
+                && File.Exists(Path.Combine(session.Paths.DataDir, "transactions.csv"));
+            string reconCsv = filesExist ? File.ReadAllText(Path.Combine(session.Paths.DataDir, "reconciliation.csv")) : "";
+            bool reconExplains = reconCsv.Contains("Cash,Physical Cash,284.00,180.00,104.00,,SHORTAGE,", StringComparison.Ordinal)
+                && reconCsv.Contains("Stock,Sardines - Sardines,36,38,2,90.00,,", StringComparison.Ordinal);
+
+            _sta.PumpIdle();
+            session.ShotOfCurrent("bg-008-two-peddlers.png");
+            Bg008LaneEvidence.SaveReviewPng("bg-008-two-peddlers.png", 1366, 768, session.Window);
+
+            bool pass = hasReport && hasClose && bannerShort && cashExplained && stockExplained
+                && everyLineSigned && screenCash && screenStock && filesExist && reconExplains;
+            await Bg008LaneEvidence.WriteVerdictAsync(
+                "bg-008-l10", "L10 two-peddler reconcile explains every difference",
+                pass ? Bg008LaneEvidence.VerdictPass : Bg008LaneEvidence.VerdictFail,
+                $"hasReport={hasReport} hasClose={hasClose} bannerShort={bannerShort} " +
+                $"cash={cashExplained} stock={stockExplained} everyLineSigned={everyLineSigned} " +
+                $"screenCash={screenCash} screenStock={screenStock} files={filesExist} recon={reconExplains}",
+                "bg-008-two-peddlers.png");
+        });
+    }
+
     private static async Task WaitUntilAsync(Func<bool> condition, int timeoutMs = 15_000)
     {
         var end = DateTime.UtcNow.AddMilliseconds(timeoutMs);
