@@ -419,7 +419,11 @@ public sealed class LedgerState
             return new DomainError("REVERSES_UNKNOWN", $"no sale issue at sequence {m.Reverses}");
         }
 
-        if (issue.Product != m.ProductId || issue.Location != m.LocationId || issue.LineId != m.SaleLineId)
+        // BG-007 L8: a return may land at a DIFFERENT destination than the
+        // selling location (return to main store) — the reversal pins the
+        // product and line, while the location is where the item physically
+        // went. The returned-quantity limit stays per line.
+        if (issue.Product != m.ProductId || issue.LineId != m.SaleLineId)
         {
             return new DomainError("REVERSES_MISMATCH", "return does not match the original sale issue");
         }

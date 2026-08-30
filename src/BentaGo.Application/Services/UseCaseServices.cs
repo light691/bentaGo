@@ -173,7 +173,8 @@ public sealed class VoidService(ILedgerStore store) : IVoidService
             Audits: new[]
             {
                 new AuditEvent(-1, cmd.By, cmd.NowUtc, "VOID",
-                    $"sale {cmd.Sale} voided: {cmd.Reason}", new VoidRef(cmd.Id),
+                    $"sale {cmd.Sale} voided: {cmd.Reason} (approved by {cmd.ApprovedBy})",
+                    new VoidRef(cmd.Id),
                     Terminal: Environment.MachineName, Reason: cmd.Reason),
             }));
         if (outcome.IsFailure)
@@ -235,7 +236,8 @@ public sealed class AdjustmentService(ILedgerStore store) : IAdjustmentService
             Audits: new[]
             {
                 new AuditEvent(-1, cmd.By, cmd.NowUtc, "ADJUSTMENT",
-                    $"adjustment {cmd.Id} committed", new AdjustmentRef(cmd.Id),
+                    $"adjustment {cmd.Id} ({cmd.Kind}) on trip {cmd.Trip} approved by {cmd.ApprovedBy}: {cmd.Reason}",
+                    new AdjustmentRef(cmd.Id),
                     Terminal: Environment.MachineName, Reason: cmd.Reason),
             }));
         if (outcome.IsFailure)

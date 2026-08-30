@@ -166,10 +166,10 @@ public static class PerfRunner
             store.RegisterLoad(new StockLoad(transferId, $"PERF-TRN-{number}", Trip, Array.Empty<StockLoadLine>(), User, When));
             store.RegisterCount(new PhysicalCount(countId, Route,
                 new[] { new CountLine(product, Quantity.Of(47), null) }, User, When));
-            store.RegisterAdjustment(new Adjustment(adj1, product, Route, "perf decrease", User, When));
-            store.RegisterAdjustment(new Adjustment(adj2, product, Route, "perf damage", User, When));
-            store.RegisterAdjustment(new Adjustment(adj3, product, Route, "perf increase", User, When));
-            store.RegisterAdjustment(new Adjustment(adj4, product, Route, "perf loss", User, When));
+            store.RegisterAdjustment(new Adjustment(adj1, Trip, product, Route, AdjustmentKind.Decrease, "perf decrease", User, When, User));
+            store.RegisterAdjustment(new Adjustment(adj2, Trip, product, Route, AdjustmentKind.Damage, "perf damage", User, When, User));
+            store.RegisterAdjustment(new Adjustment(adj3, Trip, product, Route, AdjustmentKind.Increase, "perf increase", User, When, User));
+            store.RegisterAdjustment(new Adjustment(adj4, Trip, product, Route, AdjustmentKind.Loss, "perf loss", User, When, User));
 
             movements.Add(Moves.OpeningStock(0, When, User, new LoadRef(openingId), product, Store, Quantity.Of(100)));
             movements.Add(Moves.TransferOut(0, When, User, new LoadRef(loadId), product, Store, Quantity.Of(50)));
