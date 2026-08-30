@@ -3,6 +3,7 @@ using System.Windows.Input;
 using BentaGo.App.Data;
 using BentaGo.App.Dialogs;
 using BentaGo.App.Dialogs.Confirm;
+using BentaGo.App.Dialogs.Corrections;
 using BentaGo.App.Dialogs.Payment;
 using BentaGo.App.Mvvm;
 using BentaGo.App.Navigation;
@@ -85,6 +86,10 @@ public sealed class SalesViewModel : ValidatableViewModelBase, IRetainableScreen
         FocusSearchCommand = new RelayCommand(_ => _focus.Request(AutomationIds.SalesSearchBox));
         PrintCommand = new RelayCommand(async _ => await PrintLastAsync(), _ => !IsPrinting);
         ReprintCommand = new RelayCommand(async _ => await ReprintLastAsync(), _ => !IsPrinting);
+        // F8 (BG-007c2): opens the corrections panel (void/return/damage-loss/
+        // adjustment). The panel resolves the actor, open trip, and approver
+        // policy itself; failures are surfaced inside the panel.
+        OpenCorrectionsCommand = new RelayCommand(async _ => await OpenCorrectionsAsync());
     }
 
     /// <summary>MainViewModel calls this when the Sales screen is navigated to;
@@ -151,6 +156,9 @@ public sealed class SalesViewModel : ValidatableViewModelBase, IRetainableScreen
 
     /// <summary>Prints a labelled REPRINT copy of the last receipt.</summary>
     public ICommand ReprintCommand { get; }
+
+    /// <summary>F8: opens the corrections panel (BG-007c2).</summary>
+    public ICommand OpenCorrectionsCommand { get; }
 
     public ICommand ClearSearchCommand { get; }
 
@@ -674,6 +682,21 @@ public sealed class SalesViewModel : ValidatableViewModelBase, IRetainableScreen
         }
     }
 
+    /// <summary>F8 (BG-007c2): opens the corrections panel over this screen.
+    /// A committed correction re-focuses the scan box; the panel's own banner
+    /// carries every rejection copy.</summary>
+    private async Task OpenCorrectionsAsync()
+    {
+        var corrections = _services.GetRequiredService<CorrectionsDialogViewModel>();
+        await corrections.LoadAsync();
+        CorrectionsDialogResult? result = await _dialogs.ShowAsync(
+            corrections, focusAfterClose: AutomationIds.SalesScanBox);
+        if (result is not null)
+        {
+            ActionError = null;
+        }
+    }
+
     private void ClearCart()
     {
         if (_session is null)
@@ -741,13 +764,21 @@ public sealed class SalesViewModel : ValidatableViewModelBase, IRetainableScreen
         }
     }
 
-    private static string FriendlyError(string code) =>
+    /// <summary>
+    /// The shared FriendlyError mapper (error-copy conventions): the Sales
+    /// screen and the BG-007 corrections panel render the same corrective
+    /// copy for the same domain code (internal: the corrections dialog
+    /// reuses this helper instead of carrying a divergent copy).
+    /// </summary>
+    internal static string FriendlyError(string code) =>
         code switch
         {
             "AUTH_ACTOR_NOT_SIGNED_IN" => "You are not signed in.",
             "AUTH_ACTOR_DEACTIVATED" => "This account is deactivated. Ask an admin.",
+            "AUTH_ACTOR_UNKNOWN" => "Sign in again and retry.",
             "NO_PEDDLER_LINK" => "This account is not linked to a peddler. Ask an admin.",
             "NO_OPEN_TRIP" => "There is no open trip - open one from Stock.",
+            "TRIP_PEDDLER_MISMATCH" => "That record belongs to another peddler.",
             "STOCK_INSUFFICIENT" => "Not enough stock on hand for that quantity.",
             "BANK_REFERENCE_REQUIRED" => "A bank transfer needs a reference number.",
             "PAYMENT_TOTAL" => "Payments do not equal the sale total.",
@@ -758,6 +789,26 @@ public sealed class SalesViewModel : ValidatableViewModelBase, IRetainableScreen
             "SUBMIT_IN_PROGRESS" => "The sale is being saved - try again in a moment.",
             "LINE_UNKNOWN_PRODUCT" => "A product is no longer in the catalog. Ask an admin to re-import it.",
             "SESSION_CLOSED" => "This sale is already finished - scan to start a new one.",
+            // BG-007 corrections (the 007b builders' rejection codes).
+            "VOID_APPROVAL_REQUIRED" => "A void needs an approver. Choose a supervisor or admin.",
+            "ADJUSTMENT_APPROVAL_REQUIRED" => "An adjustment needs an approver. Choose a supervisor or admin.",
+            "TRIP_CLOSED_CORRECTION" => "This trip is closed - corrections need an authorized reopen.",
+            "TRIP_CANCELLED" => "This trip is cancelled.",
+            "TRIP_UNKNOWN" => "This trip no longer exists.",
+            "SALE_ALREADY_VOIDED" => "That sale is already voided.",
+            "SALE_VOIDED" => "That sale is voided.",
+            "VOID_RETURNED" => "A sale with returned items cannot be voided.",
+            "SALE_NOT_COMMITTED" => "That sale is not committed. Refresh and retry.",
+            "UNKNOWN_SALE" => "That sale no longer exists. Refresh and retry.",
+            "RETURN_LIMIT" => "The return exceeds the sold quantity.",
+            "RETURN_EMPTY" => "Add at least one return line.",
+            "LINE_UNKNOWN" => "That line does not belong to the sale.",
+            "LINE_ZERO" => "Enter a quantity of at least 1.",
+            "REASON_REQUIRED" => "A reason is required.",
+            "REFUND_METHOD" => "A refund cannot post to Credit.",
+            "REFUND_LIMIT" => "The refund exceeds the original payment.",
+            "REFUND_RECEIPT_MISSING" => "No payment is available to refund against.",
+            "REFUND_NEGATIVE" => "The refund amount cannot be negative.",
             _ => "Action could not be completed. Please try again.",
         };
 }

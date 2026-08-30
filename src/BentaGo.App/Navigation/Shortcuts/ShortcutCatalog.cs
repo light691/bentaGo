@@ -83,7 +83,7 @@ public static class ShortcutCatalog
         E("discount", "F7", Key.F7, ModifierKeys.None, ScopeScreen,
           "Apply permitted discount", ShortcutStatus.Active, "docs/03 F7"),
         E("returns", "F8", Key.F8, ModifierKeys.None, ScopeScreen,
-          "Open returns/adjustments", ShortcutStatus.Reserved, "docs/03 F8"),
+          "Open returns/adjustments", ShortcutStatus.Active, "docs/03 F8 (BG-007)"),
         E("transactions-f9", "F9", Key.F9, ModifierKeys.None, ScopeScreen,
           "Open today's transactions", ShortcutStatus.Active, "docs/03 F9"),
         E("end-trip", "F10", Key.F10, ModifierKeys.None, ScopeShell,

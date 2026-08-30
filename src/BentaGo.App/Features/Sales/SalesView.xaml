@@ -297,6 +297,8 @@
                 <ColumnDefinition Width="180" />
                 <ColumnDefinition Width="12" />
                 <ColumnDefinition Width="180" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="180" />
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="12" />
@@ -315,10 +317,15 @@
                     Command="{Binding PrintCommand}"
                     ToolTip="Print or reprint the last receipt."
                     ui:FocusTarget.Id="Sales.QuickAction.Print" />
-            <Button Grid.Column="6" Content="CANCEL"
+            <Button Grid.Column="6" Content="F8 Correct"
+                    Style="{StaticResource Button.ActionBarStyle}"
+                    Command="{Binding OpenCorrectionsCommand}"
+                    ToolTip="Void sale, return line, damage/loss, or stock adjustment (F8)."
+                    ui:FocusTarget.Id="Sales.QuickAction.Corrections" />
+            <Button Grid.Column="8" Content="CANCEL"
                     Style="{StaticResource Button.ActionBarDangerOutlineStyle}"
                     Command="{Binding ClearCartCommand}" />
-            <Button Grid.Column="8" Content="CHECKOUT"
+            <Button Grid.Column="10" Content="CHECKOUT"
                     Style="{StaticResource Button.ActionBarStyle}"
                     Command="{Binding CheckoutCommand}"
                     MinWidth="180"
