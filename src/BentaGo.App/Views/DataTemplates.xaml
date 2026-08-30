@@ -8,6 +8,7 @@
                     xmlns:tx="clr-namespace:BentaGo.App.Features.Transactions"
                     xmlns:admin="clr-namespace:BentaGo.App.Features.Admin"
                     xmlns:payment="clr-namespace:BentaGo.App.Dialogs.Payment"
+                    xmlns:corrections="clr-namespace:BentaGo.App.Dialogs.Corrections"
                     xmlns:confirm="clr-namespace:BentaGo.App.Dialogs.Confirm">
 
     <!-- ================================================================
@@ -48,6 +49,9 @@
     <!-- Dialogs are hosted by DialogHost through the same map. -->
     <DataTemplate DataType="{x:Type payment:PaymentDialogViewModel}">
         <payment:PaymentDialogView />
+    </DataTemplate>
+    <DataTemplate DataType="{x:Type corrections:CorrectionsDialogViewModel}">
+        <corrections:CorrectionsDialogView />
     </DataTemplate>
     <DataTemplate DataType="{x:Type confirm:ConfirmDialogViewModel}">
         <confirm:ConfirmDialogView />

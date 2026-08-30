@@ -34,6 +34,21 @@ public static class AutomationIds
     public const string SalesCheckoutButton = "Sales.CheckoutButton";
     public const string SalesDiscountText = "Sales.DiscountText";
     public const string SalesErrorBanner = "Sales.ErrorBanner";
+    public const string SalesCorrectionsButton = "Sales.QuickAction.Corrections";
+
+    // Corrections dialog (BG-007c2): void / return / damage-loss / adjustment.
+    public const string CorrectionsModeList = "Corrections.ModeList";
+    public const string CorrectionsSalePicker = "Corrections.SalePicker";
+    public const string CorrectionsLinePicker = "Corrections.LinePicker";
+    public const string CorrectionsProductPicker = "Corrections.ProductPicker";
+    public const string CorrectionsReasonBox = "Corrections.ReasonBox";
+    public const string CorrectionsQuantityBox = "Corrections.QuantityBox";
+    public const string CorrectionsReturnQuantityBox = "Corrections.ReturnQuantityBox";
+    public const string CorrectionsApproverPicker = "Corrections.ApproverPicker";
+    public const string CorrectionsDestinationPicker = "Corrections.DestinationPicker";
+    public const string CorrectionsKindList = "Corrections.KindList";
+    public const string CorrectionsSubmitButton = "Corrections.SubmitButton";
+    public const string CorrectionsErrorBanner = "Corrections.ErrorBanner";
 
     // Transactions (BG-006b)
     public const string TransactionsList = "Transactions.List";

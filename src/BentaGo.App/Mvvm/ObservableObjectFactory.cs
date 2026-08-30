@@ -1,6 +1,7 @@
 using BentaGo.App.Data;
 using BentaGo.App.Dialogs;
 using BentaGo.App.Dialogs.Confirm;
+using BentaGo.App.Dialogs.Corrections;
 using BentaGo.App.Dialogs.Payment;
 using BentaGo.App.Features.Admin;
 using BentaGo.App.Features.Help;
@@ -73,6 +74,7 @@ public static class ObservableObjectFactory
         services.AddTransient<AdminOverviewViewModel>();
         services.AddTransient<AdminDevicesViewModel>();       // BG-007 printer/scanner
         services.AddTransient<PaymentDialogViewModel>();   // dialogs, not screens
+        services.AddTransient<CorrectionsDialogViewModel>(); // BG-007 corrections (F8)
         services.AddTransient<ConfirmDialogViewModel>();
         services.AddTransient<HelpOverlayViewModel>();
     }

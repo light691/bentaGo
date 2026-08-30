@@ -1,0 +1,246 @@
+<UserControl x:Class="BentaGo.App.Dialogs.Corrections.CorrectionsDialogView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="clr-namespace:BentaGo.App.Ui"
+             ui:FocusTarget.Id="Corrections.Root">
+    <!-- BG-007c2 corrections panel (F8): mode strip left, the selected
+         correction's form right, banner feedback on top, keyboard-first
+         submit/cancel at the bottom. Same proportions as the payment dialog.
+         VOID and RETURN share the one SALE picker; DAMAGE/LOSS and ADJUSTMENT
+         share the stock form with the kind chips as the switch. -->
+    <Grid Margin="{StaticResource Thickness.S}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0">
+            <TextBlock Text="CORRECTIONS · F8" Style="{StaticResource PageEyebrowTextStyle}" />
+            <TextBlock Text="Returns &amp; adjustments" Style="{StaticResource HeaderTextStyle}" />
+            <TextBlock Text="Void a sale, return a line, record damage/loss, or adjust stock. Every correction is audited."
+                       Style="{StaticResource StatusTextStyle}"
+                       Margin="{StaticResource Thickness.XS}" />
+        </StackPanel>
+
+        <!-- Panel-level state: corrections are unavailable (fatal) or the
+             last submit was rejected (corrective copy, nothing moved). -->
+        <Border Grid.Row="1"
+                Style="{StaticResource Banner.InfoBgStyle}"
+                Margin="{StaticResource Thickness.RowGap}"
+                Visibility="{Binding HasFatalState, Converter={StaticResource BoolToVisibility}}">
+            <TextBlock Text="{Binding FatalMessage}" Style="{StaticResource BodyTextStyle}" TextWrapping="Wrap" />
+        </Border>
+        <Border Grid.Row="2"
+                Style="{StaticResource Banner.ErrorStyle}"
+                Margin="{StaticResource Thickness.RowGap}"
+                Visibility="{Binding HasErrorBanner, Converter={StaticResource BoolToVisibility}}">
+            <TextBlock Text="{Binding ErrorBanner}" Style="{StaticResource BodyTextStyle}" TextWrapping="Wrap"
+                       ui:FocusTarget.Id="Corrections.ErrorBanner" />
+        </Border>
+
+        <!-- Mode strip (left) + the selected form (right). -->
+        <Grid Grid.Row="3" Margin="{StaticResource Thickness.RowGap}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="280" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <Border Grid.Column="0" Style="{StaticResource ActionPanelStyle}" VerticalAlignment="Stretch">
+                <StackPanel ui:FocusTarget.Id="Corrections.ModeList">
+                    <TextBlock Text="CORRECTION" Style="{StaticResource PageEyebrowTextStyle}" />
+                    <ItemsControl ItemsSource="{Binding ModeOptions}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Button Style="{StaticResource PaymentMethodListButtonStyle}"
+                                        Command="{Binding DataContext.SelectModeCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                        CommandParameter="{Binding}"
+                                        Content="{Binding Label}" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+
+            <Border Grid.Column="2" Style="{StaticResource CardStyle}" VerticalAlignment="Stretch">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <!-- Per-mode header. -->
+                    <StackPanel Grid.Row="0" Visibility="{Binding IsVoidMode, Converter={StaticResource BoolToVisibility}}">
+                        <TextBlock Text="VOID SALE" Style="{StaticResource TitleTextStyle}" />
+                        <TextBlock Text="Pick a sale from today's trip, add the reason, and record the approval."
+                                   Style="{StaticResource StatusTextStyle}"
+                                   Margin="{StaticResource Thickness.XS}" />
+                    </StackPanel>
+                    <StackPanel Grid.Row="0" Visibility="{Binding IsReturnMode, Converter={StaticResource BoolToVisibility}}">
+                        <TextBlock Text="RETURN LINE" Style="{StaticResource TitleTextStyle}" />
+                        <TextBlock Text="Return part of a sold line to peddler stock or the main store."
+                                   Style="{StaticResource StatusTextStyle}"
+                                   Margin="{StaticResource Thickness.XS}" />
+                    </StackPanel>
+                    <StackPanel Grid.Row="0" Visibility="{Binding IsStockMode, Converter={StaticResource BoolToVisibility}}">
+                        <TextBlock Style="{StaticResource TitleTextStyle}">
+                            <Run Text="{Binding SelectedModeId, Mode=OneWay}" />
+                            <Run Text=" — stock movement" />
+                        </TextBlock>
+                        <TextBlock Text="Record the movement against this trip's stock with the reason and approval."
+                                   Style="{StaticResource StatusTextStyle}"
+                                   Margin="{StaticResource Thickness.XS}" />
+                    </StackPanel>
+
+                    <!-- Shared SALE picker (void + return). -->
+                    <StackPanel Grid.Row="1" Visibility="{Binding IsSalePickerVisible, Converter={StaticResource BoolToVisibility}}">
+                        <TextBlock Text="Sale" Style="{StaticResource FieldLabelStyle}" Margin="{StaticResource Thickness.RowGap}" />
+                        <ComboBox x:Name="SalePicker"
+                                  ItemsSource="{Binding Sales}"
+                                  SelectedItem="{Binding SelectedSale, Mode=TwoWay}"
+                                  DisplayMemberPath="Label"
+                                  MinWidth="320"
+                                  HorizontalAlignment="Left"
+                                  Margin="{StaticResource Thickness.XS}"
+                                  ui:FocusTarget.Id="Corrections.SalePicker" />
+                    </StackPanel>
+
+                    <!-- RETURN extras: line, quantity, destination, refund. -->
+                    <StackPanel Grid.Row="2" Visibility="{Binding IsReturnMode, Converter={StaticResource BoolToVisibility}}">
+                        <TextBlock Text="Line" Style="{StaticResource FieldLabelStyle}" Margin="{StaticResource Thickness.RowGap}" />
+                        <ComboBox ItemsSource="{Binding SaleLines}"
+                                  SelectedItem="{Binding SelectedLine, Mode=TwoWay}"
+                                  DisplayMemberPath="Label"
+                                  MinWidth="320"
+                                  HorizontalAlignment="Left"
+                                  Margin="{StaticResource Thickness.XS}"
+                                  ui:FocusTarget.Id="Corrections.LinePicker" />
+                        <TextBlock Text="Quantity" Style="{StaticResource FieldLabelStyle}" Margin="{StaticResource Thickness.RowGap}" />
+                        <TextBox Text="{Binding QuantityText, UpdateSourceTrigger=PropertyChanged}"
+                                 Style="{StaticResource ScanEditorStyle}"
+                                 Width="120"
+                                 HorizontalAlignment="Left"
+                                 Margin="{StaticResource Thickness.XS}"
+                                 ui:FocusTarget.Id="Corrections.ReturnQuantityBox" />
+                        <TextBlock Text="Return to" Style="{StaticResource FieldLabelStyle}" Margin="{StaticResource Thickness.RowGap}" />
+                        <ComboBox ItemsSource="{Binding Destinations}"
+                                  SelectedItem="{Binding SelectedDestination, Mode=TwoWay}"
+                                  DisplayMemberPath="Label"
+                                  MinWidth="320"
+                                  HorizontalAlignment="Left"
+                                  Margin="{StaticResource Thickness.XS}"
+                                  ui:FocusTarget.Id="Corrections.DestinationPicker" />
+                        <TextBlock Text="{Binding RefundText}"
+                                   Style="{StaticResource MoneyTextStyle}"
+                                   Margin="{StaticResource Thickness.XS}"
+                                   Visibility="{Binding RefundText, Converter={StaticResource StringToVisibility}}" />
+                    </StackPanel>
+
+                    <!-- DAMAGE/LOSS + ADJUSTMENT extras: kind chips, product,
+                         quantity (the chips are the task's kind switch). -->
+                    <StackPanel Grid.Row="2" Visibility="{Binding IsStockMode, Converter={StaticResource BoolToVisibility}}">
+                        <TextBlock Text="Kind" Style="{StaticResource FieldLabelStyle}" Margin="{StaticResource Thickness.RowGap}" />
+                        <ItemsControl ItemsSource="{Binding Kinds}" ui:FocusTarget.Id="Corrections.KindList">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Orientation="Horizontal" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Button Style="{StaticResource MethodTabButtonStyle}"
+                                            Command="{Binding DataContext.SelectKindCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                            CommandParameter="{Binding}"
+                                            Content="{Binding Label}" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <TextBlock Text="Product" Style="{StaticResource FieldLabelStyle}" Margin="{StaticResource Thickness.RowGap}" />
+                        <ComboBox ItemsSource="{Binding Products}"
+                                  SelectedItem="{Binding SelectedProduct, Mode=TwoWay}"
+                                  DisplayMemberPath="Label"
+                                  MinWidth="320"
+                                  HorizontalAlignment="Left"
+                                  Margin="{StaticResource Thickness.XS}"
+                                  ui:FocusTarget.Id="Corrections.ProductPicker" />
+                        <TextBlock Text="Quantity" Style="{StaticResource FieldLabelStyle}" Margin="{StaticResource Thickness.RowGap}" />
+                        <TextBox Text="{Binding QuantityText, UpdateSourceTrigger=PropertyChanged}"
+                                 Style="{StaticResource ScanEditorStyle}"
+                                 Width="120"
+                                 HorizontalAlignment="Left"
+                                 Margin="{StaticResource Thickness.XS}"
+                                 ui:FocusTarget.Id="Corrections.QuantityBox" />
+                    </StackPanel>
+
+                    <!-- Shared APPROVAL section (void + stock forms). -->
+                    <StackPanel Grid.Row="3">
+                        <TextBlock Text="Approval" Style="{StaticResource FieldLabelStyle}" Margin="{StaticResource Thickness.RowGap}" />
+                        <ComboBox ItemsSource="{Binding Approvers}"
+                                  SelectedItem="{Binding SelectedApprover, Mode=TwoWay}"
+                                  DisplayMemberPath="Label"
+                                  MinWidth="320"
+                                  HorizontalAlignment="Left"
+                                  Margin="{StaticResource Thickness.XS}"
+                                  IsEnabled="{Binding NeedsApproverPicker}"
+                                  Visibility="{Binding NeedsApproverPicker, Converter={StaticResource BoolToVisibility}}"
+                                  ui:FocusTarget.Id="Corrections.ApproverPicker" />
+                        <TextBlock Text="{Binding SelfApprovalText}"
+                                   Style="{StaticResource StatusTextStyle}"
+                                   Margin="{StaticResource Thickness.XS}"
+                                   Visibility="{Binding IsSelfApproval, Converter={StaticResource BoolToVisibility}}" />
+                    </StackPanel>
+
+                    <!-- Shared REASON. -->
+                    <StackPanel Grid.Row="4">
+                        <TextBlock Text="Reason" Style="{StaticResource FieldLabelStyle}" Margin="{StaticResource Thickness.RowGap}" />
+                        <TextBox Text="{Binding Reason, UpdateSourceTrigger=PropertyChanged}"
+                                 Style="{StaticResource ScanEditorStyle}"
+                                 MinWidth="320"
+                                 HorizontalAlignment="Left"
+                                 Margin="{StaticResource Thickness.XS}"
+                                 ui:FocusTarget.Id="Corrections.ReasonBox" />
+                    </StackPanel>
+
+                    <!-- Fatal state: no form content (the banner above explains). -->
+                    <StackPanel Grid.Row="0" Grid.RowSpan="6"
+                                Visibility="{Binding HasFatalState, Converter={StaticResource BoolToVisibility}}">
+                        <Border Style="{StaticResource EmptyStateStyle}">
+                            <TextBlock Text="Corrections are unavailable for this session."
+                                       Style="{StaticResource CaptionTextStyle}" />
+                        </Border>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- Bottom action bar: Enter confirms, Esc cancels (DialogHost owns
+             Esc; the submit button is the window's default button). -->
+        <Grid Grid.Row="4" Style="{StaticResource ActionBarGridStyle}" Margin="{StaticResource Thickness.M}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="11*" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="9*" />
+            </Grid.ColumnDefinitions>
+            <Button Grid.Column="0" Content="Confirm correction (Enter)"
+                    Style="{StaticResource Button.ActionBarStyle}"
+                    Command="{Binding SubmitCommand}"
+                    IsDefault="True"
+                    ui:FocusTarget.Id="Corrections.SubmitButton" />
+            <Button Grid.Column="2" Content="Cancel (Esc)"
+                    Style="{StaticResource Button.ActionBarOutlineStyle}"
+                    Command="{Binding CancelCommand}" />
+        </Grid>
+    </Grid>
+</UserControl>

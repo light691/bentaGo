@@ -19,6 +19,10 @@ public abstract class DialogViewModelBase<TResult> : ViewModelBase, IDisposable 
     /// <summary>Raised with a non-null result to confirm, null to dismiss.</summary>
     public event EventHandler<DialogResultRequest<TResult>>? CloseRequested;
 
+    /// <summary>The DialogHost window title. The default keeps the host's
+    /// historical caption; dialogs that are not payments override it.</summary>
+    public virtual string Title => "Payment";
+
     /// <summary>Every dialog closes on Esc (dialog-window-level binding).</summary>
     public ICommand CancelCommand { get; }
 

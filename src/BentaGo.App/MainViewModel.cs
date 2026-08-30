@@ -75,6 +75,12 @@ public sealed class MainViewModel : ViewModelBase
         DiscountCommand = new RelayCommand(
             _ => ForwardTo<SalesViewModel>(vm => vm.ApplyDiscountCommand.Execute(null)),
             _ => Current is SalesViewModel sales && sales.SelectedLine is not null);
+        // F8 (BG-007c2): opens the corrections panel (void/return/damage-loss/
+        // adjustment). Available on the Sales screen; the panel resolves the
+        // session actor, open trip, and approver policy itself.
+        CorrectionsCommand = new RelayCommand(
+            _ => ForwardTo<SalesViewModel>(vm => vm.OpenCorrectionsCommand.Execute(null)),
+            _ => Current is SalesViewModel);
         // Ctrl+P (BG-007): print/reprint the last receipt.
         PrintCommand = new RelayCommand(
             _ => ForwardTo<SalesViewModel>(vm => vm.PrintCommand.Execute(null)),
@@ -188,6 +194,9 @@ public sealed class MainViewModel : ViewModelBase
 
     public ICommand DiscountCommand { get; }
 
+    /// <summary>F8: opens the corrections panel (BG-007c2).</summary>
+    public ICommand CorrectionsCommand { get; }
+
     /// <summary>Ctrl+P: print/reprint the last receipt (BG-007).</summary>
     public ICommand PrintCommand { get; }
 
@@ -232,6 +241,7 @@ public sealed class MainViewModel : ViewModelBase
             ["focus-scan"] = (FocusScanCommand, null),
             ["product-search"] = (ProductSearchCommand, null),
             ["discount"] = (DiscountCommand, null),
+            ["returns"] = (CorrectionsCommand, null),
             ["print"] = (PrintCommand, null),
             ["end-trip"] = (NavigateCommand, ScreenKeys.Reconciliation),
             ["checkout"] = (CheckoutCommand, null),
