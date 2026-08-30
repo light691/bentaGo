@@ -88,13 +88,13 @@ public sealed class SalesHostIntegrationTests : SalesTestBase
     }
 
     [Fact]
-    public async Task FreshRoot_MigrationHead_Is_BG006_01()
+    public async Task FreshRoot_MigrationHead_Is_BG007_01()
     {
         (SalesHost host, _, _, _, _, _) = await SeededAsync();
         await using var context = await host.Provider
             .GetRequiredService<IDbContextFactory<BentaGoDbContext>>().CreateDbContextAsync();
         string[] applied = (await context.Database.GetAppliedMigrationsAsync()).ToArray();
-        Assert.Equal(7, applied.Length);
-        Assert.EndsWith("BG006_01_AddSalesIndexes", applied[^1]);
+        Assert.Equal(8, applied.Length);
+        Assert.EndsWith("BG007_01_AddPrintJobs", applied[^1]);
     }
 }

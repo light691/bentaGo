@@ -69,7 +69,7 @@ public sealed class TripCancelUpgradeTests : IDisposable
         ServiceProvider host = BentaGoHost.BuildForTests(root);
         await host.GetRequiredService<DbInitializer>().EnsureCreatedOrMigrateAsync();
 
-        Assert.Equal(7, await CountAsync(dbPath, "__EFMigrationsHistory"));
+        Assert.Equal(8, await CountAsync(dbPath, "__EFMigrationsHistory"));
         Assert.Equal(movementsBefore, await CountAsync(dbPath, "Movements"));
         Assert.Equal(loadRowsBefore, await CountAsync(dbPath, "StockLoads"));
         Assert.Equal(saleRowsBefore, await CountAsync(dbPath, "Sales"));

@@ -1,6 +1,8 @@
 using BentaGo.Core.Domain;
 using BentaGo.Core.Domain.Catalog;
+using BentaGo.Core.Domain.Documents;
 using BentaGo.Core.Domain.Identity;
+using BentaGo.Core.Domain.Receipts;
 using Microsoft.EntityFrameworkCore;
 
 namespace BentaGo.Infrastructure.Persistence;
@@ -14,6 +16,8 @@ public sealed class BentaGoDbContext : DbContext
     public DbSet<Peddler> Peddlers => Set<Peddler>();
 
     public DbSet<Product> Products => Set<Product>();
+
+    public DbSet<PrintJob> PrintJobs => Set<PrintJob>();
 
     public BentaGoDbContext(DbContextOptions<BentaGoDbContext> options)
         : base(options)
@@ -99,6 +103,28 @@ public sealed class BentaGoDbContext : DbContext
             entity.Property(p => p.ExpirationDate);
             entity.Property(p => p.SupportsPwdDiscount);
             entity.Property(p => p.SupportsSeniorDiscount);
+        });
+
+        // BG-007 print jobs: one row per job; status/attempts updated in
+        // place; ReprintOf is a self-reference (null for originals).
+        modelBuilder.Entity<PrintJob>(entity =>
+        {
+            entity.ToTable("PrintJobs");
+            entity.HasKey(j => j.Id);
+            entity.Property(j => j.Id)
+                .HasConversion(id => id.Value.ToString("D"), s => new PrintJobId(Guid.Parse(s)));
+            entity.Property(j => j.SaleId)
+                .HasConversion(id => id.Value.ToString("D"), s => new SaleId(Guid.Parse(s)));
+            entity.Property(j => j.ReceiptNumber).IsRequired();
+            entity.Property(j => j.ReceiptDocumentJson).IsRequired();
+            entity.Property(j => j.Status).HasConversion<string>();
+            entity.Property(j => j.LastErrorCode);
+            entity.Property(j => j.ReprintOf)
+                .HasConversion(
+                    id => id.HasValue ? id.Value.Value.ToString("D") : null,
+                    s => s == null ? null : new PrintJobId(Guid.Parse(s)));
+            entity.HasIndex(j => j.SaleId);
+            entity.HasIndex(j => j.ReceiptNumber);
         });
     }
 }
