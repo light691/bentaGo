@@ -250,6 +250,7 @@ public sealed class MainViewModel : ViewModelBase
             ["nav-admin-users"] = (AdminNavigateCommand, ScreenKeys.AdminUsers),
             ["nav-admin-import"] = (AdminNavigateCommand, ScreenKeys.AdminImport),
             ["nav-admin-overview"] = (AdminNavigateCommand, ScreenKeys.AdminOverview),
+            ["hardware-test"] = (AdminNavigateCommand, ScreenKeys.AdminDevices),
         };
         return map;
     }
@@ -339,6 +340,8 @@ public sealed class MainViewModel : ViewModelBase
             items.Add(new RailItemViewModel(ScreenKeys.AdminUsers, "Users", "Alt+6", AutomationIds.RailAdminUsers, isAdminSection: true));
             items.Add(new RailItemViewModel(ScreenKeys.AdminImport, "Catalog Import", "Alt+7", AutomationIds.RailAdminImport));
             items.Add(new RailItemViewModel(ScreenKeys.AdminOverview, "Admin Overview", "Alt+8", AutomationIds.RailAdminOverview));
+            // BG-007: printer/scanner diagnostics (Ctrl+Alt+T hardware-test chord).
+            items.Add(new RailItemViewModel(ScreenKeys.AdminDevices, "Devices", "Ctrl+Alt+T", AutomationIds.RailAdminDevices));
         }
 
         RailItems = items;

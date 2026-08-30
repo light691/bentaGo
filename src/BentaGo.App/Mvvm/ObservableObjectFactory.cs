@@ -71,6 +71,7 @@ public static class ObservableObjectFactory
         services.AddTransient<UserManagementViewModel>();
         services.AddTransient<CatalogImportViewModel>();
         services.AddTransient<AdminOverviewViewModel>();
+        services.AddTransient<AdminDevicesViewModel>();       // BG-007 printer/scanner
         services.AddTransient<PaymentDialogViewModel>();   // dialogs, not screens
         services.AddTransient<ConfirmDialogViewModel>();
         services.AddTransient<HelpOverlayViewModel>();
