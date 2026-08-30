@@ -133,4 +133,12 @@ No web-dashboard look, no e-commerce mockup, no "sync later" language.
 
 ## 9. Resume point
 
-Nothing is mid-edit. The tree is clean. `bgp0` branch exists at `d1a2441` with no commits. First action: run BG-P0 per section 4 (reuse branch `bgp0` or recreate it), then continue the sequence P1 -> P2 -> P3 -> P4 -> P5 -> BG-009, with the operator's review gates respected and the standing merge delegation applied.
+**UPDATED 2026-08-30 (latest state):**
+- BG-P0 merged (#29 + #30, main = `7a98e1b`; ledger `810b112`, brief `c1fc2d8`).
+- BG-P1 is IN FLOW on branch `bgp1` in worktree `C:\BentaGo\.wt\bgp1`. **Committed checkpoint `b310de3`**: Core compiles clean (0 errors), day lifecycle core done, movement kinds renamed (`GoodsReceived`, `FundOut`), receipts/ids/comments retargeted, trip/peddler grep on src/BentaGo.Core = 0 hits. The Core stage (P1a) is COMPLETE and committed.
+- Engine status at handoff: **subagent/subagent_fork and workflow agent() child routes BOTH DOWN** (probe of subagent errors with "subagent run failed"; workflow agent() returns null on deepseek AND glm). Earlier in the session both worked. Likely a transient child-model backend outage. Re-probe before delegating; if down, continue in-context with the stage briefs in `orchestrate/bentago/inbox/` (they are written to be executed sequentially).
+- NEXT (P1b): Application layering per `orchestrate/bentago/inbox/BG-P1b-application.md`. 16 Application files still have trip/peddler/DailyClose/TripCash references; the day-keyed Core shapes are already in place (Day document carries close facts; DailyClose is GONE from Documents.cs; ReconciliationReport has Day/Location; Sale has Day). Retarget contracts (UseCases.cs, Reconciliation.cs, Sales.cs, ILedgerStore.cs) then services (UseCaseServices.cs, SaleQueryService.cs, ReconciliationReportService.cs, CheckoutSession/Factory, InMemoryLedgerStore.cs, ProductSearchService.cs, ReceiptCodec.cs, ReconciliationCsv.cs, UserAccountService.cs), delete TripLifecycleScenario.cs + TwoPeddlersScenario.cs. Commit per layer with build gate.
+- Then P1c (Infrastructure + schema reset to ONE baseline migration + Appendix triggers proof), P1d (real SqliteAppDataSource swap at ObservableObjectFactory.cs:54 + kill SimulatedLabel + PeddlerHome delete/register placeholder), P1e (Tools + Tests + day lanes).
+- The P1 architect report (deletions/retargets/risks) is in this file's section history and the inbox; the runner is `bgp1` from `origin/main`.
+
+**Earlier resume text (see sections 1-8 above for locked decisions and standing rules).** First action: re-probe delegation, then run P1b from the inbox brief.
