@@ -259,6 +259,10 @@ public sealed class MainViewModel : ViewModelBase
             ["nav-reconcile"] = (NavigateCommand, ScreenKeys.Reconciliation),
             ["nav-admin-users"] = (AdminNavigateCommand, ScreenKeys.AdminUsers),
             ["nav-admin-import"] = (AdminNavigateCommand, ScreenKeys.AdminImport),
+            // Placeholder route: the AdminOverview screen was removed with the
+            // route-selling domain (BG-P1a); until the P5 shell redesign lands,
+            // Alt+8 lands on the day-close/reconciliation overview.
+            ["nav-admin-overview"] = (NavigateCommand, ScreenKeys.Reconciliation),
             ["hardware-test"] = (AdminNavigateCommand, ScreenKeys.AdminDevices),
         };
         return map;

@@ -27,6 +27,12 @@ public sealed class SalesHostIntegrationTests : SalesTestBase
             await SeededAsync();
         host.Actors.Set(user);
 
+        // The DI factory derives the trading day from the real clock (the
+        // production contract), so open TODAY alongside the fixture seed day.
+        DayKey today = DayKey.FromUtc(DateTimeOffset.UtcNow);
+        host.Store.RegisterDayOpen(new DayOpen(new DayId(Guid.NewGuid()), today, 0, user, DateTimeOffset.UtcNow));
+        host.Store.Bind();
+
         // Resolve everything from DI — the registrations must exist.
         var factory = host.Provider.GetRequiredService<ICheckoutSessionFactory>();
         var search = host.Provider.GetRequiredService<IProductSearchService>();
@@ -37,7 +43,7 @@ public sealed class SalesHostIntegrationTests : SalesTestBase
         Result<ICheckoutSession> created = await factory.CreateSessionAsync();
         Assert.True(created.IsSuccess, created.Errors.FirstOrDefault()?.Code ?? "create failed");
         ICheckoutSession session = created.Value!;
-        Assert.Equal(day, session.Day);
+        Assert.Equal(today, session.Day);
 
         Result<IReadOnlyList<ProductHit>> hits = await search.SearchAsync(Sku);
         Assert.True(hits.IsSuccess);
@@ -87,13 +93,13 @@ public sealed class SalesHostIntegrationTests : SalesTestBase
     }
 
     [Fact]
-    public async Task FreshRoot_MigrationHead_Is_BG007_01()
+    public async Task FreshRoot_MigrationHead_Is_TheP1Baseline()
     {
         (SalesHost host, _, _, _, _) = await SeededAsync();
         await using var context = await host.Provider
             .GetRequiredService<IDbContextFactory<BentaGoDbContext>>().CreateDbContextAsync();
         string[] applied = (await context.Database.GetAppliedMigrationsAsync()).ToArray();
-        Assert.Equal(8, applied.Length);
-        Assert.EndsWith("BG007_01_AddPrintJobs", applied[^1]);
+        Assert.Single(applied);
+        Assert.EndsWith("Baseline", applied[^1]);
     }
 }

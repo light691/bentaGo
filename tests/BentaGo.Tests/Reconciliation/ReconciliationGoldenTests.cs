@@ -71,8 +71,8 @@ public sealed class ReconciliationGoldenTests : PersistenceTestBase
         // day's cash flows (docs/decisions/0004 §1) — fixture updated
         // deliberately for the corrected formula (was the 270.00 fund fold).
         Assert.Equal(new Money(memory.State.ExpectedCash(SingleDayScenario.Day)), report.Totals.ExpectedCash);
-        Assert.Equal(2, report.Totals.Sales);                          // R-000001 + R-000004
-        Assert.Equal(Money.FromPesos(315m), report.Totals.SalesTotal); // 225 + 90
+        Assert.Equal(3, report.Totals.Sales);                          // R-000001 + R-000002 + R-000004
+        Assert.Equal(Money.FromPesos(415m), report.Totals.SalesTotal); // 225 + 100 + 90
         Assert.Equal(1, report.Totals.Voided);                         // R-000003
         Assert.Equal(1, report.Totals.Returns);                        // return on sale R-000004
         Assert.Equal(Money.FromPesos(45m), report.Totals.RefundTotal);
@@ -81,12 +81,14 @@ public sealed class ReconciliationGoldenTests : PersistenceTestBase
         Assert.Equal(Money.FromPesos(190m), report.Totals.CashVariance);
         Assert.Equal(VarianceLabel.Shortage, report.Totals.CashLabel);
 
-        // Per-product: sardines counted 96 vs expected 95 -> +1 overage @ 45.00.
+        // Per-product: the fold says 94 sardines (100 − 5 − 1 + 1 void-restore
+        // − 2 + 1 return); counted 96 -> +2 overage @ 45.00.
         StockVarianceRow sardines = report.StockRows.Single(r => r.Sku == "Sardines");
-        Assert.Equal(95, sardines.ExpectedUnits);
+        Assert.Equal(94, sardines.ExpectedUnits);
         Assert.Equal(96, sardines.CountedUnits);
-        Assert.Equal(1, sardines.QuantityVariance);
-        Assert.Equal(Money.FromPesos(45m), sardines.ValueVariance);
+        Assert.Equal(2, sardines.QuantityVariance);
+        Assert.Equal(Money.FromPesos(45m), sardines.UnitPrice);
+        Assert.Equal(Money.FromPesos(90m), sardines.ValueVariance);
     }
 
     private static string Render(ReconciliationReport report)

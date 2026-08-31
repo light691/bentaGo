@@ -37,12 +37,15 @@ public sealed class RollbackTests : PersistenceTestBase
         long movements = await SqliteTest.CountAsync(dbPath, "Movements");
         long audits = await SqliteTest.CountAsync(dbPath, "AuditEvents");
         long cells = await SqliteTest.CountAsync(dbPath, "CellBalances");
-        long breakdowns = await SqliteTest.CountAsync(dbPath, "CellBreakdown");
+        // The BIR serial counter starts at 1 (no sale committed yet); the
+        // failed append must leave it unconsumed.
+        long? serialBefore = await SqliteTest.MinAsync(dbPath, "ReceiptSerials", "next_value");
         long seq = store.State.LastSequence;
         long head = await SqliteTest.HeadSequenceAsync(dbPath);
 
-        // Two lines of the same product: each passes the builder's per-line
-        // check (10 units on the route), but the batch sum overdraws.
+        // Two lines of the same product: each line alone passes the builder's
+        // per-line stock check (100 units on hand), but the batch sum
+        // overdraws (80 + 50 > 100) — the fold must reject the whole batch.
         var lineA = new SaleLineId(Guid.NewGuid());
         var lineB = new SaleLineId(Guid.NewGuid());
         var payment = new PaymentLineId(Guid.NewGuid());
@@ -50,12 +53,12 @@ public sealed class RollbackTests : PersistenceTestBase
             new SaleId(Guid.NewGuid()), SeedDayKey, "R-OVER", user, SeedWhen.AddHours(2),
             new[]
             {
-                new NewSaleLine(lineA, product, "SKU", "Product", Money.FromPesos(45m), Quantity.Of(8), Money.Zero),
-                new NewSaleLine(lineB, product, "SKU", "Product", Money.FromPesos(45m), Quantity.Of(5), Money.Zero),
+                new NewSaleLine(lineA, product, "SKU", "Product", Money.FromPesos(45m), Quantity.Of(80), Money.Zero),
+                new NewSaleLine(lineB, product, "SKU", "Product", Money.FromPesos(45m), Quantity.Of(50), Money.Zero),
             },
             new[]
             {
-                new NewPaymentLine(payment, PaymentMethod.Cash, "", Money.FromPesos(585m), Money.FromPesos(585m), Money.Zero),
+                new NewPaymentLine(payment, PaymentMethod.Cash, "", Money.FromPesos(5850m), Money.FromPesos(5850m), Money.Zero),
             }));
         Assert.True(draft.IsSuccess, string.Join("; ", draft.Errors.Select(e => e.Code)));
         store.RegisterSale(draft.Value.Document);
@@ -71,7 +74,7 @@ public sealed class RollbackTests : PersistenceTestBase
         Assert.Equal(movements, await SqliteTest.CountAsync(dbPath, "Movements"));
         Assert.Equal(audits, await SqliteTest.CountAsync(dbPath, "AuditEvents"));
         Assert.Equal(cells, await SqliteTest.CountAsync(dbPath, "CellBalances"));
-        Assert.Equal(breakdowns, await SqliteTest.CountAsync(dbPath, "CellBreakdown"));
+        Assert.Equal(serialBefore, await SqliteTest.MinAsync(dbPath, "ReceiptSerials", "next_value"));
         Assert.Equal(seq, store.State.LastSequence);   // no sequence gap
         Assert.Equal(head, await SqliteTest.HeadSequenceAsync(dbPath));
     }

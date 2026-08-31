@@ -57,6 +57,7 @@ internal static class SalesSeed
             },
             user, when));
         Assert.True(goods.IsSuccess, goods.Errors.FirstOrDefault()?.Code ?? "goods receipt build failed");
+        store.RegisterGoodsReceipt(goods.Value.Document);
         Result<AppendReceipt> goodsAppend = store.Append(goods.Value.Movements);
         Assert.True(goodsAppend.IsSuccess, goodsAppend.Errors.FirstOrDefault()?.Code ?? "goods receipt append failed");
 

@@ -104,12 +104,13 @@ public sealed class UiPassRound8StaTests
             _sta.PumpIdle();
 
             var textBlocks = Descendants<TextBlock>(view).ToList();
-            // The session greeting already contains the peddler name; the old
-            // view appended Session.PeddlerName a second time.
-            Assert.Single(textBlocks, t => t.Text.StartsWith("Hello", StringComparison.Ordinal));
+            // The session greeting carries the day identity once ("Welcome —
+            // day …"); the header must not repeat the peddler/store name a
+            // second time (regression: it did).
+            Assert.Single(textBlocks, t => t.Text.StartsWith("Welcome", StringComparison.Ordinal));
             Assert.DoesNotContain(textBlocks, t => t.Text == viewModel.Session.PeddlerName);
 
-            var greeting = textBlocks.First(t => t.Text.StartsWith("Hello", StringComparison.Ordinal));
+            var greeting = textBlocks.First(t => t.Text.StartsWith("Welcome", StringComparison.Ordinal));
             var online = textBlocks.First(t => t.Text == "Online");
             double greetingCenter = Center(greeting, view).Y;
             double onlineCenter = Center(online, view).Y;

@@ -57,6 +57,10 @@ public sealed class SalesPerfTests : SalesTestBase
             CreatedUtc = SeedWhen,
         });
         host.Store.RegisterDayOpen(new DayOpen(new DayId(Guid.NewGuid()), SeedDayKey, 0, user, SeedWhen));
+        // The DI checkout factory derives its day from the real clock, so the
+        // session checkouts run on TODAY's day — open it alongside the seed.
+        host.Store.RegisterDayOpen(new DayOpen(
+            new DayId(Guid.NewGuid()), DayKey.FromUtc(DateTimeOffset.UtcNow), 0, user, DateTimeOffset.UtcNow));
         host.Store.Bind();
         host.Actors.Set(user);
 

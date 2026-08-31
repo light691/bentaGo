@@ -56,6 +56,7 @@ public sealed class LoginServiceAtomicityTests
         public void RegisterVoid(SaleVoid @void) => inner.RegisterVoid(@void);
         public void RegisterAdjustment(Adjustment adjustment) => inner.RegisterAdjustment(adjustment);
         public void RegisterCount(PhysicalCount count) => inner.RegisterCount(count);
+        public void RegisterGoodsReceipt(GoodsReceipt receipt) => inner.RegisterGoodsReceipt(receipt);
         public void Bind() => inner.Bind();
 
         public Result<AppendOutcome> Append(AppendBatch batch) => inner.Append(batch);

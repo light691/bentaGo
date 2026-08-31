@@ -115,8 +115,8 @@ public sealed class BootstrapTests : IDisposable
         await using var context = await host.GetRequiredService<IDbContextFactory<BentaGoDbContext>>()
             .CreateDbContextAsync();
         string[] applied = (await context.Database.GetAppliedMigrationsAsync()).ToArray();
-        Assert.Equal(8, applied.Length); // InitialCreate + BG003_01/02 + BG005_01 + BG005b_01 + BG005c_01 + BG006_01 + BG007_01
-        Assert.EndsWith("BG007_01_AddPrintJobs", applied[^1]);
+        Assert.Single(applied); // exactly ONE migration: the BG-P1 baseline
+        Assert.EndsWith("Baseline", applied[^1]);
     }
 
     [Fact]
