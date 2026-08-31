@@ -27,9 +27,13 @@ internal sealed class AppShellTestHost : IDisposable
                 extra?.Invoke(services);
             });
 
+        // Production boots by migrating BEFORE the shell exists (App.OnStartup
+        // boot contract), and the app data source (BG-P1d) reads the live
+        // SQLite fold — so the schema must exist before any view model
+        // constructs. Admin seeding stays opt-in.
+        Services.GetRequiredService<DbInitializer>().EnsureCreatedOrMigrateAsync().GetAwaiter().GetResult();
         if (seedAdmin)
         {
-            Services.GetRequiredService<DbInitializer>().EnsureCreatedOrMigrateAsync().GetAwaiter().GetResult();
             Services.GetRequiredService<IAdminSeeder>().SeedAsync().GetAwaiter().GetResult();
         }
     }

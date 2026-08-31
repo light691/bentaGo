@@ -14,6 +14,7 @@ using BentaGo.App.Features.Stock;
 using BentaGo.App.Mvvm;
 using BentaGo.Core.Domain;
 using BentaGo.Infrastructure.Hosting;
+using BentaGo.Infrastructure.Persistence;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
@@ -113,6 +114,9 @@ public sealed class LayoutProbeTests
                     development: true,
                     dataRootOverride: temp,
                     extra: ObservableObjectFactory.RegisterAppServices);
+                // The app data source reads the live SQLite fold; production
+                // migrates before the shell exists (App.OnStartup).
+                services.GetRequiredService<DbInitializer>().EnsureCreatedOrMigrateAsync().GetAwaiter().GetResult();
 
                 double dialogWidth = (double)System.Windows.Application.Current.Resources[DesignTokens.DialogHostMaxWidth];
                 double dialogHeight = (double)System.Windows.Application.Current.Resources[DesignTokens.DialogHostMaxHeight];

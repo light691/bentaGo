@@ -104,7 +104,7 @@ public sealed class MigrationTests : IDisposable
             "DayReopens", "GoodsReceipts", "GoodsReceiptLines", "FundEntries",
             "ReceiptSerials", "AuditEvents", "LedgerHead", "CellBalances",
             "FundBalances", "ObservedQuantities", "IdempotencyKeys",
-            "__EFMigrationsHistory",
+            "__EFMigrationsHistory", "__EFMigrationsLock",
         };
         foreach (string table in tables)
         {

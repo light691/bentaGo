@@ -32,6 +32,9 @@ public sealed class ViewModelConstructionTests : IDisposable
     public void AllScreenViewModelsConstructFromHost()
     {
         using var host = BentaGoHost.Build(development: true, dataRootOverride: _tempRoot, extra: ObservableObjectFactory.RegisterAppServices);
+        // The app data source reads the live SQLite fold; production migrates
+        // before the shell exists (App.OnStartup).
+        host.GetRequiredService<DbInitializer>().EnsureCreatedOrMigrateAsync().GetAwaiter().GetResult();
 
         Type[] screenTypes =
         [
