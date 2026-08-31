@@ -8,7 +8,7 @@ BG-006	sales	MERGED	main	#13..#17	8ff4cd9	(First program) Search, scanner, cart,
 BG-007	hardware	MERGED	main	#18..#24	ee947c7	(First program) Receipts, ESC/POS, print pipeline, corrections views, lanes L1-L10 (software-side)
 BG-008	close	MERGED	main	#25..#28	1852df1	(First program) Reports, reconciliation UI, close summary, exports, e2e; review gate passed with open perf finding (close P95 1073ms vs <=1000ms) + video pending
 BG-P0	docs	MERGED	main	#29	7a98e1b	PRD + program plan rewritten to the store-POS domain; zero live peddling concepts
-BG-P1	pivot	RESTART	main	-	-	Domain pivot: delete trip/peddler/load axis, day lifecycle (DayOpen/DayClose/DayReopen), schema reset to ONE baseline migration, real SqliteAppDataSource (swap ObservableObjectFactory.cs:54), kill SimulatedLabel, tests/lanes retarget to day. Prior P1a checkpoint b310de3 LOST (branch never pushed, worktree deleted) - RESTARTED from Core stage per docs/05
+BG-P1	pivot	MERGED (code)	#31	19423ba	Day pivot complete: Core day domain, ADR-0004 fold math, schema reset to ONE baseline migration with BIR serial/terminal fields, real SqliteAppDataSource (ObservableObjectFactory.cs:54), PeddlerHome + simulated-data path deleted, trip vocabulary grep 0 across src/tests/tools, full suite 429/429. P1e (day lanes + perf + review pack) evidence in flight before BG-P2 launches
 BG-P2	receiving	pending	-	-	-	Receiving/purchases: supplier, lines, unit cost, draft vs submitted; brief staged at orchestrate/bentago/inbox/BG-P2-receiving.md; launches after BG-P1 merges
 BG-P3	credit	pending	-	-	-	Customer credit (utang): named customers, balances, pay-down, full receivables ledger
 BG-P4	tills	pending	-	-	-	Till identity laid in (per-till sequence/GUID), single-till MVP
