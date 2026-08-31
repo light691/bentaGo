@@ -47,8 +47,8 @@ public sealed partial class SqliteLedgerStore : ILedgerStore, IDisposable, IAsyn
 
     // Committed document sets, loaded at Bind/refresh; authoritative reads
     // happen inside the append transaction on a stale head. The day-lifecycle
-    // documents are the store's in-process registries (movement-less; not yet
-    // persisted — the day tables land with the next schema slice).
+    // documents are movement-less and commit immediately at Register into the
+    // day tables (BG-P1 baseline); a refresh reloads them from the database.
     private readonly List<DayOpen> _docsDayOpens = new();
     private readonly List<DayClose> _docsDayCloses = new();
     private readonly List<DayReopen> _docsDayReopens = new();
@@ -56,6 +56,7 @@ public sealed partial class SqliteLedgerStore : ILedgerStore, IDisposable, IAsyn
     private IReadOnlyList<Return> _docsReturns = Array.Empty<Return>();
     private IReadOnlyList<SaleVoid> _docsVoids = Array.Empty<SaleVoid>();
     private IReadOnlyList<PhysicalCount> _docsCounts = Array.Empty<PhysicalCount>();
+    private IReadOnlyList<GoodsReceipt> _docsGoodsReceipts = Array.Empty<GoodsReceipt>();
 
     // Open-attempt staging: documents registered since the last Bind (D5).
     private readonly List<Sale> _stagedSales = new();
@@ -63,6 +64,7 @@ public sealed partial class SqliteLedgerStore : ILedgerStore, IDisposable, IAsyn
     private readonly List<SaleVoid> _stagedVoids = new();
     private readonly List<Adjustment> _stagedAdjustments = new();
     private readonly List<PhysicalCount> _stagedCounts = new();
+    private readonly List<GoodsReceipt> _stagedGoodsReceipts = new();
 
     private long _headLastSequence;
     private long _headDocumentsVersion;
@@ -73,7 +75,7 @@ public sealed partial class SqliteLedgerStore : ILedgerStore, IDisposable, IAsyn
         _paths = paths;
         _debug = debug ?? new DebugOptions();
         _connectionString = $"Data Source={DbPath()};Pooling=False";
-        _context = new LedgerContext(_state, _docsSales, _docsReturns, _docsVoids, _docsCounts, _docsDayOpens, _docsDayCloses, _docsDayReopens);
+        _context = new LedgerContext(_state, _docsSales, _docsReturns, _docsVoids, _docsCounts, _docsDayOpens, _docsDayCloses, _docsDayReopens, _docsGoodsReceipts);
     }
 
     public LedgerContext Context
@@ -125,23 +127,52 @@ public sealed partial class SqliteLedgerStore : ILedgerStore, IDisposable, IAsyn
     // ------------------------------------------------------------------
 
     /// <summary>
-    /// Day documents are movement-less by design: Register* keeps the document
-    /// in the store's in-process registry (no durable write in this
-    /// compile-fix slice) and the documents watermark advances.
+    /// Day documents are movement-less by design: Register* commits the
+    /// document immediately (D5 asymmetry — no batch to fail), keeping the
+    /// document in the store's in-process registry AND persisting it to the
+    /// day tables created by the BG-P1 baseline migration, so a restart or
+    /// restore re-folds the lifecycle.
     /// </summary>
     public void RegisterDayOpen(DayOpen day)
     {
         _docsDayOpens.Add(day);
+        PersistDayDocument(registry => InsertDayOpen(registry, day));
     }
 
     public void RegisterDayClose(DayClose close)
     {
         _docsDayCloses.Add(close);
+        PersistDayDocument(registry => InsertDayClose(registry, close));
     }
 
     public void RegisterDayReopen(DayReopen reopen)
     {
         _docsDayReopens.Add(reopen);
+        PersistDayDocument(registry => InsertDayReopen(registry, reopen));
+    }
+
+    /// <summary>
+    /// Commits one day document in its own tiny transaction (audit-row
+    /// pattern): the registry entry never depends on the insert failing, and
+    /// a duplicate registration is a no-op.
+    /// </summary>
+    private void PersistDayDocument(Action<SqliteConnection> insert)
+    {
+        EnsureOpen();
+        SqliteConnection connection = _connection!;
+        try
+        {
+            Execute(connection, "BEGIN IMMEDIATE");
+            _inTransaction = true;
+            insert(connection);
+            Execute(connection, "COMMIT");
+            _inTransaction = false;
+        }
+        catch
+        {
+            RollbackQuietly(connection);
+            throw;
+        }
     }
 
     public void RegisterSale(Sale sale) => _stagedSales.Add(sale);
@@ -153,6 +184,8 @@ public sealed partial class SqliteLedgerStore : ILedgerStore, IDisposable, IAsyn
     public void RegisterAdjustment(Adjustment adjustment) => _stagedAdjustments.Add(adjustment);
 
     public void RegisterCount(PhysicalCount count) => _stagedCounts.Add(count);
+
+    public void RegisterGoodsReceipt(GoodsReceipt receipt) => _stagedGoodsReceipts.Add(receipt);
 
     /// <summary>
     /// Binds the committed document sets (read from the database, so a
@@ -455,6 +488,8 @@ public sealed partial class SqliteLedgerStore : ILedgerStore, IDisposable, IAsyn
             _docsReturns = docs.Returns;
             _docsVoids = docs.Voids;
             _docsCounts = docs.Counts;
+            _docsGoodsReceipts = docs.GoodsReceipts;
+            ReadDayDocuments(connection);
             Context = RefreshContext();
             return new RebuildReceipt(
                 rebuilt.LastSequence,
@@ -621,7 +656,8 @@ public sealed partial class SqliteLedgerStore : ILedgerStore, IDisposable, IAsyn
 
     private bool HasStagedDocuments() =>
         _stagedSales.Count > 0 || _stagedReturns.Count > 0 ||
-        _stagedVoids.Count > 0 || _stagedAdjustments.Count > 0 || _stagedCounts.Count > 0;
+        _stagedVoids.Count > 0 || _stagedAdjustments.Count > 0 || _stagedCounts.Count > 0 ||
+        _stagedGoodsReceipts.Count > 0;
 
     /// <summary>
     /// Re-folds the persisted stream into the hot state and reloads the
@@ -649,6 +685,8 @@ public sealed partial class SqliteLedgerStore : ILedgerStore, IDisposable, IAsyn
         _docsReturns = docs.Returns;
         _docsVoids = docs.Voids;
         _docsCounts = docs.Counts;
+        _docsGoodsReceipts = docs.GoodsReceipts;
+        ReadDayDocuments(connection);
         _headLastSequence = lastSeq;
         _headDocumentsVersion = docsVersion;
         Context = RefreshContext();
@@ -661,13 +699,15 @@ public sealed partial class SqliteLedgerStore : ILedgerStore, IDisposable, IAsyn
         _docsReturns = docs.Returns;
         _docsVoids = docs.Voids;
         _docsCounts = docs.Counts;
+        _docsGoodsReceipts = docs.GoodsReceipts;
+        ReadDayDocuments(connection);
     }
 
     private LedgerContext RefreshContext() =>
         RefreshContext(_docsSales, _docsReturns, _docsVoids);
 
     private LedgerContext RefreshContext(IReadOnlyList<Sale> sales, IReadOnlyList<Return> returns, IReadOnlyList<SaleVoid> voids) =>
-        new(_state, sales, returns, voids, _docsCounts, _docsDayOpens, _docsDayCloses, _docsDayReopens);
+        new(_state, sales, returns, voids, _docsCounts, _docsDayOpens, _docsDayCloses, _docsDayReopens, _docsGoodsReceipts);
 
     private void ClearStaged()
     {
@@ -676,6 +716,7 @@ public sealed partial class SqliteLedgerStore : ILedgerStore, IDisposable, IAsyn
         _stagedVoids.Clear();
         _stagedAdjustments.Clear();
         _stagedCounts.Clear();
+        _stagedGoodsReceipts.Clear();
     }
 
     /// <summary>

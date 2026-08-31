@@ -28,6 +28,7 @@ public sealed class InMemoryLedgerStore : ILedgerStore
     private readonly List<Return> _returns = new();
     private readonly List<SaleVoid> _voids = new();
     private readonly List<PhysicalCount> _counts = new();
+    private readonly List<GoodsReceipt> _goodsReceipts = new();
     private readonly List<AuditEvent> _audits = new();
     private readonly Dictionary<string, string> _idempotency = new();
     private long _auditSequence;
@@ -38,6 +39,7 @@ public sealed class InMemoryLedgerStore : ILedgerStore
     private readonly List<SaleVoid> _stagedVoids = new();
     private readonly List<Adjustment> _stagedAdjustments = new();
     private readonly List<PhysicalCount> _stagedCounts = new();
+    private readonly List<GoodsReceipt> _stagedGoodsReceipts = new();
 
     public InMemoryLedgerStore()
     {
@@ -69,6 +71,8 @@ public sealed class InMemoryLedgerStore : ILedgerStore
 
     public void RegisterCount(PhysicalCount count) => _stagedCounts.Add(count);
 
+    public void RegisterGoodsReceipt(GoodsReceipt receipt) => _stagedGoodsReceipts.Add(receipt);
+
     public void Bind()
     {
         IReadOnlyList<Sale> sales = Bound(_sales, _stagedSales);
@@ -77,7 +81,7 @@ public sealed class InMemoryLedgerStore : ILedgerStore
 
         State.BindDocuments(sales, returns, voids);
         State.BindDays(_dayOpens, _dayCloses, _dayReopens);
-        Context = new LedgerContext(State, sales, returns, voids, _counts.ToList(), _dayOpens.ToList(), _dayCloses.ToList(), _dayReopens.ToList());
+        Context = new LedgerContext(State, sales, returns, voids, _counts.ToList(), _dayOpens.ToList(), _dayCloses.ToList(), _dayReopens.ToList(), _goodsReceipts.Concat(_stagedGoodsReceipts).ToList());
     }
 
     public Result<AppendOutcome> Append(AppendBatch batch)
@@ -200,7 +204,7 @@ public sealed class InMemoryLedgerStore : ILedgerStore
 
     private LedgerContext NewContext() =>
         new(State, _sales.ToList(), _returns.ToList(), _voids.ToList(),
-            _counts.ToList(), _dayOpens.ToList(), _dayCloses.ToList(), _dayReopens.ToList());
+            _counts.ToList(), _dayOpens.ToList(), _dayCloses.ToList(), _dayReopens.ToList(), _goodsReceipts.ToList());
 
     private static IReadOnlyList<T> Bound<T>(List<T> committed, List<T> staged) =>
         committed.Concat(staged).ToList();
@@ -211,6 +215,7 @@ public sealed class InMemoryLedgerStore : ILedgerStore
         _returns.AddRange(_stagedReturns);
         _voids.AddRange(_stagedVoids);
         _counts.AddRange(_stagedCounts);
+        _goodsReceipts.AddRange(_stagedGoodsReceipts);
         ClearOpenAttempt();
     }
 
@@ -221,5 +226,6 @@ public sealed class InMemoryLedgerStore : ILedgerStore
         _stagedVoids.Clear();
         _stagedAdjustments.Clear();
         _stagedCounts.Clear();
+        _stagedGoodsReceipts.Clear();
     }
 }

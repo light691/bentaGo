@@ -90,23 +90,6 @@ namespace BentaGo.Infrastructure.Migrations
                     b.ToTable("Products", (string)null);
                 });
 
-            modelBuilder.Entity("BentaGo.Core.Domain.Identity.Peddler", b =>
-                {
-                    b.Property<string>("Id")
-                        .HasColumnType("TEXT");
-
-                    b.Property<bool>("Active")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("DisplayName")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("Peddlers", (string)null);
-                });
-
             modelBuilder.Entity("BentaGo.Core.Domain.Identity.User", b =>
                 {
                     b.Property<string>("Id")
@@ -130,9 +113,6 @@ namespace BentaGo.Infrastructure.Migrations
 
                     b.Property<string>("PasswordHash")
                         .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("PeddlerLink")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Role")

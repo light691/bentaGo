@@ -26,9 +26,9 @@ public sealed partial class SqliteLedgerStore
             """
             INSERT INTO "Movements" ("sequence", "kind", "when_utc", "actor_id", "doc_kind", "doc_id",
                 "product_id", "location_id", "quantity", "sale_line_id", "payment_line_id", "method",
-                "amount_centavos", "reverses", "reason", "trip_id", "observed_quantity")
+                "amount_centavos", "reverses", "reason", "observed_quantity")
             VALUES ($seq, $kind, $when, $actor, $docKind, $docId, $product, $location, $quantity,
-                $saleLine, $paymentLine, $method, $amount, $reverses, $reason, $trip, $observed)
+                $saleLine, $paymentLine, $method, $amount, $reverses, $reason, $observed)
             """;
 
         command.Parameters.AddWithValue("$seq", movement.Sequence);
@@ -40,7 +40,7 @@ public sealed partial class SqliteLedgerStore
 
         EncodePayload(movement, out string? product, out string? location, out long? quantity,
             out string? saleLine, out string? paymentLine, out string? method, out long? amount,
-            out long? reverses, out string? reason, out string? trip, out long? observed);
+            out long? reverses, out string? reason, out long? observed);
 
         command.Parameters.AddWithValue("$product", (object?)product ?? DBNull.Value);
         command.Parameters.AddWithValue("$location", (object?)location ?? DBNull.Value);
@@ -51,7 +51,6 @@ public sealed partial class SqliteLedgerStore
         command.Parameters.AddWithValue("$amount", (object?)amount ?? DBNull.Value);
         command.Parameters.AddWithValue("$reverses", (object?)reverses ?? DBNull.Value);
         command.Parameters.AddWithValue("$reason", (object?)reason ?? DBNull.Value);
-        command.Parameters.AddWithValue("$trip", (object?)trip ?? DBNull.Value);
         command.Parameters.AddWithValue("$observed", (object?)observed ?? DBNull.Value);
         command.ExecuteNonQuery();
     }
@@ -89,7 +88,7 @@ public sealed partial class SqliteLedgerStore
             long? amount = NullableLong(reader, 12);
             long? reverses = NullableLong(reader, 13);
             string? reason = NullableString(reader, 14);
-            long? observed = NullableLong(reader, 16);
+            long? observed = NullableLong(reader, 15);
 
             return kind switch
             {
@@ -174,7 +173,7 @@ public sealed partial class SqliteLedgerStore
         Movement movement,
         out string? product, out string? location, out long? quantity,
         out string? saleLine, out string? paymentLine, out string? method, out long? amount,
-        out long? reverses, out string? reason, out string? trip, out long? observed)
+        out long? reverses, out string? reason, out long? observed)
     {
         switch (movement)
         {
@@ -182,7 +181,7 @@ public sealed partial class SqliteLedgerStore
                 product = D(m.ProductId);
                 location = D(m.LocationId);
                 quantity = m.Quantity.Units;
-                saleLine = paymentLine = method = reason = trip = null;
+                saleLine = paymentLine = method = reason = null;
                 amount = reverses = observed = null;
                 break;
             case SaleIssue m:
@@ -190,7 +189,7 @@ public sealed partial class SqliteLedgerStore
                 location = D(m.LocationId);
                 quantity = m.Quantity.Units;
                 saleLine = D(m.SaleLineId);
-                paymentLine = method = reason = trip = null;
+                paymentLine = method = reason = null;
                 amount = reverses = observed = null;
                 break;
             case SaleIssueRevoke m:
@@ -198,7 +197,7 @@ public sealed partial class SqliteLedgerStore
                 location = D(m.LocationId);
                 quantity = m.Quantity.Units;
                 reverses = m.Reverses;
-                saleLine = paymentLine = method = reason = trip = null;
+                saleLine = paymentLine = method = reason = null;
                 amount = observed = null;
                 break;
             case ReturnToStock m:
@@ -207,7 +206,7 @@ public sealed partial class SqliteLedgerStore
                 quantity = m.Quantity.Units;
                 saleLine = D(m.SaleLineId);
                 reverses = m.Reverses;
-                paymentLine = method = reason = trip = null;
+                paymentLine = method = reason = null;
                 amount = observed = null;
                 break;
             case Damage m:
@@ -215,7 +214,7 @@ public sealed partial class SqliteLedgerStore
                 location = D(m.LocationId);
                 quantity = m.Quantity.Units;
                 reason = m.Reason;
-                saleLine = paymentLine = method = trip = null;
+                saleLine = paymentLine = method = null;
                 amount = reverses = observed = null;
                 break;
             case Loss m:
@@ -223,7 +222,7 @@ public sealed partial class SqliteLedgerStore
                 location = D(m.LocationId);
                 quantity = m.Quantity.Units;
                 reason = m.Reason;
-                saleLine = paymentLine = method = trip = null;
+                saleLine = paymentLine = method = null;
                 amount = reverses = observed = null;
                 break;
             case AdjustmentIncrease m:
@@ -231,7 +230,7 @@ public sealed partial class SqliteLedgerStore
                 location = D(m.LocationId);
                 quantity = m.Quantity.Units;
                 reason = m.Reason;
-                saleLine = paymentLine = method = trip = null;
+                saleLine = paymentLine = method = null;
                 amount = reverses = observed = null;
                 break;
             case AdjustmentDecrease m:
@@ -239,14 +238,14 @@ public sealed partial class SqliteLedgerStore
                 location = D(m.LocationId);
                 quantity = m.Quantity.Units;
                 reason = m.Reason;
-                saleLine = paymentLine = method = trip = null;
+                saleLine = paymentLine = method = null;
                 amount = reverses = observed = null;
                 break;
             case Receipt m:
                 paymentLine = D(m.PaymentLineId);
                 method = m.Method.ToString();
                 amount = m.Amount.Centavos;
-                product = location = saleLine = reason = trip = null;
+                product = location = saleLine = reason = null;
                 quantity = reverses = observed = null;
                 break;
             case ReceiptRefund m:
@@ -254,7 +253,7 @@ public sealed partial class SqliteLedgerStore
                 method = m.Method.ToString();
                 amount = m.Amount.Centavos;
                 reverses = m.Reverses;
-                product = location = saleLine = reason = trip = null;
+                product = location = saleLine = reason = null;
                 quantity = observed = null;
                 break;
             case ReceiptRevoke m:
@@ -262,21 +261,21 @@ public sealed partial class SqliteLedgerStore
                 method = m.Method.ToString();
                 amount = m.Amount.Centavos;
                 reverses = m.Reverses;
-                product = location = saleLine = reason = trip = null;
+                product = location = saleLine = reason = null;
                 quantity = observed = null;
                 break;
             case FundIn m:
                 method = m.Method.ToString();
                 amount = m.Amount.Centavos;
                 reason = m.Reason;
-                product = location = saleLine = paymentLine = trip = null;
+                product = location = saleLine = paymentLine = null;
                 quantity = reverses = observed = null;
                 break;
             case FundOut m:
                 method = m.Method.ToString();
                 amount = m.Amount.Centavos;
                 reason = m.Reason;
-                product = location = saleLine = paymentLine = trip = null;
+                product = location = saleLine = paymentLine = null;
                 quantity = reverses = observed = null;
                 break;
             case CountObserved m:
@@ -284,7 +283,7 @@ public sealed partial class SqliteLedgerStore
                 location = D(m.LocationId);
                 observed = m.ObservedQuantity.Units;
                 quantity = null;
-                saleLine = paymentLine = method = reason = trip = null;
+                saleLine = paymentLine = method = reason = null;
                 amount = reverses = null;
                 break;
             default:
@@ -498,6 +497,7 @@ public sealed partial class SqliteLedgerStore
     private static Guid ParseGuid(string value) => Guid.Parse(value);
 
     private static string D(UserId value) => value.Value.ToString("D");
+    private static string D(DayId value) => value.Value.ToString("D");
     private static string D(ProductId value) => value.Value.ToString("D");
     private static string D(LocationId value) => value.Value.ToString("D");
     private static string D(SaleId value) => value.Value.ToString("D");

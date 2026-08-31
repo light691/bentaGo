@@ -118,7 +118,6 @@ public sealed partial class SqliteLedgerStore
                 DELETE FROM "CellBalances";
                 DELETE FROM "FundBalances";
                 DELETE FROM "ObservedQuantities";
-                DELETE FROM "CellBreakdown";
                 """;
             command.ExecuteNonQuery();
         }

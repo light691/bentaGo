@@ -114,6 +114,12 @@ public interface ILedgerStore
     void RegisterVoid(SaleVoid @void);
     void RegisterAdjustment(Adjustment adjustment);
     void RegisterCount(PhysicalCount count);
+
+    /// <summary>Stages a goods receipt document (BG-P1/ADR-0004 §5): its
+    /// movements post the stock, the document itself feeds the day
+    /// reconciliation's received-side rows (sku, name, cost).</summary>
+    void RegisterGoodsReceipt(GoodsReceipt receipt);
+
     void Bind();
 
     /// <summary>The batch append: movements + audits + optional idempotency

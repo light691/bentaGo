@@ -11,9 +11,9 @@ namespace BentaGo.Infrastructure.Persistence;
 /// document sets (sales+lines+payments, returns+lines, voids) are read back
 /// into domain records, and the staged open-attempt documents are INSERTed in
 /// the append transaction (D5). Day-lifecycle documents (open/close/reopen)
-/// are movement-less and are kept by the store's in-process registries —
-/// this compile-fix slice stops persisting the retired trip/ledger document
-/// tables; the day tables land with the next schema slice.
+/// are movement-less and commit immediately at Register into the day tables
+/// created by the BG-P1 baseline migration; <see cref="ReadDayDocuments"/>
+/// reloads them so restarts and restores re-fold the lifecycle.
 /// </summary>
 public sealed partial class SqliteLedgerStore
 {
@@ -21,7 +21,8 @@ public sealed partial class SqliteLedgerStore
         IReadOnlyList<Sale> Sales,
         IReadOnlyList<Return> Returns,
         IReadOnlyList<SaleVoid> Voids,
-        IReadOnlyList<PhysicalCount> Counts);
+        IReadOnlyList<PhysicalCount> Counts,
+        IReadOnlyList<GoodsReceipt> GoodsReceipts);
 
     /// <summary>Inserts ONLY the open-attempt documents (committed sets are already in the DB).</summary>
     private void InsertStagedDocuments(SqliteConnection connection)
@@ -67,28 +68,94 @@ public sealed partial class SqliteLedgerStore
                 InsertCountLine(connection, count.Id, line);
             }
         }
+
+        foreach (GoodsReceipt receipt in _stagedGoodsReceipts)
+        {
+            InsertGoodsReceipt(connection, receipt);
+            foreach (GoodsReceiptLine line in receipt.Lines)
+            {
+                InsertGoodsReceiptLine(connection, receipt.Id, line);
+            }
+        }
     }
 
-    private static void InsertSale(SqliteConnection connection, Sale sale)
+    private static void InsertGoodsReceipt(SqliteConnection connection, GoodsReceipt receipt)
     {
         using var command = connection.CreateCommand();
         command.CommandText =
             """
-            INSERT INTO "Sales" ("id", "trip_id", "peddler_id", "location_id", "receipt_number", "created_utc", "created_by", "total_centavos")
-            VALUES ($id, $trip, $peddler, $location, $receipt, $created, $createdBy, $total)
+            INSERT OR IGNORE INTO "GoodsReceipts" ("id", "day_key", "by", "when_utc")
+            VALUES ($id, $day, $by, $when)
             """;
-        // Compile-fix slice: the schema's NOT NULL trip/peddler columns carry
-        // the sale's trading-day key and an empty guid sentinel — the day is
-        // what the store-POS fold needs back on read.
+        command.Parameters.AddWithValue("$id", D(receipt.Id));
+        command.Parameters.AddWithValue("$day", receipt.Day.Value);
+        command.Parameters.AddWithValue("$by", D(receipt.By));
+        command.Parameters.AddWithValue("$when", IsoUtc(receipt.WhenUtc));
+        command.ExecuteNonQuery();
+    }
+
+    private static void InsertGoodsReceiptLine(SqliteConnection connection, GoodsId goodsId, GoodsReceiptLine line)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText =
+            """
+            INSERT OR IGNORE INTO "GoodsReceiptLines" ("goods_id", "product_id", "sku", "product_name", "quantity", "unit_cost_centavos")
+            VALUES ($goods, $product, $sku, $name, $quantity, $cost)
+            """;
+        command.Parameters.AddWithValue("$goods", D(goodsId));
+        command.Parameters.AddWithValue("$product", D(line.ProductId));
+        command.Parameters.AddWithValue("$sku", line.Sku);
+        command.Parameters.AddWithValue("$name", line.ProductName);
+        command.Parameters.AddWithValue("$quantity", line.Quantity.Units);
+        command.Parameters.AddWithValue("$cost", line.UnitCost.Centavos);
+        command.ExecuteNonQuery();
+    }
+
+    private static void InsertSale(SqliteConnection connection, Sale sale)
+    {
+        // BIR readiness (docs/decisions/0003): the serial is a gapless,
+        // never-reused counter drawn INSIDE the append transaction (a rolled
+        // back append returns its serial, so gaps are impossible; a voided
+        // sale keeps its row, so its serial stays consumed). Terminal
+        // identity rides on the document row via Environment.MachineName;
+        // machine_serial is reserved for the future PTU engraving.
+        long serial = NextSaleSerial(connection);
+        using var command = connection.CreateCommand();
+        command.CommandText =
+            """
+            INSERT INTO "Sales" ("id", "day_key", "location_id", "receipt_number", "serial_number", "terminal_id", "machine_serial", "created_utc", "created_by", "total_centavos")
+            VALUES ($id, $day, $location, $receipt, $serial, $terminal, $machine, $created, $createdBy, $total)
+            """;
         command.Parameters.AddWithValue("$id", D(sale.Id));
-        command.Parameters.AddWithValue("$trip", sale.Day.Value);
-        command.Parameters.AddWithValue("$peddler", Guid.Empty.ToString("D"));
+        command.Parameters.AddWithValue("$day", sale.Day.Value);
         command.Parameters.AddWithValue("$location", D(sale.Location));
         command.Parameters.AddWithValue("$receipt", sale.ReceiptNumber);
+        command.Parameters.AddWithValue("$serial", serial);
+        command.Parameters.AddWithValue("$terminal", Environment.MachineName);
+        command.Parameters.AddWithValue("$machine", DBNull.Value);
         command.Parameters.AddWithValue("$created", IsoUtc(sale.CreatedUtc));
         command.Parameters.AddWithValue("$createdBy", D(sale.CreatedBy));
         command.Parameters.AddWithValue("$total", sale.Total.Centavos);
         command.ExecuteNonQuery();
+    }
+
+    /// <summary>
+    /// Draws the next BIR sale serial from the ReceiptSerials counter. Called
+    /// only inside the append transaction: the counter increments with the
+    /// sale row and commits or rolls back with it, so the sequence is
+    /// gapless and unique (docs/decisions/0003 §2).
+    /// </summary>
+    private static long NextSaleSerial(SqliteConnection connection)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText =
+            """
+            UPDATE "ReceiptSerials" SET "next_value" = "next_value" + 1 WHERE "name" = 'sale_serial';
+            SELECT "next_value" FROM "ReceiptSerials" WHERE "name" = 'sale_serial';
+            """;
+        using SqliteDataReader reader = command.ExecuteReader();
+        reader.Read();
+        return reader.GetInt64(0);
     }
 
     private static void InsertSaleLine(SqliteConnection connection, SaleId saleId, SaleLine line)
@@ -229,7 +296,131 @@ public sealed partial class SqliteLedgerStore
         List<Return> returns = ReadReturns(connection);
         List<SaleVoid> voids = ReadVoids(connection);
         List<PhysicalCount> counts = ReadCounts(connection);
-        return new DocumentSets(sales, returns, voids, counts);
+        List<GoodsReceipt> goodsReceipts = ReadGoodsReceipts(connection);
+        return new DocumentSets(sales, returns, voids, counts, goodsReceipts);
+    }
+
+    // ------------------------------------------------------------------
+    // Day-lifecycle documents (BG-P1 baseline: DayOpens/DayCloses/DayReopens)
+    // ------------------------------------------------------------------
+
+    private static void InsertDayOpen(SqliteConnection connection, DayOpen day)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText =
+            """
+            INSERT OR IGNORE INTO "DayOpens" ("id", "day_key", "opening_float_centavos", "by", "when_utc")
+            VALUES ($id, $day, $float, $by, $when)
+            """;
+        command.Parameters.AddWithValue("$id", D(day.Id));
+        command.Parameters.AddWithValue("$day", day.Day.Value);
+        command.Parameters.AddWithValue("$float", day.OpeningFloatCentavos);
+        command.Parameters.AddWithValue("$by", D(day.By));
+        command.Parameters.AddWithValue("$when", IsoUtc(day.WhenUtc));
+        command.ExecuteNonQuery();
+    }
+
+    private static void InsertDayClose(SqliteConnection connection, DayClose close)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText =
+            """
+            INSERT OR IGNORE INTO "DayCloses" ("id", "day_key", "expected_cash_centavos", "counted_cash_centavos", "difference_centavos", "label", "notes", "by", "when_utc")
+            VALUES ($id, $day, $expected, $counted, $difference, $label, $notes, $by, $when)
+            """;
+        command.Parameters.AddWithValue("$id", D(close.Id));
+        command.Parameters.AddWithValue("$day", close.Day.Value);
+        command.Parameters.AddWithValue("$expected", close.ExpectedCashCentavos);
+        command.Parameters.AddWithValue("$counted", close.CountedCashCentavos);
+        command.Parameters.AddWithValue("$difference", close.DifferenceCentavos);
+        command.Parameters.AddWithValue("$label", close.Label.ToString());
+        command.Parameters.AddWithValue("$notes", (object?)close.Notes ?? DBNull.Value);
+        command.Parameters.AddWithValue("$by", D(close.By));
+        command.Parameters.AddWithValue("$when", IsoUtc(close.WhenUtc));
+        command.ExecuteNonQuery();
+    }
+
+    private static void InsertDayReopen(SqliteConnection connection, DayReopen reopen)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText =
+            """
+            INSERT OR IGNORE INTO "DayReopens" ("id", "day_key", "reason", "approved_by", "by", "when_utc")
+            VALUES ($id, $day, $reason, $approvedBy, $by, $when)
+            """;
+        command.Parameters.AddWithValue("$id", D(reopen.Id));
+        command.Parameters.AddWithValue("$day", reopen.Day.Value);
+        command.Parameters.AddWithValue("$reason", reopen.Reason);
+        command.Parameters.AddWithValue("$approvedBy", D(reopen.ApprovedBy));
+        command.Parameters.AddWithValue("$by", D(reopen.By));
+        command.Parameters.AddWithValue("$when", IsoUtc(reopen.WhenUtc));
+        command.ExecuteNonQuery();
+    }
+
+    /// <summary>
+    /// Reloads the in-process day registries from the database, so a
+    /// restart, restore, or cold sync re-folds the day lifecycle (float,
+    /// close verdicts, reopens) exactly as the operator left it. The
+    /// database is authoritative: every Register already committed its row.
+    /// </summary>
+    private void ReadDayDocuments(SqliteConnection connection)
+    {
+        _docsDayOpens.Clear();
+        _docsDayCloses.Clear();
+        _docsDayReopens.Clear();
+
+        using (var command = connection.CreateCommand())
+        {
+            command.CommandText =
+                "SELECT \"id\", \"day_key\", \"opening_float_centavos\", \"by\", \"when_utc\" FROM \"DayOpens\" ORDER BY \"when_utc\", \"id\"";
+            using SqliteDataReader reader = command.ExecuteReader();
+            while (reader.Read())
+            {
+                _docsDayOpens.Add(new DayOpen(
+                    new DayId(ParseGuid(reader.GetString(0))),
+                    new DayKey(reader.GetString(1)),
+                    reader.GetInt64(2),
+                    new UserId(ParseGuid(reader.GetString(3))),
+                    ParseIso(reader.GetString(4))));
+            }
+        }
+
+        using (var command = connection.CreateCommand())
+        {
+            command.CommandText =
+                "SELECT \"id\", \"day_key\", \"expected_cash_centavos\", \"counted_cash_centavos\", \"difference_centavos\", \"label\", \"notes\", \"by\", \"when_utc\" FROM \"DayCloses\" ORDER BY \"when_utc\", \"id\"";
+            using SqliteDataReader reader = command.ExecuteReader();
+            while (reader.Read())
+            {
+                _docsDayCloses.Add(new DayClose(
+                    new CloseId(ParseGuid(reader.GetString(0))),
+                    new DayKey(reader.GetString(1)),
+                    reader.GetInt64(2),
+                    reader.GetInt64(3),
+                    reader.GetInt64(4),
+                    Enum.TryParse(reader.GetString(5), out DayBalanceLabel label) ? label : DayBalanceLabel.Balanced,
+                    reader.IsDBNull(6) ? null : reader.GetString(6),
+                    new UserId(ParseGuid(reader.GetString(7))),
+                    ParseIso(reader.GetString(8))));
+            }
+        }
+
+        using (var command = connection.CreateCommand())
+        {
+            command.CommandText =
+                "SELECT \"id\", \"day_key\", \"reason\", \"approved_by\", \"by\", \"when_utc\" FROM \"DayReopens\" ORDER BY \"when_utc\", \"id\"";
+            using SqliteDataReader reader = command.ExecuteReader();
+            while (reader.Read())
+            {
+                _docsDayReopens.Add(new DayReopen(
+                    new DayId(ParseGuid(reader.GetString(0))),
+                    new DayKey(reader.GetString(1)),
+                    reader.GetString(2),
+                    new UserId(ParseGuid(reader.GetString(3))),
+                    new UserId(ParseGuid(reader.GetString(4))),
+                    ParseIso(reader.GetString(5))));
+            }
+        }
     }
 
     private static Dictionary<SaleId, List<SaleLine>> ReadSaleLines(SqliteConnection connection)
@@ -294,7 +485,7 @@ public sealed partial class SqliteLedgerStore
         var sales = new List<Sale>();
         using var command = connection.CreateCommand();
         command.CommandText =
-            "SELECT \"id\", \"trip_id\", \"peddler_id\", \"location_id\", \"receipt_number\", \"created_utc\", \"created_by\", \"total_centavos\" FROM \"Sales\" ORDER BY \"rowid\"";
+            "SELECT \"id\", \"day_key\", \"location_id\", \"receipt_number\", \"created_utc\", \"created_by\", \"total_centavos\" FROM \"Sales\" ORDER BY \"rowid\"";
         using SqliteDataReader reader = command.ExecuteReader();
         while (reader.Read())
         {
@@ -304,13 +495,13 @@ public sealed partial class SqliteLedgerStore
             sales.Add(new Sale(
                 saleId,
                 new DayKey(reader.GetString(1)),
-                new LocationId(ParseGuid(reader.GetString(3))),
-                reader.GetString(4),
-                ParseIso(reader.GetString(5)),
-                new UserId(ParseGuid(reader.GetString(6))),
+                new LocationId(ParseGuid(reader.GetString(2))),
+                reader.GetString(3),
+                ParseIso(reader.GetString(4)),
+                new UserId(ParseGuid(reader.GetString(5))),
                 lines,
                 payments,
-                new Money(reader.GetInt64(7))));
+                new Money(reader.GetInt64(6))));
         }
 
         return sales;
@@ -425,5 +616,56 @@ public sealed partial class SqliteLedgerStore
         }
 
         return counts;
+    }
+
+    /// <summary>
+    /// Reads the goods-receipt documents (with their per-line sku/name/cost)
+    /// that the day reconciliation uses for its received-side stock rows
+    /// (docs/decisions/0004 §5).
+    /// </summary>
+    private static List<GoodsReceipt> ReadGoodsReceipts(SqliteConnection connection)
+    {
+        var groups = new Dictionary<GoodsId, List<GoodsReceiptLine>>();
+        using (var lineCommand = connection.CreateCommand())
+        {
+            lineCommand.CommandText =
+                "SELECT \"goods_id\", \"product_id\", \"sku\", \"product_name\", \"quantity\", \"unit_cost_centavos\" FROM \"GoodsReceiptLines\" ORDER BY \"rowid\"";
+            using SqliteDataReader lineReader = lineCommand.ExecuteReader();
+            while (lineReader.Read())
+            {
+                var goodsId = new GoodsId(ParseGuid(lineReader.GetString(0)));
+                if (!groups.TryGetValue(goodsId, out List<GoodsReceiptLine>? lines))
+                {
+                    lines = new List<GoodsReceiptLine>();
+                    groups[goodsId] = lines;
+                }
+
+                lines.Add(new GoodsReceiptLine(
+                    new ProductId(ParseGuid(lineReader.GetString(1))),
+                    lineReader.GetString(2),
+                    lineReader.GetString(3),
+                    Quantity.Of(checked((int)lineReader.GetInt64(4))),
+                    new Money(lineReader.GetInt64(5))));
+            }
+        }
+
+        var receipts = new List<GoodsReceipt>();
+        using var command = connection.CreateCommand();
+        command.CommandText =
+            "SELECT \"id\", \"day_key\", \"by\", \"when_utc\" FROM \"GoodsReceipts\" ORDER BY \"when_utc\", \"id\"";
+        using SqliteDataReader reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            var goodsId = new GoodsId(ParseGuid(reader.GetString(0)));
+            IReadOnlyList<GoodsReceiptLine> lines = groups.TryGetValue(goodsId, out List<GoodsReceiptLine>? found) ? found : Array.Empty<GoodsReceiptLine>();
+            receipts.Add(new GoodsReceipt(
+                goodsId,
+                new DayKey(reader.GetString(1)),
+                lines,
+                new UserId(ParseGuid(reader.GetString(2))),
+                ParseIso(reader.GetString(3))));
+        }
+
+        return receipts;
     }
 }

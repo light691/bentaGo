@@ -83,6 +83,28 @@ public sealed class ReconciliationReportService(ILedgerStore store) : IReconcili
         var products = new HashSet<ProductId>();
         var skus = new Dictionary<ProductId, string>();
         var names = new Dictionary<ProductId, string>();
+        var costs = new Dictionary<ProductId, Money>();
+
+        // Received side first (docs/decisions/0004 §5): a goods receipt on the
+        // day introduces its lines (sku, name, cost) even when nothing was
+        // sold — the operator counts what arrived, not just what moved.
+        foreach (GoodsReceipt receipt in store.Context.GoodsReceipts)
+        {
+            if (receipt.Day != day)
+            {
+                continue;
+            }
+
+            foreach (GoodsReceiptLine line in receipt.Lines)
+            {
+                if (products.Add(line.ProductId))
+                {
+                    skus[line.ProductId] = line.Sku;
+                    names[line.ProductId] = line.ProductName;
+                    costs[line.ProductId] = line.UnitCost;
+                }
+            }
+        }
 
         foreach (Sale sale in store.Context.Sales)
         {
@@ -93,9 +115,11 @@ public sealed class ReconciliationReportService(ILedgerStore store) : IReconcili
 
             foreach (SaleLine line in sale.Lines)
             {
-                products.Add(line.ProductId);
-                skus.TryAdd(line.ProductId, line.Sku);
-                names.TryAdd(line.ProductId, line.ProductName);
+                if (products.Add(line.ProductId))
+                {
+                    skus.TryAdd(line.ProductId, line.Sku);
+                    names.TryAdd(line.ProductId, line.ProductName);
+                }
             }
         }
 
@@ -105,7 +129,7 @@ public sealed class ReconciliationReportService(ILedgerStore store) : IReconcili
             int expected = store.State.StockOnHand(product, location).Units;
             int? counted = WasCounted(location, product) ? store.State.ObservedUnits(product, location).Units : null;
             int? quantityVariance = counted is { } c ? c - expected : null;
-            Money unitPrice = DeriveUnitPrice(day, product);
+            Money unitPrice = DeriveUnitPrice(day, product, costs.GetValueOrDefault(product));
             Money? valueVariance = quantityVariance is { } qv ? unitPrice.Times(qv) : null;
 
             rows.Add(new StockVarianceRow(
@@ -211,10 +235,11 @@ public sealed class ReconciliationReportService(ILedgerStore store) : IReconcili
 
     /// <summary>
     /// Fold-derived unit price: the day's committed sale value over its sold
-    /// quantity for the product (deterministic, integer centavos); zero when
-    /// nothing was sold.
+    /// quantity for the product (deterministic, integer centavos); the goods
+    /// receipt's unit cost when nothing was sold; zero when the product never
+    /// appeared on the day.
     /// </summary>
-    private Money DeriveUnitPrice(DayKey day, ProductId product)
+    private Money DeriveUnitPrice(DayKey day, ProductId product, Money? goodsCost)
     {
         long value = 0;
         int quantity = 0;
@@ -237,7 +262,12 @@ public sealed class ReconciliationReportService(ILedgerStore store) : IReconcili
             }
         }
 
-        return quantity > 0 ? new Money(value / quantity) : Money.Zero;
+        if (quantity > 0)
+        {
+            return new Money(value / quantity);
+        }
+
+        return goodsCost ?? Money.Zero;
     }
 
     private bool WasCounted(LocationId location, ProductId product)

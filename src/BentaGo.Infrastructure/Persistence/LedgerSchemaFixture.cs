@@ -14,16 +14,17 @@ using Microsoft.EntityFrameworkCore;
 namespace BentaGo.Infrastructure.Persistence;
 
 /// <summary>
-/// Builds the lane-9 "prior schema" fixture: a real database at migration
-/// BG003_01 (ledger schema, BEFORE the idempotency migration) with a
-/// deterministic seeded mini-day — a goods receipt into the warehouse and one
-/// cash sale — so upgrades and restores can prove row preservation and
-/// identical reports. Code-built (no checked-in binary), deterministic ids
-/// and clock, so re-runs are byte-identical (docs/05 lane 9, BG-003 §12 U6).
+/// Builds the lane-9 "prior schema" fixture: a real database at the BG-P1
+/// baseline migration with a deterministic seeded mini-day — a goods receipt
+/// into the warehouse and one cash sale — so upgrades and restores can prove
+/// row preservation and identical reports. Code-built (no checked-in
+/// binary), deterministic ids and clock, so re-runs are byte-identical
+/// (docs/05 lane 9, BG-003 §12 U6).
 /// </summary>
 public static class LedgerSchemaFixture
 {
-    public const string Migration01Id = "20260828194050_BG003_01_CreateLedgerSchema";
+    /// <summary>The one BG-P1 baseline migration (schema reset, P1c).</summary>
+    public const string Migration01Id = "20260831162620_Baseline";
 
     /// <summary>Fixed UTC clock; the whole seeded day happens in it.</summary>
     private static readonly DateTimeOffset T0 = new(2026, 1, 15, 8, 0, 0, TimeSpan.Zero);
@@ -166,22 +167,22 @@ public static class LedgerSchemaFixture
             command.Transaction = transaction;
             command.CommandText =
                 """
-                INSERT INTO "Sales" ("id", "trip_id", "peddler_id", "location_id", "receipt_number", "created_utc", "created_by", "total_centavos")
-                VALUES ($sale, $day, $zero, $warehouse, 'R-000001', $whenSale, $user, 22500);
+                INSERT INTO "Sales" ("id", "day_key", "location_id", "receipt_number", "serial_number", "terminal_id", "machine_serial", "created_utc", "created_by", "total_centavos")
+                VALUES ($sale, $day, $warehouse, 'R-000001', 1, 'fixture-terminal', NULL, $whenSale, $user, 22500);
                 INSERT INTO "SaleLines" ("id", "sale_id", "product_id", "sku", "product_name", "unit_price_centavos", "quantity", "discount_centavos")
                 VALUES ($line, $sale, $sardines, 'SARD', 'Sardines', 4500, 5, 0);
                 INSERT INTO "PaymentLines" ("id", "sale_id", "method", "reference", "amount_centavos", "tendered_centavos", "change_centavos")
                 VALUES ($payment, $sale, 'Cash', '', 22500, 22500, 0);
 
-                INSERT INTO "Movements" ("sequence", "kind", "when_utc", "actor_id", "doc_kind", "doc_id", "product_id", "location_id", "quantity", "sale_line_id", "payment_line_id", "method", "amount_centavos", "reverses", "reason", "trip_id", "observed_quantity")
-                VALUES (1, 'AdjustmentIncrease', $when0, $user, 'Adjustment', $adjustment, $sardines, $warehouse, 20, NULL, NULL, NULL, NULL, NULL, 'fixture receive', NULL, NULL);
-                INSERT INTO "Movements" ("sequence", "kind", "when_utc", "actor_id", "doc_kind", "doc_id", "product_id", "location_id", "quantity", "sale_line_id", "payment_line_id", "method", "amount_centavos", "reverses", "reason", "trip_id", "observed_quantity")
-                VALUES (2, 'SaleIssue', $whenSale, $user, 'Sale', $sale, $sardines, $warehouse, 5, $line, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-                INSERT INTO "Movements" ("sequence", "kind", "when_utc", "actor_id", "doc_kind", "doc_id", "product_id", "location_id", "quantity", "sale_line_id", "payment_line_id", "method", "amount_centavos", "reverses", "reason", "trip_id", "observed_quantity")
-                VALUES (3, 'Receipt', $whenSale, $user, 'Sale', $sale, NULL, NULL, NULL, NULL, $payment, 'Cash', 22500, NULL, NULL, NULL, NULL);
+                INSERT INTO "Movements" ("sequence", "kind", "when_utc", "actor_id", "doc_kind", "doc_id", "product_id", "location_id", "quantity", "sale_line_id", "payment_line_id", "method", "amount_centavos", "reverses", "reason", "observed_quantity")
+                VALUES (1, 'AdjustmentIncrease', $when0, $user, 'Adjustment', $adjustment, $sardines, $warehouse, 20, NULL, NULL, NULL, NULL, NULL, 'fixture receive', NULL);
+                INSERT INTO "Movements" ("sequence", "kind", "when_utc", "actor_id", "doc_kind", "doc_id", "product_id", "location_id", "quantity", "sale_line_id", "payment_line_id", "method", "amount_centavos", "reverses", "reason", "observed_quantity")
+                VALUES (2, 'SaleIssue', $whenSale, $user, 'Sale', $sale, $sardines, $warehouse, 5, $line, NULL, NULL, NULL, NULL, NULL, NULL);
+                INSERT INTO "Movements" ("sequence", "kind", "when_utc", "actor_id", "doc_kind", "doc_id", "product_id", "location_id", "quantity", "sale_line_id", "payment_line_id", "method", "amount_centavos", "reverses", "reason", "observed_quantity")
+                VALUES (3, 'Receipt', $whenSale, $user, 'Sale', $sale, NULL, NULL, NULL, NULL, $payment, 'Cash', 22500, NULL, NULL, NULL);
 
-                INSERT INTO "AuditEvents" ("sequence", "actor_id", "when_utc", "category", "message", "doc_kind", "doc_id")
-                VALUES (-1, $user, $when0, 'FIXTURE', 'seeded fixture day', NULL, NULL);
+                INSERT INTO "AuditEvents" ("actor_id", "when_utc", "category", "message", "doc_kind", "doc_id")
+                VALUES ($user, $when0, 'FIXTURE', 'seeded fixture day', NULL, NULL);
 
                 INSERT INTO "LedgerHead" ("id", "last_sequence", "documents_version") VALUES (1, 3, 1);
 
@@ -198,7 +199,6 @@ public static class LedgerSchemaFixture
             command.Parameters.AddWithValue("$day", day);
             command.Parameters.AddWithValue("$when0", when0);
             command.Parameters.AddWithValue("$whenSale", whenSale);
-            command.Parameters.AddWithValue("$zero", Guid.Empty.ToString("D"));
             command.ExecuteNonQuery();
         }
 

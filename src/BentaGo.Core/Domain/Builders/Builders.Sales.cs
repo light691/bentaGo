@@ -19,7 +19,8 @@ public sealed record LedgerContext(
     IReadOnlyList<PhysicalCount> Counts,
     IReadOnlyList<DayOpen> DayOpens,
     IReadOnlyList<DayClose> DayCloses,
-    IReadOnlyList<DayReopen> DayReopens)
+    IReadOnlyList<DayReopen> DayReopens,
+    IReadOnlyList<GoodsReceipt> GoodsReceipts)
 {
     public Sale? FindSale(SaleId id)
     {
