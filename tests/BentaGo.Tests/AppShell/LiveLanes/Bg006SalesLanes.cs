@@ -190,9 +190,9 @@ public sealed class Bg006SalesLanes
             Bg006LaneEvidence.SaveReviewPng("bg-006-wallets.png", 1366, 768, session.Window);
 
             Result<SaleDetail> gcash = session.Services.GetRequiredService<ISaleQueryService>()
-                .GetByPaymentReference(session.Peddler, "G-REF-0001");
+                .GetByPaymentReference("G-REF-0001");
             Result<SaleDetail> maya = session.Services.GetRequiredService<ISaleQueryService>()
-                .GetByPaymentReference(session.Peddler, "M-REF-0002");
+                .GetByPaymentReference("M-REF-0002");
 
             bool refsPersist = gcash.IsSuccess && maya.IsSuccess
                 && gcash.Value.Payments.Single() is { Method: PaymentMethod.Gcash, Reference: "G-REF-0001" }
@@ -241,7 +241,7 @@ public sealed class Bg006SalesLanes
             session.ShotOfCurrent("bg-006-bank.png");
 
             Result<SaleDetail> found = session.Services.GetRequiredService<ISaleQueryService>()
-                .GetByPaymentReference(session.Peddler, "B-REF-0075");
+                .GetByPaymentReference("B-REF-0075");
             bool searchable = found.IsSuccess
                 && found.Value.Payments.Single() is { Method: PaymentMethod.BankTransfer, Reference: "B-REF-0075" };
             bool pass = referenceRequired && gateBefore && gateAfter && searchable;
@@ -284,7 +284,7 @@ public sealed class Bg006SalesLanes
             session.ShotOfCurrent("bg-006-credit.png");
 
             Result<SaleDetail> found = session.Services.GetRequiredService<ISaleQueryService>()
-                .GetByPaymentReference(session.Peddler, "JDC-2026-01");
+                .GetByPaymentReference("JDC-2026-01");
             bool persisted = found.IsSuccess
                 && found.Value.Payments.Single() is { Method: PaymentMethod.Credit, Reference: "JDC-2026-01" };
             bool cashExcluded = session.Store.Context.State.FundsOnHand(Fund.PhysicalCash).Centavos == 0;
@@ -630,8 +630,7 @@ public sealed class Bg006SalesLanes
             Dialogs = dialogs;
             Navigation = navigation;
             Store = store;
-            Trip = store.Context.Trips.Single().Id;
-            Peddler = store.Context.Trips.Single().Peddler;
+            Day = DayKey.FromUtc(DateTimeOffset.UtcNow);
         }
 
         public string Root { get; }
@@ -645,8 +644,7 @@ public sealed class Bg006SalesLanes
         /// <summary>The activated SalesViewModel (transient: one per
         /// navigation; must be read from the shell's Current).</summary>
         public SalesViewModel Sales => (SalesViewModel)ViewModel.Current!;
-        public TripId Trip { get; }
-        public PeddlerId Peddler { get; }
+        public DayKey Day { get; }
 
         public static async Task<SalesLaneSession> OpenAsync(int width = 1366, int height = 768, string? root = null, bool seed = true)
         {
@@ -709,7 +707,7 @@ public sealed class Bg006SalesLanes
                 throw new TimeoutException(
                     $"key={Navigation.CurrentKey} ready={Sales.IsSessionReady} " +
                     $"state='{Sales.SessionStateMessage}' error='{Sales.ActionError}' " +
-                    $"trips={Store.Context.Trips.Count}");
+                    $"day={Day}");
             }
         }
 
@@ -717,7 +715,7 @@ public sealed class Bg006SalesLanes
             Services.GetRequiredService<IProductSearchService>().SearchAsync(query);
 
         public Result<IReadOnlyList<SaleHistoryRow>> QuerySales() =>
-            Services.GetRequiredService<ISaleQueryService>().Query(Peddler);
+            Services.GetRequiredService<ISaleQueryService>().Query();
 
         public void ShotOfCurrent(string fileName)
         {

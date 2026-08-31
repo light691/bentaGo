@@ -8,7 +8,6 @@ using BentaGo.Core.Domain.Catalog;
 using BentaGo.Core.Domain.Commands;
 using BentaGo.Core.Domain.Documents;
 using BentaGo.Core.Domain.Identity;
-using BentaGo.Core.Domain.Ledger;
 using BentaGo.Infrastructure.Persistence;
 using BentaGo.Infrastructure.Security;
 using Microsoft.Extensions.DependencyInjection;
@@ -19,8 +18,9 @@ namespace BentaGo.Tests.AppShell;
 /// <summary>
 /// BG-006b shared seed for the AppShell tests that drive the REAL
 /// session-backed sales flow (DialogResultTests, SalesUxTests, STA probes):
-/// a migrated root, one open trip with 50 units on the route, a
-/// peddler-linked signed-in user, and the catalog products the tests scan.
+/// a migrated root, today's open trading day with 100 units of each product
+/// on hand at the warehouse, a signed-in supervisor, and the catalog products
+/// the tests scan.
 /// </summary>
 internal static class SalesSeed
 {
@@ -36,49 +36,36 @@ internal static class SalesSeed
         var store = services.GetRequiredService<SqliteLedgerStore>();
         var ids = new ScenarioIdSource("appshell-sales-v1");
 
-        TripId trip = new(ids.Next("trip"));
         ProductId product = new(ids.Next("product"));
         ProductId kopi = new(ids.Next("kopi"));
-        LocationId route = new(ids.Next("route"));
-        LocationId storeLoc = new(ids.Next("store"));
         UserId user = new(ids.Next("user"));
-        PeddlerId peddler = new(ids.Next("peddler"));
 
-        var when = new DateTimeOffset(2026, 1, 15, 8, 0, 0, TimeSpan.Zero);
-        store.RegisterTrip(new Trip(trip, peddler, route, when, user));
+        // The store keys the day on the host clock (today's Manila day), so
+        // the seed opens TODAY, not a fixed date.
+        var when = DateTimeOffset.UtcNow;
+        DayKey day = DayKey.FromUtc(when);
 
-        var openId = new LoadId(ids.Next("open"));
-        store.RegisterLoad(new StockLoad(openId, "P-OPEN", trip, Array.Empty<StockLoadLine>(), user, when));
+        store.RegisterDayOpen(new DayOpen(new DayId(ids.Next("day")), day, 0, user, when));
         store.Bind();
-        Result<AppendReceipt> open = store.Append(new[]
-        {
-            Moves.OpeningStock(0, when, user, new LoadRef(openId), product, storeLoc, Quantity.Of(100)),
-            Moves.OpeningStock(1, when, user, new LoadRef(openId), kopi, storeLoc, Quantity.Of(100)),
-        });
-        Assert.True(open.IsSuccess, open.Errors.FirstOrDefault()?.Code ?? "opening stock failed");
 
-        var loadId = new LoadId(ids.Next("load"));
-        Result<LoadDraft> load = LoadBuilder.Build(store.Context, new LoadCommand(
-            loadId, "P-LOAD", trip, storeLoc,
+        Result<GoodsReceiptDraft> goods = GoodsReceiptBuilder.Build(store.Context, new GoodsReceiptCommand(
+            new GoodsId(ids.Next("goods")), day,
             new[]
             {
-                new LoadLine(product, SardinesSku, "Sardines", Quantity.Of(50), Money.FromPesos(30m)),
-                new LoadLine(kopi, KopiSku, "Kopi", Quantity.Of(50), Money.FromPesos(30m)),
+                new GoodsReceiptLineCommand(product, SardinesSku, "Sardines", Quantity.Of(100), Money.FromPesos(30m)),
+                new GoodsReceiptLineCommand(kopi, KopiSku, "Kopi", Quantity.Of(100), Money.FromPesos(30m)),
             },
             user, when));
-        Assert.True(load.IsSuccess, load.Errors.FirstOrDefault()?.Code ?? "load build failed");
-        store.RegisterLoad(load.Value.Document);
-        store.Bind();
-        Result<AppendReceipt> loadAppend = store.Append(load.Value.Movements);
-        Assert.True(loadAppend.IsSuccess, loadAppend.Errors.FirstOrDefault()?.Code ?? "load append failed");
+        Assert.True(goods.IsSuccess, goods.Errors.FirstOrDefault()?.Code ?? "goods receipt build failed");
+        Result<AppendReceipt> goodsAppend = store.Append(goods.Value.Movements);
+        Assert.True(goodsAppend.IsSuccess, goodsAppend.Errors.FirstOrDefault()?.Code ?? "goods receipt append failed");
 
         services.GetRequiredService<IUserAccountStore>().AddAsync(new User
         {
             Id = user,
             Username = SellerUsername,
             PasswordHash = services.GetRequiredService<IPasswordHasher>().Hash(SellerPassword),
-            Role = Role.Peddler,
-            PeddlerLink = peddler,
+            Role = Role.Supervisor,
             CreatedBy = user,
             CreatedUtc = when,
         }).GetAwaiter().GetResult();

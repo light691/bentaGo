@@ -8,13 +8,10 @@ using BentaGo.Application.Contracts;
 using BentaGo.Application.Scenario;
 using BentaGo.Core.Common;
 using BentaGo.Core.Domain;
-using BentaGo.Core.Domain.Catalog;
 using BentaGo.Core.Domain.Documents;
 using BentaGo.Core.Domain.Identity;
 using BentaGo.Core.Domain.Ledger;
 using BentaGo.Core.Domain.Payments;
-using BentaGo.Core.Domain.Reconciliation;
-using BentaGo.Core.Domain.Trips;
 using BentaGo.Infrastructure.Persistence;
 using BentaGo.Infrastructure.Security;
 using Microsoft.Extensions.DependencyInjection;
@@ -24,12 +21,12 @@ namespace BentaGo.Tests.AppShell;
 
 /// <summary>
 /// BG-008 Slice B wiring tests (headless): the reconciliation view model over
-/// the REAL use cases — Save Draft persists submitted counts with NO trip lock
-/// and NO final audit event, Submit Close writes the DailyClose + TripClose
-/// movement + close lock + close receipt, Reopen is approval-gated (reason +
-/// actor + approver recorded, prior close intact), the variance label/sign
-/// mapping matches the report's convention, and a closed trip surfaces the
-/// shared TRIP_CLOSED_CORRECTION copy.
+/// the REAL use cases — Save Draft persists submitted counts with NO day lock
+/// and NO final audit event, Submit Close writes the DayClose document + close
+/// lock + close receipt, Reopen is approval-gated (reason + actor + approver
+/// recorded, prior close intact), the variance label/sign mapping matches the
+/// report's convention, and a closed day surfaces the shared
+/// DAY_CLOSED_CORRECTION copy.
 /// </summary>
 public sealed class ReconciliationWiringTests : IDisposable
 {
@@ -43,12 +40,14 @@ public sealed class ReconciliationWiringTests : IDisposable
 
     private SqliteLedgerStore Store => Services.GetRequiredService<SqliteLedgerStore>();
 
+    private static DayKey Today => DayKey.FromUtc(DateTimeOffset.UtcNow);
+
     private async Task<ReconciliationViewModel> ActivateAsync()
     {
         SalesSeed.Seed(Services);
         ReconciliationViewModel vm = Services.GetRequiredService<ReconciliationViewModel>();
         await vm.OnActivatedAsync();
-        Assert.True(vm.HasTrip, vm.FatalMessage ?? "no trip");
+        Assert.True(vm.HasDay, vm.FatalMessage ?? "no day");
         return vm;
     }
 
@@ -62,7 +61,7 @@ public sealed class ReconciliationWiringTests : IDisposable
     }
 
     /// <summary>One cash sale of 2 × Sardines (₱45 each = ₱90.00) through the
-    /// REAL session factory (the seller the seed signed in): the trip's
+    /// REAL session factory (the seller the seed signed in): the day's
     /// expected cash becomes ₱90.00.</summary>
     private async Task SellCash90Async()
     {
@@ -98,35 +97,35 @@ public sealed class ReconciliationWiringTests : IDisposable
     // ------- Save Draft: counts become facts, nothing locks -------
 
     [Fact]
-    public async Task DraftRecordsCounts_NoTripLock_NoFinalAudit()
+    public async Task DraftRecordsCounts_NoDayLock_NoFinalAudit()
     {
         ReconciliationViewModel vm = await ActivateWithSaleAsync();
         Assert.False(vm.DraftSaved);
 
-        Row(vm, SalesSeed.SardinesSku).CountedText = "47"; // expected 48 after the sale
+        Row(vm, SalesSeed.SardinesSku).CountedText = "97"; // expected 98 after the sale
         vm.SaveDraftCommand.Execute(null);
 
         Assert.True(vm.DraftSaved);
         Assert.Equal(ReconciliationViewModel.DraftSavedCopy, vm.DraftStatusText);
         Assert.False(vm.IsClosed);
         Assert.True(vm.CanSaveDraft); // a draft never locks anything
-        Assert.Empty(Store.Movements.OfType<TripClose>());
-        Assert.Empty(Store.Movements.OfType<TripReopen>());
+        Assert.Empty(Store.Context.DayCloses);
+        Assert.Empty(Store.Context.DayReopens);
         Assert.DoesNotContain(Store.Audits, a =>
-            a.Category == TripAudit.TripCloseCategory || a.Category == TripAudit.TripReopenCategory);
-        Assert.Equal(TripStatus.Open, Store.State.Trip(Store.Context.Trips.Single().Id).Status);
+            a.Category == "DAY.CLOSE" || a.Category == "DAY.REOPEN");
+        Assert.Equal(DayLifecycleState.Open, Store.State.Day(Today));
         // The draft IS a real fact: the count document + its COUNT audit.
         Assert.Single(Store.Context.Counts);
         Assert.Single(Store.Audits, a => a.Category == "COUNT");
-        Assert.Equal(47, Store.State.ObservedUnits(
-            Row(vm, SalesSeed.SardinesSku).Product, Store.Context.Trips.Single().Location).Units);
+        Assert.Equal(97, Store.State.ObservedUnits(
+            Row(vm, SalesSeed.SardinesSku).Product, StoreLocations.Warehouse).Units);
     }
 
     [Fact]
     public async Task DraftPersistsAcrossActivation()
     {
         ReconciliationViewModel vm = await ActivateWithSaleAsync();
-        Row(vm, SalesSeed.SardinesSku).CountedText = "47";
+        Row(vm, SalesSeed.SardinesSku).CountedText = "97";
         vm.SaveDraftCommand.Execute(null);
 
         // A fresh VM instance rehydrates the draft from the ledger fold.
@@ -135,7 +134,7 @@ public sealed class ReconciliationWiringTests : IDisposable
 
         Assert.True(reactivated.DraftSaved);
         Assert.Equal(ReconciliationViewModel.DraftSavedCopy, reactivated.DraftStatusText);
-        Assert.Equal("47", Row(reactivated, SalesSeed.SardinesSku).CountedText);
+        Assert.Equal("97", Row(reactivated, SalesSeed.SardinesSku).CountedText);
     }
 
     [Fact]
@@ -154,25 +153,24 @@ public sealed class ReconciliationWiringTests : IDisposable
     // ------- Submit Close: lock + close receipt -------
 
     [Fact]
-    public async Task BalancedCloseLocksTripAndWritesCloseFacts()
+    public async Task BalancedCloseLocksDayAndWritesCloseFacts()
     {
         ReconciliationViewModel vm = await ActivateWithSaleAsync();
-        Assert.Equal(Money.FromPesos(90m), Store.State.TripCash(Store.Context.Trips.Single().Id, Fund.PhysicalCash));
+        Assert.Equal(Money.FromPesos(90m), Store.State.FundsOnHand(Fund.PhysicalCash));
 
         Close(vm, "90.00");
 
         Assert.True(vm.IsClosed);
         Assert.False(vm.CanSubmitClose);
-        Assert.Single(Store.Movements.OfType<TripClose>());
-        AuditEvent closeAudit = Store.Audits.Single(a => a.Category == TripAudit.TripCloseCategory);
-        Assert.Equal(Store.Context.Closes.Single().By, closeAudit.Actor);
-        DailyClose close = Store.Context.Closes.Single();
-        Assert.Equal(Money.FromPesos(90m), close.ExpectedCash);
-        Assert.Equal(Money.FromPesos(90m), close.CountedCash);
-        Assert.Equal(TripStatus.Closed, Store.State.Trip(close.Trip).Status);
+        DayClose close = Store.Context.DayCloses.Single();
+        AuditEvent closeAudit = Store.Audits.Single(a => a.Category == "DAY.CLOSE");
+        Assert.Equal(close.By, closeAudit.Actor);
+        Assert.Equal(Money.FromPesos(90m), new Money(close.ExpectedCashCentavos));
+        Assert.Equal(Money.FromPesos(90m), new Money(close.CountedCashCentavos));
+        Assert.Equal(DayLifecycleState.Closed, Store.State.Day(close.Day));
         // The close receipt is on screen and BALANCED needs no note.
         Assert.True(vm.HasCloseReceipt,
-            $"banner='{vm.ErrorBanner}' isClosed={vm.IsClosed} closes={Store.Context.Closes.Count}");
+            $"banner='{vm.ErrorBanner}' isClosed={vm.IsClosed} closes={Store.Context.DayCloses.Count}");
         Assert.Equal("BALANCED", vm.CloseReceipt!.VarianceLabelText);
         Assert.Equal(MoneyDisplayString(90m), vm.CloseReceipt.CountedCashText);
         Assert.Null(vm.CloseReceipt.Notes);
@@ -185,20 +183,19 @@ public sealed class ReconciliationWiringTests : IDisposable
     public async Task ShortageNeedsNoteAndRecordsIt()
     {
         ReconciliationViewModel vm = await ActivateWithSaleAsync();
-        int movementsBefore = Store.Movements.Count;
+        int closesBefore = Store.Context.DayCloses.Count;
 
         Close(vm, "80.00");
         Assert.Equal(ReconciliationViewModel.NoteRequiredShortCopy, vm.ErrorBanner);
         Assert.Equal("SHORT \u20B110.00", vm.BannerText);
         Assert.True(vm.IsShort);
-        Assert.Empty(Store.Movements.OfType<TripClose>());
-        Assert.Equal(movementsBefore, Store.Movements.Count);
+        Assert.Equal(closesBefore, Store.Context.DayCloses.Count);
 
         Close(vm, "80.00", "P10 bill fell behind the drawer");
         Assert.True(vm.IsClosed);
-        DailyClose close = Store.Context.Closes.Single();
-        Assert.Equal(Money.FromPesos(90m), close.ExpectedCash);
-        Assert.Equal(Money.FromPesos(80m), close.CountedCash);
+        DayClose close = Store.Context.DayCloses.Single();
+        Assert.Equal(Money.FromPesos(90m), new Money(close.ExpectedCashCentavos));
+        Assert.Equal(Money.FromPesos(80m), new Money(close.CountedCashCentavos));
         Assert.Equal("P10 bill fell behind the drawer", close.Notes);
         Assert.True(vm.HasCloseReceipt);
         Assert.Equal("SHORTAGE", vm.CloseReceipt!.VarianceLabelText);
@@ -215,11 +212,11 @@ public sealed class ReconciliationWiringTests : IDisposable
         Assert.Equal(ReconciliationViewModel.NoteRequiredOverCopy, vm.ErrorBanner);
         Assert.Equal("OVER \u20B110.00", vm.BannerText);
         Assert.True(vm.IsOver);
-        Assert.Empty(Store.Movements.OfType<TripClose>());
+        Assert.Empty(Store.Context.DayCloses);
 
         Close(vm, "100.00", "customer overpaid and left");
         Assert.True(vm.IsClosed);
-        DailyClose close = Store.Context.Closes.Single();
+        DayClose close = Store.Context.DayCloses.Single();
         Assert.Equal("customer overpaid and left", close.Notes);
         Assert.True(vm.HasCloseReceipt);
         Assert.Equal("OVERAGE", vm.CloseReceipt!.VarianceLabelText);
@@ -227,46 +224,7 @@ public sealed class ReconciliationWiringTests : IDisposable
         Assert.Equal("OVERAGE", vm.Report!.CashLabelText);
     }
 
-    // ------- Reopen: approval gate, reason + actor, prior close intact -------
-
-    [Fact]
-    public async Task ReopenNeedsReasonThenApproverThenRecordsBoth()
-    {
-        ReconciliationViewModel vm = await ActivateWithSaleAsync();
-        Close(vm, "90.00");
-        Assert.True(vm.IsClosed);
-        Assert.Equal(ClosedTripCopy(), vm.CorrectionGateText);
-        int movementsBefore = Store.Movements.Count;
-
-        vm.ReopenCommand.Execute(null);
-        Assert.Equal(ReconciliationViewModel.ReopenReasonRequiredCopy, vm.ErrorBanner);
-
-        vm.ReopenReasonText = "counted the wrong drawer";
-        Assert.True(vm.NeedsApproverPicker); // the seller is a peddler actor
-        vm.ReopenCommand.Execute(null);
-        Assert.Equal(ReconciliationViewModel.ReopenApproverRequiredCopy, vm.ErrorBanner);
-        Assert.Empty(Store.Movements.OfType<TripReopen>());
-        Assert.Equal(movementsBefore, Store.Movements.Count);
-
-        (UserId _, UserId admin) = await AddApproversAsync();
-        ReconciliationViewModel refreshed = Services.GetRequiredService<ReconciliationViewModel>();
-        await refreshed.OnActivatedAsync();
-        refreshed.SelectedApprover = refreshed.Approvers.Single(a => a.Id == admin);
-        refreshed.ReopenReasonText = "counted the wrong drawer";
-        refreshed.ReopenCommand.Execute(null);
-
-        Assert.False(refreshed.IsClosed);
-        Assert.Equal(TripStatus.Open, Store.State.Trip(Store.Context.Trips.Single().Id).Status);
-        AuditEvent reopen = Store.Audits.Single(a => a.Category == TripAudit.TripReopenCategory);
-        Assert.Equal(sellerId(), reopen.Actor);
-        Assert.Contains("counted the wrong drawer", reopen.Message, StringComparison.Ordinal);
-        Assert.Contains("(approved by theadmin)", reopen.Message, StringComparison.Ordinal);
-        Assert.Null(refreshed.CorrectionGateText);
-        // The prior close remains a visible fact.
-        Assert.Single(Store.Context.Closes);
-        Assert.True(refreshed.HasCloseReceipt);
-        Assert.NotNull(refreshed.ReopenSummaryText);
-    }
+    // ------- Reopen: reason + approver recorded, prior close intact -------
 
     [Fact]
     public async Task SupervisorSelfApprovesReopenWithoutPicker()
@@ -274,6 +232,8 @@ public sealed class ReconciliationWiringTests : IDisposable
         ReconciliationViewModel vm = await ActivateWithSaleAsync();
         Close(vm, "90.00");
         Assert.True(vm.IsClosed);
+        Assert.Equal(ClosedDayCopy(), vm.CorrectionGateText);
+        int reopensBefore = Store.Context.DayReopens.Count;
 
         (UserId supervisor, UserId _) = await AddApproversAsync();
         Services.GetRequiredService<IActorContext>().Set(supervisor);
@@ -282,14 +242,25 @@ public sealed class ReconciliationWiringTests : IDisposable
 
         Assert.True(supervisorVm.IsSelfApproval);
         Assert.False(supervisorVm.NeedsApproverPicker);
+        supervisorVm.ReopenCommand.Execute(null);
+        Assert.Equal(ReconciliationViewModel.ReopenReasonRequiredCopy, supervisorVm.ErrorBanner);
+        Assert.Equal(reopensBefore, Store.Context.DayReopens.Count);
+
         supervisorVm.ReopenReasonText = "recount needed";
         supervisorVm.ReopenCommand.Execute(null);
 
         Assert.False(supervisorVm.IsClosed);
-        Assert.Equal(TripStatus.Open, Store.State.Trip(Store.Context.Trips.Single().Id).Status);
-        AuditEvent reopen = Store.Audits.Single(a => a.Category == TripAudit.TripReopenCategory);
+        Assert.Equal(DayLifecycleState.Open, Store.State.Day(Today));
+        AuditEvent reopen = Store.Audits.Single(a => a.Category == "DAY.REOPEN");
         Assert.Equal(supervisor, reopen.Actor);
+        Assert.Contains("recount needed", reopen.Message, StringComparison.Ordinal);
         Assert.DoesNotContain("approved by", reopen.Message, StringComparison.Ordinal);
+        Assert.Equal(supervisor, Store.Context.DayReopens.Single().ApprovedBy);
+        Assert.Null(supervisorVm.CorrectionGateText);
+        // The prior close remains a visible fact.
+        Assert.Single(Store.Context.DayCloses);
+        Assert.True(supervisorVm.HasCloseReceipt);
+        Assert.NotNull(supervisorVm.ReopenSummaryText);
     }
 
     // ------- Variance label / sign mapping -------
@@ -297,23 +268,23 @@ public sealed class ReconciliationWiringTests : IDisposable
     [Fact]
     public async Task CountRowsMapSignToLabelAndValue()
     {
-        ReconciliationViewModel vm = await ActivateAsync(); // 50 loaded, nothing sold
+        ReconciliationViewModel vm = await ActivateAsync(); // 100 received, nothing sold
 
         ReconciliationCountRow shortRow = Row(vm, SalesSeed.SardinesSku);
-        Assert.Equal("50", shortRow.ExpectedText);
+        Assert.Equal("100", shortRow.ExpectedText);
         Assert.Equal("", shortRow.VarianceLabel);
-        shortRow.CountedText = "45"; // 5 missing, load cost 30 -> -150
+        shortRow.CountedText = "95"; // 5 missing, goods cost 30 -> -150
         Assert.Equal("SHORTAGE", shortRow.VarianceLabel);
         Assert.Equal("-5", shortRow.QuantityVarianceText);
         Assert.Equal(MoneyDisplayString(-150m), shortRow.ValueVarianceText);
 
         ReconciliationCountRow overRow = Row(vm, SalesSeed.KopiSku);
-        overRow.CountedText = "52";
+        overRow.CountedText = "102";
         Assert.Equal("OVERAGE", overRow.VarianceLabel);
         Assert.Equal("+2", overRow.QuantityVarianceText);
         Assert.Equal(MoneyDisplayString(60m), overRow.ValueVarianceText);
 
-        shortRow.CountedText = "50";
+        shortRow.CountedText = "100";
         Assert.Equal("BALANCED", shortRow.VarianceLabel);
         Assert.Equal("0", shortRow.QuantityVarianceText);
 
@@ -327,15 +298,15 @@ public sealed class ReconciliationWiringTests : IDisposable
     public async Task ReportStockRowsCarryExpectedCountedAndValue()
     {
         ReconciliationViewModel vm = await ActivateAsync();
-        Row(vm, SalesSeed.SardinesSku).CountedText = "47";
+        Row(vm, SalesSeed.SardinesSku).CountedText = "97";
         vm.SaveDraftCommand.Execute(null);
 
         Assert.True(vm.HasReport);
         ReportStockRowView reportRow = vm.Report!.StockRows.Single(r => r.Sku == SalesSeed.SardinesSku);
-        Assert.Equal("50", reportRow.ExpectedText);
-        Assert.Equal("47", reportRow.CountedText);
+        Assert.Equal("100", reportRow.ExpectedText);
+        Assert.Equal("97", reportRow.CountedText);
         Assert.Equal("-3", reportRow.QuantityVarianceText);
-        Assert.Equal(MoneyDisplayString(-90m), reportRow.ValueVarianceText); // 3 × load cost 30
+        Assert.Equal(MoneyDisplayString(-90m), reportRow.ValueVarianceText); // 3 × goods cost 30
         Assert.Equal("—", reportRow.NotesText);
 
         Row(vm, SalesSeed.SardinesSku).Notes = "two broken bottles";
@@ -352,12 +323,11 @@ public sealed class ReconciliationWiringTests : IDisposable
 
     private static string MoneyDisplayString(decimal pesos) => MoneyDisplay.Pesos(pesos);
 
-    private static string ClosedTripCopy() => "This trip is closed - corrections need an authorized reopen.";
+    private static string ClosedDayCopy() => "This day is closed - corrections need an authorized reopen.";
 
     private async Task<(UserId Supervisor, UserId Admin)> AddApproversAsync()
     {
         var ids = new ScenarioIdSource("recon-wiring-tests-v1");
-        PeddlerId peddler = Store.Context.Trips.Single().Peddler;
         IPasswordHasher hasher = Services.GetRequiredService<IPasswordHasher>();
         IUserAccountStore accounts = Services.GetRequiredService<IUserAccountStore>();
         UserId seller = sellerId();
@@ -370,7 +340,6 @@ public sealed class ReconciliationWiringTests : IDisposable
             Username = "maysupervisor",
             PasswordHash = hasher.Hash("approver"),
             Role = Role.Supervisor,
-            PeddlerLink = peddler,
             CreatedBy = seller,
             CreatedUtc = DateTimeOffset.Now,
         });

@@ -358,8 +358,6 @@ public sealed class Bg007PrintLanes
             Dialogs = dialogs;
             Navigation = navigation;
             Store = store;
-            Trip = store.Context.Trips.Single().Id;
-            Peddler = store.Context.Trips.Single().Peddler;
         }
 
         public string Root { get; }
@@ -371,8 +369,7 @@ public sealed class Bg007PrintLanes
         public SqliteLedgerStore Store { get; }
 
         public SalesViewModel Sales => (SalesViewModel)ViewModel.Current!;
-        public TripId Trip { get; }
-        public PeddlerId Peddler { get; }
+        public DayKey Day => DayKey.FromUtc(DateTimeOffset.UtcNow);
 
         public FakeReceiptPrinter Printer => (FakeReceiptPrinter)Services.GetRequiredService<IReceiptPrinter>();
         public IPrintJobStore PrintJobs => Services.GetRequiredService<IPrintJobStore>();
@@ -437,7 +434,7 @@ public sealed class Bg007PrintLanes
                 throw new TimeoutException(
                     $"key={Navigation.CurrentKey} ready={Sales.IsSessionReady} " +
                     $"state='{Sales.SessionStateMessage}' error='{Sales.ActionError}' " +
-                    $"trips={Store.Context.Trips.Count}");
+                    $"day={Day}");
             }
         }
 
@@ -445,7 +442,7 @@ public sealed class Bg007PrintLanes
             Services.GetRequiredService<IProductSearchService>().SearchAsync(query);
 
         public Result<IReadOnlyList<SaleHistoryRow>> QuerySales() =>
-            Services.GetRequiredService<ISaleQueryService>().Query(Peddler);
+            Services.GetRequiredService<ISaleQueryService>().Query();
 
         public void ShotOfCurrent(string fileName)
         {

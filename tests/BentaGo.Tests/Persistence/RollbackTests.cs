@@ -28,8 +28,8 @@ public sealed class RollbackTests : PersistenceTestBase
         SqliteLedgerStore store = await NewMigratedStoreAsync(root);
         string dbPath = DbPath(root);
 
-        var (trip, product, route, storeLoc, user, _) = Known();
-        SeedDay(store, trip, product, route, storeLoc, user, Known().Peddler, opening: 100, loaded: 10);
+        var (product, user) = Known();
+        SeedDay(store, product, user, opening: 100);
 
         long sales = await SqliteTest.CountAsync(dbPath, "Sales");
         long lines = await SqliteTest.CountAsync(dbPath, "SaleLines");
@@ -47,7 +47,7 @@ public sealed class RollbackTests : PersistenceTestBase
         var lineB = new SaleLineId(Guid.NewGuid());
         var payment = new PaymentLineId(Guid.NewGuid());
         Result<SaleDraft> draft = SaleBuilder.Build(store.Context, new NewSaleCommand(
-            new SaleId(Guid.NewGuid()), trip, "R-OVER", user, SeedWhen.AddHours(2),
+            new SaleId(Guid.NewGuid()), SeedDayKey, "R-OVER", user, SeedWhen.AddHours(2),
             new[]
             {
                 new NewSaleLine(lineA, product, "SKU", "Product", Money.FromPesos(45m), Quantity.Of(8), Money.Zero),
@@ -87,8 +87,8 @@ public sealed class RollbackTests : PersistenceTestBase
         var paths = host.GetRequiredService<BentaGo.Infrastructure.Configuration.IDataPathProvider>();
         var debug = host.GetRequiredService<DebugOptions>();
         var store = new SqliteLedgerStore(paths, debug);
-        var (trip, product, route, storeLoc, user, _) = Known();
-        SeedDay(store, trip, product, route, storeLoc, user, Known().Peddler, opening: 100, loaded: 10);
+        var (product, user) = Known();
+        SeedDay(store, product, user, opening: 100);
 
         long sales = await SqliteTest.CountAsync(dbPath, "Sales");
         long movements = await SqliteTest.CountAsync(dbPath, "Movements");
@@ -97,7 +97,7 @@ public sealed class RollbackTests : PersistenceTestBase
         long seq = store.State.LastSequence;
 
         debug.FailNextAppendAfterInsert();
-        NewSaleCommand command = OneUnitSale(trip, product, "R-VALID", user, qty: 5);
+        NewSaleCommand command = OneUnitSale(SeedDayKey, product, "R-VALID", user, qty: 5);
         var service = new CheckoutService(store);
         Result<CheckoutOutcome> outcome = service.Checkout(new CheckoutKey(Guid.NewGuid()), command);
 
@@ -111,7 +111,7 @@ public sealed class RollbackTests : PersistenceTestBase
         Assert.Equal(seq, store.State.LastSequence);
 
         // The store still works afterwards (seam is latched).
-        Result<CheckoutOutcome> retry = service.Checkout(new CheckoutKey(Guid.NewGuid()), OneUnitSale(trip, product, "R-VALID-2", user, qty: 5));
+        Result<CheckoutOutcome> retry = service.Checkout(new CheckoutKey(Guid.NewGuid()), OneUnitSale(SeedDayKey, product, "R-VALID-2", user, qty: 5));
         Assert.True(retry.IsSuccess, retry.Errors.FirstOrDefault()?.Code);
     }
 }

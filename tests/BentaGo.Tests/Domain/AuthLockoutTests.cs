@@ -18,7 +18,7 @@ public sealed class AuthLockoutTests
         Id = new UserId(Guid.NewGuid()),
         Username = "alice",
         PasswordHash = "hash",
-        Role = Role.Peddler,
+        Role = Role.Supervisor,
         CreatedBy = UserId.Anonymous,
         CreatedUtc = T0,
     };

@@ -15,7 +15,7 @@ using Xunit;
 namespace BentaGo.Tests.Reconciliation;
 
 /// <summary>
-/// BG-008 Slice A golden contract (PersistedGoldenTests style): the two-peddler
+/// BG-008 Slice A golden contract (PersistedGoldenTests style): the trading
 /// day's reconciliation report renders byte-identically from in-memory and
 /// SQLite, after a reopen, and after a rebuild — the report is a pure
 /// projection of the ledger read surface and never touches the database.
@@ -30,15 +30,13 @@ public sealed class ReconciliationGoldenTests : PersistenceTestBase
         await host.GetRequiredService<DbInitializer>().EnsureCreatedOrMigrateAsync();
 
         var sqlite = host.GetRequiredService<SqliteLedgerStore>();
-        _ = TwoPeddlersScenario.Run(sqlite);
+        _ = SingleDayScenario.Run(sqlite);
 
         var memory = new InMemoryLedgerStore();
-        _ = TwoPeddlersScenario.Run(memory);
+        _ = SingleDayScenario.Run(memory);
 
-        (Trip aliceTrip, PeddlerId alice) = AliceOf(sqlite);
-
-        ReconciliationReport persisted = new ReconciliationReportService(sqlite).Build(alice, aliceTrip.Id).Value;
-        ReconciliationReport inMemory = new ReconciliationReportService(memory).Build(alice, aliceTrip.Id).Value;
+        ReconciliationReport persisted = new ReconciliationReportService(sqlite).Build(SingleDayScenario.Day).Value;
+        ReconciliationReport inMemory = new ReconciliationReportService(memory).Build(SingleDayScenario.Day).Value;
 
         string persistedText = Render(persisted);
         string inMemoryText = Render(inMemory);
@@ -49,52 +47,44 @@ public sealed class ReconciliationGoldenTests : PersistenceTestBase
         var reopened = new SqliteLedgerStore(
             host.GetRequiredService<IDataPathProvider>(),
             host.GetRequiredService<DebugOptions>());
-        ReconciliationReport reopenedReport = new ReconciliationReportService(reopened).Build(alice, aliceTrip.Id).Value;
+        ReconciliationReport reopenedReport = new ReconciliationReportService(reopened).Build(SingleDayScenario.Day).Value;
         Assert.Equal(persistedText, Render(reopenedReport));
 
         // And after a rebuild the report is still byte-identical.
         await reopened.RebuildAsync();
-        ReconciliationReport rebuiltReport = new ReconciliationReportService(reopened).Build(alice, aliceTrip.Id).Value;
+        ReconciliationReport rebuiltReport = new ReconciliationReportService(reopened).Build(SingleDayScenario.Day).Value;
         Assert.Equal(persistedText, Render(rebuiltReport));
     }
 
     [Fact]
     public async Task ReportTotals_EqualLedgerFold_AndScenarioRows()
     {
-        var memory = new InMemoryLedgerStore();
-        _ = TwoPeddlersScenario.Run(memory);
+        string root = NewRoot();
+        ServiceProvider host = NewHost(root);
+        await host.GetRequiredService<DbInitializer>().EnsureCreatedOrMigrateAsync();
+        var memory = host.GetRequiredService<SqliteLedgerStore>();
+        _ = SingleDayScenario.Run(memory);
 
-        (Trip aliceTrip, PeddlerId alice) = AliceOf(memory);
+        ReconciliationReport report = new ReconciliationReportService(memory).Build(SingleDayScenario.Day).Value;
 
-        ReconciliationReport report = new ReconciliationReportService(memory).Build(alice, aliceTrip.Id).Value;
-
-        // Expected cash equals the trip's folded physical cash.
-        Assert.Equal(memory.State.TripCash(aliceTrip.Id, Fund.PhysicalCash), report.Totals.ExpectedCash);
-        Assert.Equal(2, report.Totals.Sales);          // R-000001 + R-000004
-        Assert.Equal(Money.FromPesos(329m), report.Totals.SalesTotal); // 225 + 104
-        Assert.Equal(1, report.Totals.Voided);         // R-000002
-        Assert.Equal(1, report.Totals.Returns);        // return on sale 1
+        // Expected cash equals the day's folded physical cash.
+        Assert.Equal(memory.State.FundsOnHand(Fund.PhysicalCash), report.Totals.ExpectedCash);
+        Assert.Equal(2, report.Totals.Sales);                          // R-000001 + R-000004
+        Assert.Equal(Money.FromPesos(315m), report.Totals.SalesTotal); // 225 + 90
+        Assert.Equal(1, report.Totals.Voided);                         // R-000003
+        Assert.Equal(1, report.Totals.Returns);                        // return on sale R-000004
         Assert.Equal(Money.FromPesos(45m), report.Totals.RefundTotal);
-        Assert.Equal(Money.FromPesos(284m), report.Totals.ExpectedCash);
+        Assert.Equal(Money.FromPesos(270m), report.Totals.ExpectedCash);
         Assert.Equal(Money.FromPesos(180m), report.Totals.CountedCash);
-        Assert.Equal(Money.FromPesos(104m), report.Totals.CashVariance);
+        Assert.Equal(Money.FromPesos(90m), report.Totals.CashVariance);
         Assert.Equal(VarianceLabel.Shortage, report.Totals.CashLabel);
 
-        // Per-product: sardines counted 38 vs expected 36 -> +2 overage @ 45.00.
+        // Per-product: sardines counted 96 vs expected 95 -> +1 overage @ 45.00.
         StockVarianceRow sardines = report.StockRows.Single(r => r.Sku == "Sardines");
-        Assert.Equal(36, sardines.ExpectedUnits);
-        Assert.Equal(38, sardines.CountedUnits);
-        Assert.Equal(2, sardines.QuantityVariance);
-        Assert.Equal(Money.FromPesos(90m), sardines.ValueVariance);
-    }
-
-    /// <summary>Identifies Alice's closed trip deterministically via its close document.</summary>
-    private static (Trip Trip, PeddlerId Peddler) AliceOf(ILedgerStore store)
-    {
-        store.Bind();
-        TripId tripId = store.Context.Closes[0].Trip; // only Alice's trip is closed
-        Trip trip = store.Context.Trips.Single(t => t.Id == tripId);
-        return (trip, trip.Peddler);
+        Assert.Equal(95, sardines.ExpectedUnits);
+        Assert.Equal(96, sardines.CountedUnits);
+        Assert.Equal(1, sardines.QuantityVariance);
+        Assert.Equal(Money.FromPesos(45m), sardines.ValueVariance);
     }
 
     private static string Render(ReconciliationReport report)

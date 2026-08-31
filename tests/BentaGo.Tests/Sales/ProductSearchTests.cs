@@ -12,23 +12,23 @@ public class ProductSearchTests : SalesTestBase
     [Fact]
     public async Task Search_By_Sku_Id_Is_Case_Insensitive()
     {
-        var (host, _, _, user, _, product) = await SeededAsync();
+        var (host, _, user, _, product) = await SeededAsync();
         host.Actors.Set(user);
-        var search = new ProductSearchService(host.Products, host.Actors, host.Users, host.Trips);
+        var search = new ProductSearchService(host.Store, host.Products);
 
         Result<IReadOnlyList<ProductHit>> hits = await search.SearchAsync("sku");
         Assert.True(hits.IsSuccess, hits.Errors.FirstOrDefault()?.Code ?? "search failed");
         ProductHit hit = Assert.Single(hits.Value);
         Assert.Equal(product.Id, hit.Product.Id);
-        Assert.Equal(50, hit.OnHand.Units);
+        Assert.Equal(100, hit.OnHand.Units);
     }
 
     [Fact]
     public async Task Search_By_Barcode_Keeps_Leading_Zeros_Verbatim()
     {
-        var (host, _, _, user, _, product) = await SeededAsync();
+        var (host, _, user, _, product) = await SeededAsync();
         host.Actors.Set(user);
-        var search = new ProductSearchService(host.Products, host.Actors, host.Users, host.Trips);
+        var search = new ProductSearchService(host.Store, host.Products);
 
         Result<IReadOnlyList<ProductHit>> hits = await search.SearchAsync(Barcode);
         Assert.True(hits.IsSuccess);
@@ -45,9 +45,9 @@ public class ProductSearchTests : SalesTestBase
     [Fact]
     public async Task Search_By_Name_Infix_Returns_Hits()
     {
-        var (host, _, _, user, _, product) = await SeededAsync();
+        var (host, _, user, _, product) = await SeededAsync();
         host.Actors.Set(user);
-        var search = new ProductSearchService(host.Products, host.Actors, host.Users, host.Trips);
+        var search = new ProductSearchService(host.Store, host.Products);
 
         Result<IReadOnlyList<ProductHit>> hits = await search.SearchAsync("test");
         Assert.True(hits.IsSuccess);
@@ -57,9 +57,9 @@ public class ProductSearchTests : SalesTestBase
     [Fact]
     public async Task Scanner_Cr_Suffix_Is_Trimmed_At_The_Boundary()
     {
-        var (host, _, _, user, _, product) = await SeededAsync();
+        var (host, _, user, _, product) = await SeededAsync();
         host.Actors.Set(user);
-        var search = new ProductSearchService(host.Products, host.Actors, host.Users, host.Trips);
+        var search = new ProductSearchService(host.Store, host.Products);
 
         Result<IReadOnlyList<ProductHit>> hits = await search.SearchAsync(Sku + "\r");
         Assert.True(hits.IsSuccess);
@@ -68,12 +68,12 @@ public class ProductSearchTests : SalesTestBase
     }
 
     [Fact]
-    public async Task No_Session_Is_AUTH_ACTOR_NOT_SIGNED_IN()
+    public async Task Empty_Query_Returns_No_Hits()
     {
-        var (host, _, _, _, _, _) = await SeededAsync();
-        var search = new ProductSearchService(host.Products, host.Actors, host.Users, host.Trips);
-        Result<IReadOnlyList<ProductHit>> hits = await search.SearchAsync("sku");
-        Assert.True(hits.IsFailure);
-        Assert.Equal("AUTH_ACTOR_NOT_SIGNED_IN", hits.Errors[0].Code);
+        var (host, _, _, _, _) = await SeededAsync();
+        var search = new ProductSearchService(host.Store, host.Products);
+        Result<IReadOnlyList<ProductHit>> hits = await search.SearchAsync("   ");
+        Assert.True(hits.IsSuccess);
+        Assert.Empty(hits.Value);
     }
 }

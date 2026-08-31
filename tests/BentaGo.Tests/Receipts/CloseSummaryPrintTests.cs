@@ -10,6 +10,7 @@ using BentaGo.Core.Domain.Reconciliation;
 using BentaGo.Infrastructure.Hosting;
 using BentaGo.Infrastructure.Persistence;
 using BentaGo.Infrastructure.Printing;
+using BentaGo.Tests.Persistence;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
@@ -32,18 +33,17 @@ public sealed class CloseSummaryPrintTests
     private static InMemoryLedgerStore SeededInMemory()
     {
         var store = new InMemoryLedgerStore();
-        TwoPeddlersScenario.Run(store);
+        SingleDayScenario.Run(store);
         return store;
     }
 
-    private static (ReconciliationReport Report, DailyClose Close) AliceReport(ILedgerStore store)
+    private static (ReconciliationReport Report, DayClose Close) DayCloseOf(ILedgerStore store)
     {
         store.Bind();
-        DailyClose close = store.Context.Closes
+        DayClose close = store.Context.DayCloses
             .OrderBy(c => c.WhenUtc).ThenBy(c => c.Id.Value)
             .First();
-        Trip trip = store.Context.Trips.Single(t => t.Id == close.Trip);
-        Result<ReconciliationReport> result = new ReconciliationReportService(store).Build(trip.Peddler, trip.Id);
+        Result<ReconciliationReport> result = new ReconciliationReportService(store).Build(SingleDayScenario.Day);
         Assert.True(result.IsSuccess, result.Errors.FirstOrDefault()?.Code ?? "report failed");
         return (result.Value, close);
     }
@@ -60,7 +60,7 @@ public sealed class CloseSummaryPrintTests
     [Fact]
     public void Encoder_CloseSummary_Fits42Columns()
     {
-        (ReconciliationReport report, DailyClose close) = AliceReport(SeededInMemory());
+        (ReconciliationReport report, DayClose close) = DayCloseOf(SeededInMemory());
         ReceiptDocument doc = ReceiptDocument.FromCloseSummary(
             report, close.Id, close.WhenUtc,
             "Ace Mini Mart", "123 Rizal St, Pasig City", "0917 000 0000", "000-123-456-000", close.Notes);
@@ -77,7 +77,7 @@ public sealed class CloseSummaryPrintTests
     [Fact]
     public void Encoder_CloseSummary_HeaderOnlyWhenSupplied()
     {
-        (ReconciliationReport report, DailyClose close) = AliceReport(SeededInMemory());
+        (ReconciliationReport report, DayClose close) = DayCloseOf(SeededInMemory());
 
         ReceiptDocument withHeader = ReceiptDocument.FromCloseSummary(
             report, close.Id, close.WhenUtc, "Ace Mini Mart", "123 Rizal St", "0917", "000-123-456-000", null);
@@ -99,7 +99,7 @@ public sealed class CloseSummaryPrintTests
     [Fact]
     public void Codec_RoundTripsCloseSummary()
     {
-        (ReconciliationReport report, DailyClose close) = AliceReport(SeededInMemory());
+        (ReconciliationReport report, DayClose close) = DayCloseOf(SeededInMemory());
         ReceiptDocument original = ReceiptDocument.FromCloseSummary(
             report, close.Id, close.WhenUtc,
             "Ace Mini Mart", "123 Rizal St", "0917", "000-123-456-000", "note here");
@@ -129,7 +129,7 @@ public sealed class CloseSummaryPrintTests
         ServiceProvider host = BentaGoHost.Build(development: true, dataRootOverride: root);
         await host.GetRequiredService<DbInitializer>().EnsureCreatedOrMigrateAsync();
         var store = host.GetRequiredService<SqliteLedgerStore>();
-        _ = TwoPeddlersScenario.Run(store);
+        _ = SingleDayScenario.Run(store);
         return (host, root, store);
     }
 
@@ -153,7 +153,7 @@ public sealed class CloseSummaryPrintTests
         {
             var printer = (FakeReceiptPrinter)host.GetRequiredService<IReceiptPrinter>();
             IPrintService service = host.GetRequiredService<IPrintService>();
-            (ReconciliationReport report, DailyClose close) = AliceReport(store);
+            (ReconciliationReport report, DayClose close) = DayCloseOf(store);
             ReceiptDocument doc = ReceiptDocument.FromCloseSummary(
                 report, close.Id, close.WhenUtc, "Ace Mini Mart", "123 Rizal St", null, null, close.Notes);
 
@@ -181,7 +181,7 @@ public sealed class CloseSummaryPrintTests
         {
             var printer = (FakeReceiptPrinter)host.GetRequiredService<IReceiptPrinter>();
             IPrintService service = host.GetRequiredService<IPrintService>();
-            (ReconciliationReport report, DailyClose close) = AliceReport(store);
+            (ReconciliationReport report, DayClose close) = DayCloseOf(store);
             ReceiptDocument doc = ReceiptDocument.FromCloseSummary(
                 report, close.Id, close.WhenUtc, "Ace Mini Mart", "123 Rizal St", null, null, close.Notes);
 
@@ -195,7 +195,7 @@ public sealed class CloseSummaryPrintTests
 
             // The close is ALREADY saved and is not undone by the failed print.
             store.Bind();
-            Assert.Contains(store.Context.Closes, c => c.Id == close.Id && c.CountedCash == close.CountedCash);
+            Assert.Contains(store.Context.DayCloses, c => c.Id == close.Id && c.CountedCashCentavos == close.CountedCashCentavos);
 
             // Reconnect + retry: the SAME job prints the SAME snapshot.
             printer.ClearFailures();
@@ -222,7 +222,7 @@ public sealed class CloseSummaryPrintTests
         {
             var printer = (FakeReceiptPrinter)host.GetRequiredService<IReceiptPrinter>();
             IPrintService service = host.GetRequiredService<IPrintService>();
-            (ReconciliationReport report, DailyClose close) = AliceReport(store);
+            (ReconciliationReport report, DayClose close) = DayCloseOf(store);
             ReceiptDocument doc = ReceiptDocument.FromCloseSummary(
                 report, close.Id, close.WhenUtc, "Ace Mini Mart", "123 Rizal St", null, null, close.Notes);
 

@@ -23,7 +23,7 @@ public sealed class SalesHostIntegrationTests : SalesTestBase
     [Fact]
     public async Task HostResolved_Factory_Search_Query_DriveOneSale_Durable()
     {
-        (SalesHost host, TripId trip, PeddlerId peddler, UserId user, ProductId productId, Product product) =
+        (SalesHost host, DayKey day, UserId user, ProductId productId, Product product) =
             await SeededAsync();
         host.Actors.Set(user);
 
@@ -37,14 +37,13 @@ public sealed class SalesHostIntegrationTests : SalesTestBase
         Result<ICheckoutSession> created = await factory.CreateSessionAsync();
         Assert.True(created.IsSuccess, created.Errors.FirstOrDefault()?.Code ?? "create failed");
         ICheckoutSession session = created.Value!;
-        Assert.Equal(trip, session.Trip);
-        Assert.Equal(peddler, session.Peddler);
+        Assert.Equal(day, session.Day);
 
         Result<IReadOnlyList<ProductHit>> hits = await search.SearchAsync(Sku);
         Assert.True(hits.IsSuccess);
         ProductHit hit = Assert.Single(hits.Value);
         Assert.Equal(productId, hit.Product.Id);
-        Assert.Equal(50, hit.OnHand.Units);
+        Assert.Equal(100, hit.OnHand.Units);
 
         Assert.True(session.AddProduct(hit.Product, Quantity.Of(2)).IsSuccess);
         Assert.True(session.SetPayment(new[]
@@ -57,13 +56,13 @@ public sealed class SalesHostIntegrationTests : SalesTestBase
         Assert.True(submitted.IsSuccess, submitted.Errors.FirstOrDefault()?.Code ?? "submit failed");
 
         // History query sees the sale (same container).
-        Result<SaleDetail> byReceipt = query.GetByReceiptNumber(peddler, submitted.Value.ReceiptNumber);
+        Result<SaleDetail> byReceipt = query.GetByReceiptNumber(submitted.Value.ReceiptNumber);
         Assert.True(byReceipt.IsSuccess);
         SaleLineDetail line = Assert.Single(byReceipt.Value.Lines);
         Assert.Equal(2, line.Quantity.Units);
         Assert.Equal(2, byReceipt.Value.Payments.Count);
 
-        Result<SaleDetail> byReference = query.GetByPaymentReference(peddler, "g-6a");
+        Result<SaleDetail> byReference = query.GetByPaymentReference("g-6a");
         Assert.True(byReference.IsSuccess);
         Assert.Equal(byReceipt.Value.ReceiptNumber, byReference.Value.ReceiptNumber);
 
@@ -90,7 +89,7 @@ public sealed class SalesHostIntegrationTests : SalesTestBase
     [Fact]
     public async Task FreshRoot_MigrationHead_Is_BG007_01()
     {
-        (SalesHost host, _, _, _, _, _) = await SeededAsync();
+        (SalesHost host, _, _, _, _) = await SeededAsync();
         await using var context = await host.Provider
             .GetRequiredService<IDbContextFactory<BentaGoDbContext>>().CreateDbContextAsync();
         string[] applied = (await context.Database.GetAppliedMigrationsAsync()).ToArray();

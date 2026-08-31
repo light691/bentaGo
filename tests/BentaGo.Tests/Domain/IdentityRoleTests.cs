@@ -7,30 +7,27 @@ namespace BentaGo.Tests.Domain;
 
 /// <summary>
 /// BG-005a identity slice: role capability truth table (Admin all,
-/// Supervisor no user management / configuration / high-risk adjustments,
-/// Peddler operational only), the User/Peddler entity shapes, the anonymous
-/// actor sentinel, and the hardened AuditEvent fields.
+/// Supervisor no user management / configuration / high-risk adjustments),
+/// the User entity shape, the anonymous actor sentinel, and the hardened
+/// AuditEvent fields.
 /// </summary>
 public sealed class IdentityRoleTests
 {
     [Theory]
     [InlineData(Role.Admin, true)]
     [InlineData(Role.Supervisor, false)]
-    [InlineData(Role.Peddler, false)]
     public void CanManageUsers_TruthTable(Role role, bool expected) =>
         Assert.Equal(expected, role.CanManageUsers());
 
     [Theory]
     [InlineData(Role.Admin, true)]
     [InlineData(Role.Supervisor, false)]
-    [InlineData(Role.Peddler, false)]
     public void CanManageConfiguration_TruthTable(Role role, bool expected) =>
         Assert.Equal(expected, role.CanManageConfiguration());
 
     [Theory]
     [InlineData(Role.Admin, true)]
     [InlineData(Role.Supervisor, false)]
-    [InlineData(Role.Peddler, false)]
     public void CanMakeHighRiskAdjustments_TruthTable(Role role, bool expected) =>
         Assert.Equal(expected, role.CanMakeHighRiskAdjustments());
 
@@ -49,8 +46,7 @@ public sealed class IdentityRoleTests
             Id = new UserId(Guid.NewGuid()),
             Username = "alice",
             PasswordHash = "hash",
-            Role = Role.Peddler,
-            PeddlerLink = new PeddlerId(Guid.NewGuid()),
+            Role = Role.Supervisor,
             CreatedBy = actor,
             CreatedUtc = when,
         };
@@ -60,14 +56,6 @@ public sealed class IdentityRoleTests
         Assert.Null(user.DeactivatedUtc);
         Assert.Equal(actor, user.CreatedBy);
         Assert.Equal(when, user.CreatedUtc);
-    }
-
-    [Fact]
-    public void Peddler_TracksActiveFlag()
-    {
-        var peddler = new Peddler { Id = new PeddlerId(Guid.NewGuid()), DisplayName = "Juan", Active = true };
-        Assert.True(peddler.Active);
-        Assert.Equal("Juan", peddler.DisplayName);
     }
 
     [Fact]

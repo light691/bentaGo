@@ -16,7 +16,7 @@ namespace BentaGo.Tests.Sales;
 /// <summary>
 /// Shared harness for the Sales bucket (BG-006, namespace BentaGo.Tests.Sales
 /// so `--filter Sales` runs it): fresh SQLite roots, migrated hosts, a seeded
-/// peddler-linked user, an open trip with stock, and the session-related
+/// supervisor account, an open trading day with stock, and the session-related
 /// services. Same real-component discipline as the Persistence bucket.
 /// </summary>
 public abstract class SalesTestBase : PersistenceTestBase
@@ -42,7 +42,6 @@ public abstract class SalesTestBase : PersistenceTestBase
             Checkout = provider.GetRequiredService<ICheckoutService>();
             Users = provider.GetRequiredService<IUserAccountStore>();
             Actors = provider.GetRequiredService<IActorContext>();
-            Trips = provider.GetRequiredService<ITripReadService>();
         }
 
         public ServiceProvider Provider { get; }
@@ -52,73 +51,59 @@ public abstract class SalesTestBase : PersistenceTestBase
         public ICheckoutService Checkout { get; }
         public IUserAccountStore Users { get; }
         public IActorContext Actors { get; }
-        public ITripReadService Trips { get; }
 
         public void Dispose() => Provider.Dispose();
     }
 
-    /// <summary>Migrated host + seeded peddler account (default active with a
-    /// link) + an open trip with 50 units loaded to the route.</summary>
-    protected async Task<(SalesHost Host, TripId Trip, PeddlerId Peddler, UserId User, ProductId Product, Product CatalogProduct)> SeededAsync(
-        bool linked = true, bool deactivated = false, bool openTrip = true, bool stock = true)
+    /// <summary>Migrated host + seeded supervisor account (default active) +
+    /// an open trading day with 100 units on hand at the warehouse.</summary>
+    protected async Task<(SalesHost Host, DayKey Day, UserId User, ProductId Product, Product CatalogProduct)> SeededAsync(
+        bool deactivated = false, bool openDay = true, bool stock = true)
     {
         string root = NewRoot();
         ServiceProvider provider = NewHost(root);
         await provider.GetRequiredService<DbInitializer>().EnsureCreatedOrMigrateAsync();
         var host = new SalesHost(provider, root);
 
-        (TripId trip, ProductId product, LocationId route, LocationId store, UserId user, PeddlerId peddler) = Known();
+        (ProductId product, UserId user) = Known();
 
         var actor = new User
         {
             Id = user,
             Username = "seller",
             PasswordHash = "hash-not-checked-here",
-            Role = Role.Peddler,
-            PeddlerLink = linked ? peddler : null,
+            Role = Role.Supervisor,
             DeactivatedUtc = deactivated ? SeedWhen : null,
             CreatedBy = user,
             CreatedUtc = SeedWhen,
         };
         await host.Users.AddAsync(actor);
 
-        if (openTrip)
+        if (openDay)
         {
             if (stock)
             {
-                // SeedDay registers the trip, opens stock at the store, and
-                // loads 50 units to the route.
-                SeedDay(host.Store, trip, product, route, store, user, peddler);
+                SeedDay(host.Store, product, user);
             }
             else
             {
-                host.Store.RegisterTrip(new Trip(trip, peddler, route, SeedWhen, user));
+                host.Store.RegisterDayOpen(new DayOpen(new DayId(Guid.NewGuid()), SeedDayKey, 0, user, SeedWhen));
+                host.Store.Bind();
             }
         }
 
         Product catalog = TestProduct(product);
         await host.Products.UpsertBySkuAsync(catalog);
 
-        return (host, trip, peddler, user, product, catalog);
+        return (host, SeedDayKey, user, product, catalog);
     }
 
-    protected CheckoutSession NewSession(SalesHost host, TripId trip, PeddlerId peddler, UserId user, ISaleNumberSource numbers)
+    protected CheckoutSession NewSession(SalesHost host, UserId user, ISaleNumberSource numbers)
     {
         host.Store.Bind();
-        Trip? open = null;
-        foreach (Trip t in host.Store.Context.Trips)
-        {
-            if (t.Id == trip)
-            {
-                open = t;
-                break;
-            }
-        }
-
-        Assert.NotNull(open);
         return new CheckoutSession(
             host.Store, host.Products, host.Checkout, numbers,
-            host.Actors, new User { Id = user }, () => SeedWhen.AddHours(2), open!);
+            host.Actors, new User { Id = user }, () => SeedWhen.AddHours(2));
     }
 
     protected CheckoutSessionFactory NewFactory(SalesHost host) => new(

@@ -111,14 +111,9 @@ public sealed class AuthAuditSchemaTests : PersistenceTestBase
         await host.GetRequiredService<DbInitializer>().EnsureCreatedOrMigrateAsync();
         var store = host.GetRequiredService<SqliteLedgerStore>();
 
-        var loadId = new LoadId(Guid.NewGuid());
         var product = new ProductId(Guid.NewGuid());
-        var location = new LocationId(Guid.NewGuid());
-        store.RegisterLoad(new StockLoad(loadId, "P-OPEN", default, Array.Empty<StockLoadLine>(), UserId.Anonymous, When));
-        store.Bind();
-
         Result<AppendOutcome> sqliteOutcome = store.Append(new AppendBatch(
-            new Movement[] { Moves.OpeningStock(0, When, UserId.Anonymous, new LoadRef(loadId), product, location, Quantity.Of(10)) },
+            new Movement[] { Moves.GoodsReceived(0, When, UserId.Anonymous, new GoodsRef(new GoodsId(Guid.NewGuid())), product, StoreLocations.Warehouse, Quantity.Of(10)) },
             Audits: new[] { audit }));
         Assert.True(sqliteOutcome.IsSuccess, sqliteOutcome.Errors.FirstOrDefault()?.Code ?? "append failed");
         AuditEvent persisted = Assert.Single(store.Audits);
@@ -126,10 +121,8 @@ public sealed class AuthAuditSchemaTests : PersistenceTestBase
 
         // In-memory side (the documented staging semantics).
         var memory = new InMemoryLedgerStore();
-        memory.RegisterLoad(new StockLoad(loadId, "P-OPEN", default, Array.Empty<StockLoadLine>(), UserId.Anonymous, When));
-        memory.Bind();
         Result<AppendOutcome> memoryOutcome = memory.Append(new AppendBatch(
-            new Movement[] { Moves.OpeningStock(0, When, UserId.Anonymous, new LoadRef(loadId), product, location, Quantity.Of(10)) },
+            new Movement[] { Moves.GoodsReceived(0, When, UserId.Anonymous, new GoodsRef(new GoodsId(Guid.NewGuid())), product, StoreLocations.Warehouse, Quantity.Of(10)) },
             Audits: new[] { audit }));
         Assert.True(memoryOutcome.IsSuccess, memoryOutcome.Errors.FirstOrDefault()?.Code ?? "append failed");
         AuditEvent staged = Assert.Single(memory.Audits);

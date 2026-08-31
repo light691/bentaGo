@@ -87,11 +87,11 @@ public sealed class CommandEnablementTests : IDisposable
     [Fact]
     public async Task ReconciliationSubmitGateRequiresParseableCashAndOpenState()
     {
-        // BG-008 Slice B: the gate keys on a real trip + a parseable counted
-        // cash. With no trip the submit refuses with copy and never moves.
+        // BG-008 Slice B: the gate keys on an open day + a parseable counted
+        // cash. With no day the submit refuses with copy and never moves.
         var vm = _host.Services.GetRequiredService<ReconciliationViewModel>();
         await vm.OnActivatedAsync();
-        Assert.False(vm.HasTrip);
+        Assert.False(vm.HasDay);
         Assert.False(vm.CanSubmitClose);
         Assert.False(vm.SubmitCloseCommand.CanExecute(null));
 
@@ -103,14 +103,14 @@ public sealed class CommandEnablementTests : IDisposable
         SalesSeed.Seed(_host.Services);
         var seeded = _host.Services.GetRequiredService<ReconciliationViewModel>();
         await seeded.OnActivatedAsync();
-        Assert.True(seeded.HasTrip);
-        seeded.ActualCashText = "0.00"; // balanced: the seed trip holds no cash
+        Assert.True(seeded.HasDay);
+        seeded.ActualCashText = "0.00"; // balanced: the seed day holds no cash
         Assert.True(seeded.CanSubmitClose);
         Assert.True(seeded.SubmitCloseCommand.CanExecute(null));
 
         seeded.SubmitCloseCommand.Execute(null);
         Assert.True(seeded.IsClosed);
-        Assert.False(seeded.CanSubmitClose, "a closed trip cannot be submitted again");
+        Assert.False(seeded.CanSubmitClose, "a closed day cannot be submitted again");
     }
 
     [Fact]

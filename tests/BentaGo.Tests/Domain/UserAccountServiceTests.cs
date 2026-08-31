@@ -74,8 +74,8 @@ public sealed class UserAccountServiceTests
         CreatedUtc = T0,
     };
 
-    private static CreateUserCommand NewCreate(UserId by, Role role = Role.Peddler) =>
-        new(new UserId(Guid.NewGuid()), "new.user", "pw", role, PeddlerLink: null, by, T0);
+    private static CreateUserCommand NewCreate(UserId by, Role role = Role.Supervisor) =>
+        new(new UserId(Guid.NewGuid()), "new.user", "pw", role, by, T0);
 
     [Fact]
     public async Task Admin_CreateUser_ReturnsHashedActiveUser()
@@ -84,8 +84,8 @@ public sealed class UserAccountServiceTests
         await _store.AddAsync(admin);
         SignIn(admin);
         var cmd = new CreateUserCommand(
-            new UserId(Guid.NewGuid()), "  alice  ", "s3cret", Role.Peddler,
-            new PeddlerId(Guid.NewGuid()), admin.Id, T0);
+            new UserId(Guid.NewGuid()), "  alice  ", "s3cret", Role.Supervisor,
+            admin.Id, T0);
 
         Result<User> result = await _service.CreateUserAsync(cmd);
 
@@ -93,7 +93,7 @@ public sealed class UserAccountServiceTests
         User created = result.Value;
         Assert.Equal("alice", created.Username);          // trimmed
         Assert.Equal("hash:s3cret", created.PasswordHash); // hashed, never plaintext
-        Assert.Equal(Role.Peddler, created.Role);
+        Assert.Equal(Role.Supervisor, created.Role);
         Assert.Equal(0, created.FailedAttempts);
         Assert.Null(created.LockedUntilUtc);
         Assert.Null(created.DeactivatedUtc);
@@ -104,7 +104,6 @@ public sealed class UserAccountServiceTests
 
     [Theory]
     [InlineData(Role.Supervisor)]
-    [InlineData(Role.Peddler)]
     public async Task NonAdmin_CreateUser_RejectedForbidden(Role role)
     {
         User actor = Actor(role);
@@ -148,7 +147,7 @@ public sealed class UserAccountServiceTests
     {
         User admin = Actor(Role.Admin);
         await _store.AddAsync(admin);
-        await _store.AddAsync(Actor(Role.Peddler) with { Username = "taken" });
+        await _store.AddAsync(Actor(Role.Supervisor) with { Username = "taken" });
         SignIn(admin);
 
         Result<User> result = await _service.CreateUserAsync(NewCreate(admin.Id) with { Username = "taken" });
@@ -175,7 +174,7 @@ public sealed class UserAccountServiceTests
     public async Task Admin_Deactivate_SetsDeactivatedUtc_AndReactivateClearsIt()
     {
         User admin = Actor(Role.Admin);
-        User target = Actor(Role.Peddler) with { FailedAttempts = 3, LockedUntilUtc = T0 };
+        User target = Actor(Role.Supervisor) with { FailedAttempts = 3, LockedUntilUtc = T0 };
         await _store.AddAsync(admin);
         await _store.AddAsync(target);
         SignIn(admin);
@@ -249,7 +248,7 @@ public sealed class UserAccountServiceTests
     public async Task NonAdmin_Deactivate_RejectedForbidden()
     {
         User supervisor = Actor(Role.Supervisor);
-        User target = Actor(Role.Peddler);
+        User target = Actor(Role.Supervisor);
         await _store.AddAsync(supervisor);
         await _store.AddAsync(target);
         SignIn(supervisor);
@@ -265,7 +264,7 @@ public sealed class UserAccountServiceTests
     public async Task Admin_ChangePassword_ForAnotherUser_Succeeds()
     {
         User admin = Actor(Role.Admin);
-        User target = Actor(Role.Peddler);
+        User target = Actor(Role.Supervisor);
         await _store.AddAsync(admin);
         await _store.AddAsync(target);
         SignIn(admin);
@@ -296,7 +295,7 @@ public sealed class UserAccountServiceTests
     public async Task Supervisor_ChangeAnothersPassword_RejectedForbidden()
     {
         User supervisor = Actor(Role.Supervisor);
-        User target = Actor(Role.Peddler);
+        User target = Actor(Role.Supervisor);
         await _store.AddAsync(supervisor);
         await _store.AddAsync(target);
         SignIn(supervisor);
@@ -345,14 +344,14 @@ public sealed class UserAccountServiceTests
         // A peddler session passes cmd.By = the ADMIN's id: the gate must
         // reject on the actor binding, before the role check and before any
         // lookup of the admin, so the spoof can never reach the store.
-        User peddler = Actor(Role.Peddler);
+        User peddler = Actor(Role.Supervisor);
         User admin = Actor(Role.Admin);
         await _store.AddAsync(peddler);
         await _store.AddAsync(admin);
         SignIn(peddler);
 
         Result<User> result = await _service.CreateUserAsync(new CreateUserCommand(
-            new UserId(Guid.NewGuid()), "spoofed", "pw", Role.Admin, PeddlerLink: null, admin.Id, T0));
+            new UserId(Guid.NewGuid()), "spoofed", "pw", Role.Admin, admin.Id, T0));
 
         Assert.True(result.IsFailure);
         Assert.Equal("AUTH_ACTOR_MISMATCH", result.Errors[0].Code);
@@ -364,7 +363,7 @@ public sealed class UserAccountServiceTests
     {
         User supervisor = Actor(Role.Supervisor);
         User admin = Actor(Role.Admin);
-        User target = Actor(Role.Peddler);
+        User target = Actor(Role.Supervisor);
         await _store.AddAsync(supervisor);
         await _store.AddAsync(admin);
         await _store.AddAsync(target);

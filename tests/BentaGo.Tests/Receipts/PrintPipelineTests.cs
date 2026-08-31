@@ -7,7 +7,6 @@ using BentaGo.Core.Domain.Documents;
 using BentaGo.Core.Domain.Identity;
 using BentaGo.Core.Domain.Payments;
 using BentaGo.Core.Domain.Receipts;
-using BentaGo.Core.Domain.Trips;
 using BentaGo.Infrastructure.Hosting;
 using BentaGo.Infrastructure.Persistence;
 using BentaGo.Infrastructure.Printing;
@@ -29,8 +28,7 @@ public sealed class PrintPipelineTests
         var when = new DateTimeOffset(2026, 1, 15, 8, 0, 0, TimeSpan.Zero);
         return Sale.Create(
             new SaleId(Guid.Parse("11111111-1111-1111-1111-111111111111")),
-            new TripId(Guid.Parse("22222222-2222-2222-2222-222222222222")),
-            new PeddlerId(Guid.Parse("33333333-3333-3333-3333-333333333333")),
+            new DayKey("2026-01-15"),
             new LocationId(Guid.Parse("99999999-9999-9999-9999-999999999999")),
             receipt,
             when,
