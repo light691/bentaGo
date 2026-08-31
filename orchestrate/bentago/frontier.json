@@ -1,108 +1,66 @@
 {
-  "generation": 9,
+  "generation": 10,
+  "regeneratedBy": "docs alignment pass 2026-08-30 (hand-regenerated; no drain tooling on this machine; previous snapshot frozen at generation 9, pre-pivot)",
+  "firstProgram": {
+    "summary": "BG-001..BG-008 all MERGED on main at 1852df1 (PRs #1..#28), 457/457 tests, lanes L1-L10 PASS software-side. Superseded product (peddling); code survives on main until BG-P1 deletes/converts the trip axis. Per-unit slice detail (BG-005a-d, BG-006, BG-007a-c4, BG-008a-d): ledger.tsv history, git log, and the generation-9 frontier in git history.",
+    "units": ["BG-001", "BG-002", "BG-003", "BG-004", "BG-005a-d", "BG-006", "BG-007a-c4", "BG-008a-d"]
+  },
   "stack": [
     {
-      "id": "BG-001",
+      "id": "BG-P0",
       "branch": "main",
       "state": "MERGED",
-      "mergeCommit": "716c95fb1226f03436903a254d11ec8ca1f1e7be",
-      "mergedAt": "2026-08-29T01:41:06+08:00",
-      "notes": "Foundation, host, persistence, backup/restore, login shell."
+      "mergeCommit": "7a98e1b",
+      "mergedAt": "2026-08-30",
+      "notes": "PRD + program plan rewritten to the store-POS domain (#29, #30). Grep gates: peddl 0, trip 1 (allowed cross-ref), load 0."
     },
     {
-      "id": "BG-002",
-      "branch": "main",
-      "state": "MERGED",
-      "mergeCommit": "1e827599af70d4e7af5de78ee4c13dabb8937f2e",
-      "mergedAt": "2026-08-29T02:44:07+08:00",
-      "notes": "Domain model + in-memory ledger + two-peddlers scenario. Two audit rounds, 43/43."
+      "id": "BG-P1",
+      "branch": "bgp1 (to create from origin/main)",
+      "state": "RESTART",
+      "mergeCommit": null,
+      "mergedAt": null,
+      "notes": "Domain pivot. Prior P1a checkpoint b310de3 LOST (branch never pushed; C:\\BentaGo checkout deleted). Restart from Core stage; then P1b application layering (brief: orchestrate/bentago/inbox/BG-P1b-application.md), P1c schema reset to ONE baseline migration, P1d real SqliteAppDataSource swap at ObservableObjectFactory.cs:54 + kill SimulatedLabel, P1e tools/tests/day lanes. Prerequisite: install .NET SDK 10.0.400 (global.json) - not on PATH."
     },
     {
-      "id": "BG-003",
-      "branch": "main",
-      "state": "MERGED",
-      "mergeCommit": "b65469a562ca187f83c46549e68f50a80cc6abb1",
-      "mergedAt": "2026-08-29T04:10:00+08:00",
-      "notes": "SQLite persist the ledger + atomic ops behind widened ILedgerStore. Rebase patch-proof (18B7E2F4 unchanged); audit LEDGER/TRANSACTION/IDEMPOTENCY/MIGRATION+RECOVERY all PASS; 59/59 + foundation verify on merged main."
+      "id": "BG-P2",
+      "branch": null,
+      "state": "PENDING",
+      "mergeCommit": null,
+      "mergedAt": null,
+      "notes": "Receiving/purchases. Brief staged: orchestrate/bentago/inbox/BG-P2-receiving.md. Launches after BG-P1 merges."
     },
     {
-      "id": "BG-004",
-      "branch": "main",
-      "state": "MERGED",
-      "mergeCommit": "2e0b54b",
-      "mergedAt": "2026-08-29T17:30:54+08:00",
-      "notes": "WPF shell + design system; interaction-change review passed (operator click); squash-merged #4. Rebase patch-proof 8FE43208. Post-merge: one semantic merge-break (ScenarioDataSource used pre-BG-003 InventoryBreakdown.Quantity API) fixed forward + verified before this frontier update."
+      "id": "BG-P3",
+      "branch": null,
+      "state": "PENDING",
+      "mergeCommit": null,
+      "mergedAt": null,
+      "notes": "Customer credit (utang): named customers, balances, pay-down, full receivables ledger."
     },
     {
-      "id": "BG-005a",
-      "branch": "main",
-      "state": "MERGED",
-      "mergeCommit": "76511d0",
-      "mergedAt": "2026-08-29T22:20:00+08:00",
-      "notes": "BG-005 slice a: identity+auth+audit (User/Role/Peddler, BCrypt, lockout 5/15, per-attempt AUTH.* audits, EF Users table + AuditEvents identity rebuild, AdminSeeder first-run, LoginService dual-interface). 201/201 on branch + merged main; independent adversarial auth audit PASS (0 major; F1 atomic lockout / F2 timing oracle / F6 admin guards / F10 blank-password fixed in fix2 70226a5); BG-001 deferred findings 3+4 CLOSED (auth core); follow-ups F3-F12 owned in queue/bg-005a-audit-followups.md. Merge delegated to coordinator."
+      "id": "BG-P4",
+      "branch": null,
+      "state": "PENDING",
+      "mergeCommit": null,
+      "mergedAt": null,
+      "notes": "Till identity laid in (per-till sequence/GUID), single-till MVP."
     },
     {
-      "id": "BG-005b",
-      "branch": "main",
-      "state": "MERGED",
-      "mergeCommit": "0197046",
-      "mergedAt": "2026-08-29T23:05:00+08:00",
-      "notes": "BG-005 slice b: catalog + client CSV import. Product v2 additive contract, deterministic SKU derivation (barcode1 digits / X+sha1 name fallback), strict money parse (fix1 5be734d: No-NumberStyles-NUMBER comma rejection), Products table migration BG005b_01, upsert-by-sku idempotent import, 22-row synthetic fixture. 279/279 branch + merged main. Rebase conflict = EOL-only (csproj); patch-proof re-verified via final-blob identity. Merge delegated."
+      "id": "BG-P5",
+      "branch": null,
+      "state": "PENDING",
+      "mergeCommit": null,
+      "mergedAt": null,
+      "notes": "Register-first design overhaul + first-run wizard + store profile, from the operator's prototype. Design prompt v2 in HANDOFF.md section 5."
     },
     {
-      "id": "BG-005c",
-      "branch": "main",
-      "state": "MERGED",
-      "mergeCommit": "93306c1",
-      "mergedAt": "2026-08-29T23:40:00+08:00",
-      "notes": "BG-005 slice c: trips/stock-loads/peddler-isolation. Pure TripLifecycle (6-state incl Cancelled, pinned transition table), TripCancel movement kind + migration BG005c_01 (CHECK reasons), atomic load revert, one-active-trip (service+txn), peddler-scoped services (explicit param - IActorContext carries user id only), on-hand from movements only. 298/298 branch + merged main, format 0 diagnostics. Also fixed latent RefreshFromDatabase Context-rebuild bug + OrderBy on branded records. Audits reuse REOPEN/CLOSE categories (no TRIP.* set - follow-up recorded)."
-    },
-    {
-      "id": "BG-005d-core",
-      "branch": "main",
-      "state": "MERGED",
-      "mergeCommit": "52f3e90",
-      "mergedAt": "2026-08-30T00:15:00+08:00",
-      "notes": "BG-005 d-core: F8 session actor binding (AUTH_ACTOR_NOT_SIGNED_IN/AUTH_ACTOR_MISMATCH before store lookup; login-success sets actor; logout gap documented for 5d-ui), F3 auth-state+audit compensation (cross-connection txn impossible - documented), F7 RestoreService Users admin-row verify, F4 contract rewording + parity test. +16 tests; 314/314 branch + merged main."
-    },
-    {
-      "id": "ui-rework",
-      "branch": "main",
-      "state": "MERGED",
-      "mergeCommit": "3debaf7+d876ae9",
-      "mergedAt": "2026-08-30T00:30:00+08:00",
-      "notes": "Luna design pass (#9, merged first on stale base - caught + re-delivered correctly) + operator pass 2 (#10, rebased on current main, 0 conflicts, delta = 13 pass-2 files). Palette #0A2E4F approved. 314/314 merged main, review pack rail-gated PASS, format 0 diagnostics. Process note: first push of rebased head was rejected (non-fast-forward) and #9 merged a stale remote head; corrected via #10 after exact-delta verification - pushed test of the review discipline, no content lost."
-    },
-    {
-      "id": "BG-005d-ui",
-      "branch": "main",
-      "state": "MERGED",
-      "mergeCommit": "531fdf3",
-      "mergedAt": "2026-08-30T01:10:00+08:00",
-      "notes": "Admin screens (Users/Catalog Import/Trips & Sales) on reworked design; operator gate passed. Live lane caught + fixed two stacked bugs: rail not rebuilt after role load + RailItems missing SetProperty notification (in-proc pack looked right, live showed stale 5-item rail). 315/315 merged main."
-    },
-    {
-      "id": "BG-005",
-      "branch": "main",
-      "state": "COMPLETE",
-      "mergeCommits": [
-        "76511d0 (5a)",
-        "0197046 (5b)",
-        "93306c1 (5c)",
-        "52f3e90 (5d-core)",
-        "6329dee (audit-categories)",
-        "3debaf7+d876ae9 (ui-rework)",
-        "531fdf3 (5d-ui)"
-      ],
-      "notes": "COMPLETE: Core Identity + trips + inventory + import + admin + UI rework, all merged and verified. Sessions/actor binding live, TRIP.* categories canonical. Follow-ups recorded: cross-peddler overview read API, sign-out flow (IActorContext.Clear), .github/workflows/windows.yml workflow-scope push fix (operator/scope token)."
-    },
-    {
-      "id": "BG-006",
-      "branch": "next",
-      "state": "NEXT",
-      "dependsOn": ["BG-005"],
-      "notes": "Sales unit (docs/05:341-393): search/scanner/cart/discounts/payments (Cash/GCash/Maya/Bank Transfer/Credit + split)/idempotent checkout + Sales tests + 10 live lanes + perf probe (P95 lookup <=100ms, checkout <=2s @ 50k products/100k movements; baselines first). $architect before domain contracts (docs/05:606); $interrogate for the unit. Interaction-changing: stop at merge-ready for operator. Plan: 6a domain core (architect then build), 6b UI, 6c perf+lanes+video."
+      "id": "BG-009",
+      "branch": null,
+      "state": "PENDING",
+      "mergeCommit": null,
+      "mergedAt": null,
+      "notes": "Velopack packaging, recovery, real-hardware pilot, support bundle. Program done when the store-POS MVP passes the pilot."
     }
-  ],
-  "note": "Frontier gen 6 after BG-005b merge (delegated). 279 tests green on merged main; dotnet format --verify-no-changes established as a REAL gate (0 diagnostics) after repo-wide EOL normalization (.gitattributes eol=lf + sweeps at 8d16a8d/6f18f79/3615bba). Known auth limitation: pushes touching .github/workflows/windows.yml are rejected (OAuth App lacks workflow scope) - one trailing-newline fix for that file is held locally; content, not pushed. ui-rework parked by operator instruction. BG-005c dispatch next."
+  ]
 }

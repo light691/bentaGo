@@ -1,5 +1,7 @@
 # BentaGo Agent Delegation Contracts
 
+**Historical record.** The contracts below are the pre-pivot program's work packages, run as BG-001 through BG-008. They are preserved as the record of how the first program was run and are not the current delegation plan. The current program's delegation rules live in `docs/05-pstack-program-execution-plan.md` (standing rules, one-writer and branch rules, standing delegation note) and in `orchestrate/bentago/HANDOFF.md` section 7: one writer per worktree, build and test and format gates on every PR, squash-merge at merge-ready, and operator review for interaction-changing PRs. Do not dispatch new work from the packages below. The body is unchanged.
+
 This document turns the master plan into small, non-overlapping implementation packages. It is intentionally ordered; agents must not leap ahead of their dependencies.
 
 ## Global contract for every agent

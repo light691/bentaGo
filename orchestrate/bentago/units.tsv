@@ -1,11 +1,16 @@
 id	track	state	branch	pr	head	brief
-BG-001	foundation	MERGED	main	#1	716c95f	Package A foundation, pinned SDK, backups, login shell; squash-merged, 12/12 + foundation verify
-BG-002	domain	MERGED	main	#2	1e82759	Domain model, invariants, scenario builder; 2 audit rounds, 43/43, golden scenario
-BG-003	persist	MERGED	main	#3	b65469a	SQLite persist the ledger + atomic ops behind widened ILedgerStore; 59/59 + verify
-BG-004	shell	MERGED	main	#4	2e0b54b	WPF shell + design system; squash-merged #4 after operator click. 127/127, review pack rail-gated PASS; post-merge build+test green, foundation verify pending.
-BG-005	admin	NEXT	bg-005	#5a	76511d0	Auth, catalog, trips, stock loads, CSV exchange (docs/05 287-339). Slice a (identity+auth+audit) MERGED #5 76511d0, 201/201, audit PASS 0 major, findings 3+4 closed (auth core); b dispatched (queue/bg-005b-brief.md); c+d queued. Docs/01-05 deferred audit findings + client Product.csv v2-contract import unit carried here.
-BG-006	sales	pending	bg-006	-	-	Search, scanner, cart, payments, checkout
-BG-007	hardware	pending	bg-007	-	-	Receipts, ESC/POS, diagnostics, corrections
-BG-008	close	pending	bg-008	-	-	Close, counts, variance, reports, exports
-BG-009	release	pending	bg-009	-	-	Velopack, recovery, pilot, support bundle
-
+BG-001	foundation	MERGED	main	#1	716c95f	(First program) Package A foundation, pinned SDK, backups, login shell; 12/12 + foundation verify
+BG-002	domain	MERGED	main	#2	1e82759	(First program) Domain model, invariants, scenario builder; 43/43
+BG-003	persist	MERGED	main	#3	b65469a	(First program) SQLite persist the ledger + atomic ops behind widened ILedgerStore; 59/59
+BG-004	shell	MERGED	main	#4	2e0b54b	(First program) WPF shell + design system; 127/127, review pack PASS
+BG-005	admin	MERGED	main	#5a	76511d0	(First program) Auth, catalog, stock, CSV exchange; slices a-d merged
+BG-006	sales	MERGED	main	#13..#17	8ff4cd9	(First program) Search, scanner, cart, payments, checkout; review pack PASS
+BG-007	hardware	MERGED	main	#18..#24	ee947c7	(First program) Receipts, ESC/POS, print pipeline, corrections views, lanes L1-L10 (software-side)
+BG-008	close	MERGED	main	#25..#28	1852df1	(First program) Reports, reconciliation UI, close summary, exports, e2e; review gate passed with open perf finding (close P95 1073ms vs <=1000ms) + video pending
+BG-P0	docs	MERGED	main	#29	7a98e1b	PRD + program plan rewritten to the store-POS domain; zero live peddling concepts
+BG-P1	pivot	RESTART	main	-	-	Domain pivot: delete trip/peddler/load axis, day lifecycle (DayOpen/DayClose/DayReopen), schema reset to ONE baseline migration, real SqliteAppDataSource (swap ObservableObjectFactory.cs:54), kill SimulatedLabel, tests/lanes retarget to day. Prior P1a checkpoint b310de3 LOST (branch never pushed, worktree deleted) - RESTARTED from Core stage per docs/05
+BG-P2	receiving	pending	-	-	-	Receiving/purchases: supplier, lines, unit cost, draft vs submitted; brief staged at orchestrate/bentago/inbox/BG-P2-receiving.md; launches after BG-P1 merges
+BG-P3	credit	pending	-	-	-	Customer credit (utang): named customers, balances, pay-down, full receivables ledger
+BG-P4	tills	pending	-	-	-	Till identity laid in (per-till sequence/GUID), single-till MVP
+BG-P5	design	pending	-	-	-	Design overhaul (Register-first shell, tokens) + first-run wizard + store profile; from operator's prototype
+BG-009	release	pending	-	-	-	Velopack packaging, recovery, real-hardware pilot, support bundle; program done when the store-POS MVP passes the pilot

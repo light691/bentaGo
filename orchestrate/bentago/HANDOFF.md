@@ -33,6 +33,16 @@ Same-session goal tools do not carry over. In the new session call `create_goal`
 - **BG-009 not started** (packaging/recover/pilot). It moves to the end of the new sequence.
 - **BG-P0 was launched and cancelled before any write.** Branch `bgp0` exists at `d1a2441` with no commits; worktree `C:\BentaGo\.wt\bgp0` is clean. Safe to delete or reuse.
 
+## 3b. State correction (2026-08-30, docs alignment pass)
+
+Facts verified in this session. Where they contradict sections above, THIS section wins.
+
+- **The `C:\BentaGo` root checkout and every worktree under it are GONE.** This machine has ONE clone: `D:\bentago`, on `main`, in sync with `origin/main` at `de1fb38`. There are no worktrees. Section 7's one-writer rule now reads: `D:\bentago` is the only checkout; create worktrees under `D:\bentago\.wt\<name>` from `origin/main` for code units, or work on short-lived branches here.
+- **The BG-P1a checkpoint `b310de3` is LOST.** It was committed on branch `bgp1` inside the deleted worktree and was never pushed: `bgp1` exists neither locally nor on origin, and `b310de3` is not an object in this clone. BG-P1 restarts from the Core stage per `docs/05` unit BG-P1. The architect's delete/retarget inventory survives in section 8 below, and `docs/05` carries the unit scope.
+- **The .NET SDK pinned by `global.json` (10.0.400) is NOT installed on this machine** (`dotnet` is not on PATH). Install it before resuming any build gate.
+- **Engine:** `subagent` / `subagent_fork` verified working this session (a readonly docs-exploration delegate returned a full report). Delegation routes are now PINNED: profile patch `~/.dsh/profiles/web/cordis.patch.yml` fixes `agentOptions` (provider `opencode-go`, model `glm-5.3-flash`) for `subagent`, `subagent_fork`, and workflow workers, and the provider profile sets `reasoning: high` as the default effort for requests that name none. Every delegated child runs glm-5.3-flash high unless a request overrides explicitly.
+- **Docs alignment pass (this session):** README, docs/00-04, the ADRs, `units.tsv`, `status.md`, `gates.md`, and `frontier.json` were corrected to the store-POS program. Historical records (`queue/` briefs, `perf/` logs, `drain/`, `decisions.tsv`, superseded ADR rows) were intentionally left as history. The pivot now has its own decision record: `docs/decisions/0002-store-pos-pivot.md`.
+
 ## 4. Next action: BG-P0 (docs rewrite, docs only)
 
 Working branch `bgp0` from `origin/main`, worktree `C:\BentaGo\.wt\bgp0`. Docs-only PR, no code/tests/orchestrate edits.
@@ -133,12 +143,12 @@ No web-dashboard look, no e-commerce mockup, no "sync later" language.
 
 ## 9. Resume point
 
-**UPDATED 2026-08-30 (latest state):**
-- BG-P0 merged (#29 + #30, main = `7a98e1b`; ledger `810b112`, brief `c1fc2d8`).
-- BG-P1 is IN FLOW on branch `bgp1` in worktree `C:\BentaGo\.wt\bgp1`. **Committed checkpoint `b310de3`**: Core compiles clean (0 errors), day lifecycle core done, movement kinds renamed (`GoodsReceived`, `FundOut`), receipts/ids/comments retargeted, trip/peddler grep on src/BentaGo.Core = 0 hits. The Core stage (P1a) is COMPLETE and committed.
-- Engine status at handoff: **subagent/subagent_fork and workflow agent() child routes BOTH DOWN** (probe of subagent errors with "subagent run failed"; workflow agent() returns null on deepseek AND glm). Earlier in the session both worked. Likely a transient child-model backend outage. Re-probe before delegating; if down, continue in-context with the stage briefs in `orchestrate/bentago/inbox/` (they are written to be executed sequentially).
-- NEXT (P1b): Application layering per `orchestrate/bentago/inbox/BG-P1b-application.md`. 16 Application files still have trip/peddler/DailyClose/TripCash references; the day-keyed Core shapes are already in place (Day document carries close facts; DailyClose is GONE from Documents.cs; ReconciliationReport has Day/Location; Sale has Day). Retarget contracts (UseCases.cs, Reconciliation.cs, Sales.cs, ILedgerStore.cs) then services (UseCaseServices.cs, SaleQueryService.cs, ReconciliationReportService.cs, CheckoutSession/Factory, InMemoryLedgerStore.cs, ProductSearchService.cs, ReceiptCodec.cs, ReconciliationCsv.cs, UserAccountService.cs), delete TripLifecycleScenario.cs + TwoPeddlersScenario.cs. Commit per layer with build gate.
-- Then P1c (Infrastructure + schema reset to ONE baseline migration + Appendix triggers proof), P1d (real SqliteAppDataSource swap at ObservableObjectFactory.cs:54 + kill SimulatedLabel + PeddlerHome delete/register placeholder), P1e (Tools + Tests + day lanes).
-- The P1 architect report (deletions/retargets/risks) is in this file's section history and the inbox; the runner is `bgp1` from `origin/main`.
+**SUPERSEDED 2026-08-30 by section 3b (docs alignment pass).** The block below claimed BG-P1 was in flow on branch `bgp1` with checkpoint `b310de3`. That branch was never pushed and the worktree that held it is gone; the checkpoint is unrecoverable. Section 3b and this section's current text are the authority.
 
-**Earlier resume text (see sections 1-8 above for locked decisions and standing rules).** First action: re-probe delegation, then run P1b from the inbox brief.
+**Current state (2026-08-30, after docs alignment):**
+- main = `de1fb38`, in sync with origin. BG-P0 merged (#29, `7a98e1b`). BG-P2 brief staged (`orchestrate/bentago/inbox/BG-P2-receiving.md`); it launches only after BG-P1 merges.
+- **BG-P1 restarts from the Core stage** (P1a): day-lifecycle Core, movement kinds (`GoodsReceived`, `FundOut`), schema reset toward ONE baseline migration, then P1b application layering, P1d real `SqliteAppDataSource` swap at `ObservableObjectFactory.cs:54` + kill `SimulatedLabel`, P1e tools/tests/day lanes. Scope and gates: `docs/05` unit BG-P1. Deletion/retarget inventory: section 8. Application-layer brief: `orchestrate/bentago/inbox/BG-P1b-application.md` (recreated this session from section 9's notes; the original brief file was lost with the old checkout).
+- **Before any build:** install the .NET SDK pinned in `global.json` (10.0.400); `dotnet` is not on PATH on this machine.
+- Open items surfaced, not closed: BG-008 close-calc P95 1073ms vs rule <=1000ms (optimize fold or accept, documented); `bg-008-reconciliation.mp4` never recorded; real-device pass and client real CSV exports remain release gates (`gates.md`).
+
+**Earlier resume text (sections 1-8 above for locked decisions and standing rules; environment paths there predate this machine).**

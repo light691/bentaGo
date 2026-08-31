@@ -1,14 +1,18 @@
 # BentaGo Master Build Plan
 
+**Status (2026-08-30).** The process law in this document still binds: Gate 0, the evidence standard, the delegation gates, the backlog rule in section 2, and change control in section 9. The product it planned is gone. The peddling product (trips, peddlers, stock loads) was abandoned on 2026-08-30 and replaced by a standalone store POS: one till, a day lifecycle, receiving, and utang with a full receivables ledger. The current program is `docs/05-pstack-program-execution-plan.md`, units BG-P0 through BG-P5 plus BG-009. The pivot decision is `docs/decisions/0002-store-pos-pivot.md`. Section 1 and section 5 below, and the peddler rows in the Gate 0 table, describe the abandoned product. Read them as history. The current milestone list lives in docs/05, not here.
+
 **Purpose:** This is the pre-delegation operating plan. It applies pstack/Poteto principles—investigate first, make decisions explicit, bound each change, require proof, and independently review high-risk work—while staying within the BentaGo stack and MVP scope.
 
 No agent may start application implementation until Gate 0 is signed off. No phase may be called complete without the proof listed for that phase.
 
 ## 1. Product outcome and proof of success
 
+**Historical (pre-pivot).** This section plans the abandoned peddling product. The current product outcome is the store POS defined in `docs/01-product-requirements.md`.
+
 Build a Windows 16:9 laptop POS for Philippine grocery route sales. It must work without internet, treat every peddler as a separate inventory location, and preserve a defensible ledger for every inventory and money movement.
 
-The final pilot proof is one complete two-peddler scenario:
+The final pilot proof in that product was one complete two-peddler scenario:
 
 1. Import products and load stock from CSV.
 2. Load distinct quantities to two peddlers.
@@ -64,6 +68,8 @@ Before coding, run an independent design review against these non-negotiable ass
 **Gate A exit:** schema diagram, state-transition table, transaction-boundary document, CSV contract, and reviewer confirmation that each assertion is testable.
 
 ## 5. Milestones
+
+**Historical (pre-pivot).** M1 through M6 planned the peddling product and still speak of trips, peddlers, stock loads, and the two-peddler scenario. Do not use this list as the current plan. `docs/05-pstack-program-execution-plan.md` owns the current sequence: BG-P0 through BG-P5, then BG-009.
 
 ### M1 — Foundation and executable skeleton
 

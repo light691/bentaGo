@@ -1,5 +1,7 @@
 # 0001. MVP operating policy (Gate 0)
 
+**Status note, 2026-08-30.** SUPERSEDED-IN-PART by `docs/decisions/0002-store-pos-pivot.md`, the store-POS pivot. Rows 4, 5, 7, 8, and 10 speak of peddlers, remittances, returns, or closed trips. They describe the abandoned peddling product and no longer apply. Row 6 is overturned by the pivot. Its answer, "Record-only. Sale and customer reference recorded. Excluded from expected cash. No receivables ledger beyond reporting", is reversed: BG-P3 in `docs/05-pstack-program-execution-plan.md` delivers a full receivables ledger with named customers, outstanding balances, pay-down, and a ledger of every credit and payment. The consequence line "A receivable reference is recorded on the sale" falls with row 6. Every decision row below is kept exactly as accepted.
+
 **Status:** Accepted
 **Date:** 2026-08-29
 **Scope:** docs/00-pstack-style-master-plan.md section 3, Gate 0. Bind schema, calculations, permissions, and compliance surface. Supersedes the draft record `docs/05-gate-0-decisions.md` (removed).
