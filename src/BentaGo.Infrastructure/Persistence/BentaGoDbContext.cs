@@ -34,7 +34,7 @@ public sealed class BentaGoDbContext : DbContext
         // BG-005a identity schema: users. Branded ids and the Role enum are
         // stored TEXT; auth state columns
         // (FailedAttempts/LockedUntilUtc/DeactivatedUtc) live on the row. The
-        // retired Peddlers table and the Users.peddler_link column are no
+        // retired seller-link table and the Users seller-link column are no
         // longer mapped (store-POS pivot); the schema keeps them untouched.
         modelBuilder.Entity<User>(entity =>
         {

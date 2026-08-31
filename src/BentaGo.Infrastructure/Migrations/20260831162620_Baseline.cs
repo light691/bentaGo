@@ -125,7 +125,8 @@ namespace BentaGo.Infrastructure.Migrations
             // docs/05 BG-P1). The store's data is disposable for this pivot: NO
             // data migration from the trip-era tables — the route-selling shape
             // (Trips, StockLoads, DailyCloses, TripStates, CellBreakdown, the
-            // Movements trip/peddler kinds, Sales.trip_id/peddler_id) dies here.
+            // Movements route-era kinds, Sales.trip_id and its seller-link
+            // column) dies here.
             // One baseline creates the day-lifecycle schema in full:
             //  - Movement kinds FIXED per ADR 0004 §5 (GoodsReceived/FundIn/
             //    FundOut replace OpeningStock/Transfer/Trip kinds);
