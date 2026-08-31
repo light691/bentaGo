@@ -9,8 +9,8 @@ namespace BentaGo.Core.Domain.Ledger;
 /// </summary>
 public static class Moves
 {
-    public static OpeningStock OpeningStock(
-        long sequence, DateTimeOffset whenUtc, UserId actor, LoadRef document,
+    public static GoodsReceived GoodsReceived(
+        long sequence, DateTimeOffset whenUtc, UserId actor, GoodsRef document,
         ProductId productId, LocationId locationId, Quantity quantity) =>
         new()
         {
@@ -18,34 +18,6 @@ public static class Moves
             WhenUtc = Utc(whenUtc),
             ActorId = actor,
             Document = document,
-            ProductId = productId,
-            LocationId = locationId,
-            Quantity = Positive(quantity),
-        };
-
-    public static TransferOut TransferOut(
-        long sequence, DateTimeOffset whenUtc, UserId actor, DocumentRef document,
-        ProductId productId, LocationId locationId, Quantity quantity) =>
-        new()
-        {
-            Sequence = sequence,
-            WhenUtc = Utc(whenUtc),
-            ActorId = actor,
-            Document = RequireLoadOrTransfer(document),
-            ProductId = productId,
-            LocationId = locationId,
-            Quantity = Positive(quantity),
-        };
-
-    public static TransferIn TransferIn(
-        long sequence, DateTimeOffset whenUtc, UserId actor, DocumentRef document,
-        ProductId productId, LocationId locationId, Quantity quantity) =>
-        new()
-        {
-            Sequence = sequence,
-            WhenUtc = Utc(whenUtc),
-            ActorId = actor,
-            Document = RequireLoadOrTransfer(document),
             ProductId = productId,
             LocationId = locationId,
             Quantity = Positive(quantity),
@@ -201,6 +173,34 @@ public static class Moves
             Reverses = reverses,
         };
 
+    public static FundIn FundIn(
+        long sequence, DateTimeOffset whenUtc, UserId actor, FundRef document,
+        PaymentMethod method, Money amount, string reason) =>
+        new()
+        {
+            Sequence = sequence,
+            WhenUtc = Utc(whenUtc),
+            ActorId = actor,
+            Document = document,
+            Method = NotCredit(method),
+            Amount = Positive(amount),
+            Reason = Require(reason, nameof(reason)),
+        };
+
+    public static FundOut FundOut(
+        long sequence, DateTimeOffset whenUtc, UserId actor, FundRef document,
+        PaymentMethod method, Money amount, string reason) =>
+        new()
+        {
+            Sequence = sequence,
+            WhenUtc = Utc(whenUtc),
+            ActorId = actor,
+            Document = document,
+            Method = NotCredit(method),
+            Amount = Positive(amount),
+            Reason = Require(reason, nameof(reason)),
+        };
+
     public static CountObserved CountObserved(
         long sequence, DateTimeOffset whenUtc, UserId actor, CountRef document,
         ProductId productId, LocationId locationId, Quantity observedQuantity) =>
@@ -213,43 +213,6 @@ public static class Moves
             ProductId = productId,
             LocationId = locationId,
             ObservedQuantity = observedQuantity,
-        };
-
-    public static TripClose TripClose(
-        long sequence, DateTimeOffset whenUtc, UserId actor, CloseRef document, TripId tripId) =>
-        new()
-        {
-            Sequence = sequence,
-            WhenUtc = Utc(whenUtc),
-            ActorId = actor,
-            Document = document,
-            TripId = tripId,
-        };
-
-    public static TripReopen TripReopen(
-        long sequence, DateTimeOffset whenUtc, UserId actor, ReopenRef document,
-        TripId tripId, string reason) =>
-        new()
-        {
-            Sequence = sequence,
-            WhenUtc = Utc(whenUtc),
-            ActorId = actor,
-            Document = document,
-            TripId = tripId,
-            Reason = Require(reason, nameof(reason)),
-        };
-
-    public static TripCancel TripCancel(
-        long sequence, DateTimeOffset whenUtc, UserId actor, CancelRef document,
-        TripId tripId, string reason) =>
-        new()
-        {
-            Sequence = sequence,
-            WhenUtc = Utc(whenUtc),
-            ActorId = actor,
-            Document = document,
-            TripId = tripId,
-            Reason = Require(reason, nameof(reason)),
         };
 
     private static DateTimeOffset Utc(DateTimeOffset whenUtc) =>
@@ -274,11 +237,6 @@ public static class Moves
 
     private static PaymentMethod NotCredit(PaymentMethod method) =>
         method == PaymentMethod.Credit
-            ? throw new ArgumentException("Credit has no fund and cannot post a receipt", nameof(method))
+            ? throw new ArgumentException("Credit has no fund and cannot post a fund movement", nameof(method))
             : method;
-
-    private static DocumentRef RequireLoadOrTransfer(DocumentRef document) =>
-        document is LoadRef or TransferRef
-            ? document
-            : throw new ArgumentException("a transfer must be documented by a load or a direct transfer", nameof(document));
 }

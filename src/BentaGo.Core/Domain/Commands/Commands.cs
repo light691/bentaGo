@@ -22,7 +22,6 @@ public sealed record CreateUserCommand(
     string Username,
     string Password,
     Role Role,
-    PeddlerId? PeddlerLink,
     UserId By,
     DateTimeOffset NowUtc);
 
@@ -64,7 +63,7 @@ public sealed record NewPaymentLine(
 
 public sealed record NewSaleCommand(
     SaleId Id,
-    TripId Trip,
+    DayKey Day,
     string ReceiptNumber,
     UserId By,
     DateTimeOffset NowUtc,
@@ -94,34 +93,34 @@ public sealed record ReturnCommand(
     UserId By,
     DateTimeOffset NowUtc);
 
-public sealed record LoadLine(
+public sealed record GoodsReceiptLineCommand(
     ProductId ProductId,
     string Sku,
     string ProductName,
     Quantity Quantity,
     Money UnitCost);
 
-public sealed record LoadCommand(
-    LoadId Id,
-    string LoadNumber,
-    TripId Trip,
-    LocationId From,
-    IReadOnlyList<LoadLine> Lines,
+public sealed record GoodsReceiptCommand(
+    GoodsId Id,
+    DayKey Day,
+    IReadOnlyList<GoodsReceiptLineCommand> Lines,
     UserId By,
     DateTimeOffset NowUtc);
 
-public sealed record TransferCommand(
-    TransferId Id,
-    ProductId ProductId,
-    LocationId From,
-    LocationId To,
-    Quantity Quantity,
+public sealed record FundEntryCommand(
+    FundEntryId Id,
+    DayKey Day,
+    MovementKind Direction,
+    PaymentMethod Method,
+    Money Amount,
+    string Reason,
     UserId By,
-    DateTimeOffset NowUtc);
+    DateTimeOffset NowUtc,
+    UserId? ApprovedBy = null);
 
 public sealed record AdjustmentCommand(
     AdjustmentId Id,
-    TripId Trip,
+    DayKey Day,
     ProductId ProductId,
     LocationId Location,
     AdjustmentKind Kind,
@@ -140,33 +139,25 @@ public sealed record CountCommand(
     UserId By,
     DateTimeOffset NowUtc);
 
-public sealed record CloseCommand(
+public sealed record DayOpenCommand(
+    DayId Id,
+    DayKey Day,
+    long OpeningFloatCentavos,
+    UserId By,
+    DateTimeOffset NowUtc);
+
+public sealed record DayCloseCommand(
     CloseId Id,
-    TripId Trip,
-    Money CountedCash,
+    DayKey Day,
+    long CountedCashCentavos,
     string? Notes,
     UserId By,
     DateTimeOffset NowUtc);
 
-public sealed record ReopenCommand(
-    TripId Trip,
+public sealed record DayReopenCommand(
+    DayId Id,
+    DayKey Day,
     string Reason,
-    UserId By,
-    DateTimeOffset NowUtc);
-
-/// <summary>
-/// Cancels a trip before any sale, with an authorized reason (docs/01:45).
-/// The service/builder reverts any issued loads in the same transaction.
-/// </summary>
-public sealed record CancelTripCommand(
-    TripId Trip,
-    string Reason,
-    UserId By,
-    DateTimeOffset NowUtc);
-
-public sealed record NewTripCommand(
-    TripId Id,
-    PeddlerId Peddler,
-    LocationId Location,
+    UserId ApprovedBy,
     UserId By,
     DateTimeOffset NowUtc);

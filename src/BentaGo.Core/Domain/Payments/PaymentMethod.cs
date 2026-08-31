@@ -2,7 +2,7 @@ namespace BentaGo.Core.Domain.Payments;
 
 /// <summary>
 /// How a customer paid. <see cref="Credit"/> is utang: nothing moves into a
-/// fund, it is a receivable only (folded per-trip, remitted later).
+/// fund, it is a receivable only (pay-downs post FundIn; remitted later).
 /// </summary>
 public enum PaymentMethod
 {

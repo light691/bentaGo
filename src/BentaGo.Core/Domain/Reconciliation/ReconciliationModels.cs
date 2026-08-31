@@ -23,7 +23,7 @@ public enum VarianceLabel
 /// only — the fund the operator actually counts into the drawer; wallet, bank,
 /// and credit balances are not physically counted (CloseBuilder is the
 /// authority, docs/05 449-461). <see cref="Expected"/> is the fold-derived
-/// per-trip physical cash; <see cref="Counted"/> is the operator's submitted
+/// per-day physical cash; <see cref="Counted"/> is the operator's submitted
 /// count. <see cref="Variance"/> is expected minus counted, so a positive
 /// variance is a shortage and a negative one is an overage.
 /// </summary>
@@ -40,7 +40,7 @@ public sealed record CashVarianceRow(
 /// observed count, the signed quantity variance (counted minus expected), and
 /// the value variance at the fold-derived unit price. <c>Counted</c>, the
 /// quantity variance, and the value variance are null when the product was
-/// never counted on the trip. <see cref="UnitPrice"/> is always a fold-derived
+/// never counted on the day. <see cref="UnitPrice"/> is always a fold-derived
 /// price (sold value over sold quantity, or the load cost when nothing was
 /// sold), so the value variance is reproducible from the ledger alone.
 /// </summary>
@@ -58,7 +58,7 @@ public sealed record StockVarianceRow(
 
 /// <summary>
 /// The report-header rollup the operator reads first (docs/05 460): the
-/// committed sales, refunds, and correction summary for the trip, plus the
+/// committed sales, refunds, and correction summary for the day, plus the
 /// cash verdict. Every money field is a fold-derived integer-centavo amount.
 /// </summary>
 public sealed record ReportTotals(
@@ -74,17 +74,16 @@ public sealed record ReportTotals(
     VarianceLabel CashLabel);
 
 /// <summary>
-/// The complete per-trip reconciliation report for the two-peddler close
+/// The complete per-day reconciliation report for the store close
 /// (BG-008 Slice A). It is a pure projection over the ledger read surface
 /// (fold + registered documents) — never a database query — so it renders
 /// byte-identically across an in-memory store, SQLite, a reopen, and a
 /// rebuild. <see cref="CashRows"/> holds the countable-fund row(s);
-/// <see cref="StockRows"/> holds one row per product-route cell the trip
+/// <see cref="StockRows"/> holds one row per product cell the day
 /// touched; <see cref="Totals"/> rolls the header up.
 /// </summary>
 public sealed record ReconciliationReport(
-    TripId Trip,
-    PeddlerId Peddler,
+    DayKey Day,
     LocationId Location,
     string? CloseNotes,
     IReadOnlyList<CashVarianceRow> CashRows,

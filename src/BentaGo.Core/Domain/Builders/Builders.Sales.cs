@@ -9,31 +9,18 @@ namespace BentaGo.Core.Domain.Builders;
 /// <summary>
 /// The read side a builder receives: current fold plus the document registry.
 /// Every rule below is checked against this, and the store's append guard
-/// re-checks each movement through <see cref="LedgerState.Accepts"/>.
+/// re-checks each movement through <see cref="LedgerState.ApplyCommitted"/>.
 /// </summary>
 public sealed record LedgerContext(
     LedgerState State,
-    IReadOnlyList<Trip> Trips,
     IReadOnlyList<Sale> Sales,
     IReadOnlyList<Return> Returns,
-    IReadOnlyList<StockLoad> Loads,
     IReadOnlyList<SaleVoid> Voids,
     IReadOnlyList<PhysicalCount> Counts,
-    IReadOnlyList<DailyClose> Closes)
+    IReadOnlyList<DayOpen> DayOpens,
+    IReadOnlyList<DayClose> DayCloses,
+    IReadOnlyList<DayReopen> DayReopens)
 {
-    public Trip? FindTrip(TripId id)
-    {
-        foreach (Trip trip in Trips)
-        {
-            if (trip.Id == id)
-            {
-                return trip;
-            }
-        }
-
-        return null;
-    }
-
     public Sale? FindSale(SaleId id)
     {
         foreach (Sale sale in Sales)
@@ -63,26 +50,10 @@ public static class SaleBuilder
             return Result<SaleDraft>.Fail(new DomainError("SALE_EMPTY", "a sale needs at least one line"));
         }
 
-        Trip? trip = ctx.FindTrip(cmd.Trip);
-        if (trip is null)
+        if (ctx.State.Day(cmd.Day) != DayLifecycleState.Open)
         {
-            return Result<SaleDraft>.Fail(new DomainError("TRIP_UNKNOWN", $"no trip {cmd.Trip}"));
-        }
-
-        TripStatus status = ctx.State.Trip(cmd.Trip).Status;
-        if (status == TripStatus.Planned)
-        {
-            return Result<SaleDraft>.Fail(new DomainError("TRIP_NOT_OPEN", $"trip {cmd.Trip} is not open"));
-        }
-
-        if (status == TripStatus.Closed)
-        {
-            return Result<SaleDraft>.Fail(new DomainError("TRIP_CLOSED", $"trip {cmd.Trip} is closed"));
-        }
-
-        if (status == TripStatus.Cancelled)
-        {
-            return Result<SaleDraft>.Fail(new DomainError("TRIP_CANCELLED", $"trip {cmd.Trip} is cancelled"));
+            return Result<SaleDraft>.Fail(new DomainError(
+                "DAY_NOT_OPEN", $"day {cmd.Day} is {ctx.State.Day(cmd.Day)}; a sale needs an open day"));
         }
 
         var errors = new List<DomainError>();
@@ -132,7 +103,7 @@ public static class SaleBuilder
                 continue;
             }
 
-            if (ctx.State.StockOnHand(line.ProductId, trip.Location).Units < line.Quantity.Units)
+            if (ctx.State.StockOnHand(line.ProductId, StoreLocations.Warehouse).Units < line.Quantity.Units)
             {
                 errors.Add(new DomainError("STOCK_INSUFFICIENT", "not enough stock on hand", line.Sku));
                 continue;
@@ -205,7 +176,7 @@ public static class SaleBuilder
         }
 
         var sale = Sale.Create(
-            cmd.Id, cmd.Trip, trip.Peddler, trip.Location, cmd.ReceiptNumber, cmd.NowUtc, cmd.By, lines, payments);
+            cmd.Id, cmd.Day, StoreLocations.Warehouse, cmd.ReceiptNumber, cmd.NowUtc, cmd.By, lines, payments);
 
         var movements = new List<Movement>(lines.Count + payments.Count);
         foreach (SaleLine line in lines)
@@ -250,10 +221,10 @@ public static class VoidBuilder
             return Result<VoidDraft>.Fail(new DomainError("SALE_ALREADY_VOIDED", $"sale {sale.Id} is already voided"));
         }
 
-        Result<bool> tripGate = TripGate(ctx, sale.Trip);
-        if (tripGate.IsFailure)
+        Result<bool> dayGate = DayGate(ctx, sale.Day);
+        if (dayGate.IsFailure)
         {
-            return Result<VoidDraft>.Fail(tripGate.Errors);
+            return Result<VoidDraft>.Fail(dayGate.Errors);
         }
 
         // BG-007 approval policy: a void is a high-risk correction that
@@ -314,25 +285,14 @@ public static class VoidBuilder
         return Result<VoidDraft>.Ok(new VoidDraft(@void, movements));
     }
 
-    /// <summary>Corrections on a closed trip need an authorized reopen (BG-007, docs/05 lane 10).</summary>
-    internal static Result<bool> TripGate(LedgerContext ctx, TripId trip)
+    /// <summary>Corrections on a closed day need an authorized reopen (BG-007, docs/decisions/0004 §6).</summary>
+    internal static Result<bool> DayGate(LedgerContext ctx, DayKey day)
     {
-        if (ctx.FindTrip(trip) is null)
-        {
-            return Result<bool>.Fail(new DomainError("TRIP_UNKNOWN", $"no trip {trip}"));
-        }
-
-        TripStatus status = ctx.State.Trip(trip).Status;
-        if (status == TripStatus.Closed)
+        if (ctx.State.Day(day) == DayLifecycleState.Closed)
         {
             return Result<bool>.Fail(new DomainError(
-                "TRIP_CLOSED_CORRECTION",
-                $"trip {trip} is closed; corrections need an authorized reopen"));
-        }
-
-        if (status == TripStatus.Cancelled)
-        {
-            return Result<bool>.Fail(new DomainError("TRIP_CANCELLED", $"trip {trip} is cancelled"));
+                "DAY_CLOSED_CORRECTION",
+                $"day {day} is closed; corrections need an authorized reopen"));
         }
 
         return Result<bool>.Ok(true);
@@ -355,10 +315,10 @@ public static class ReturnBuilder
             return Result<ReturnDraft>.Fail(new DomainError("SALE_VOIDED", $"sale {sale.Id} is voided"));
         }
 
-        Result<bool> tripGate = VoidBuilder.TripGate(ctx, sale.Trip);
-        if (tripGate.IsFailure)
+        Result<bool> dayGate = VoidBuilder.DayGate(ctx, sale.Day);
+        if (dayGate.IsFailure)
         {
-            return Result<ReturnDraft>.Fail(tripGate.Errors);
+            return Result<ReturnDraft>.Fail(dayGate.Errors);
         }
 
         if (cmd.Lines.Count == 0)

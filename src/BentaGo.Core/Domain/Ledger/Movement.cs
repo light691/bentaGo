@@ -4,7 +4,7 @@ namespace BentaGo.Core.Domain.Ledger;
 
 /// <summary>
 /// The append-only movement stream. One sealed kind per business fact, each
-/// carrying exactly its own payload: a 16-kind enum + optional-fields record
+/// carrying exactly its own payload: a wide enum + optional-fields record
 /// was rejected because every nullable field is an illegal combination the
 /// fold would have to police. Constructed only through <see cref="Moves"/>,
 /// which enforces kind legality (UTC timestamps, positive quantities, no
@@ -28,27 +28,9 @@ public abstract record Movement
     public abstract MovementEffect Effect { get; }
 }
 
-public sealed record OpeningStock : Movement
+public sealed record GoodsReceived : Movement
 {
-    public override MovementKind Kind => MovementKind.OpeningStock;
-    public override MovementEffect Effect => MovementEffect.StockIncrease;
-    public required ProductId ProductId { get; init; }
-    public required LocationId LocationId { get; init; }
-    public required Quantity Quantity { get; init; }
-}
-
-public sealed record TransferOut : Movement
-{
-    public override MovementKind Kind => MovementKind.TransferOut;
-    public override MovementEffect Effect => MovementEffect.StockDecrease;
-    public required ProductId ProductId { get; init; }
-    public required LocationId LocationId { get; init; }
-    public required Quantity Quantity { get; init; }
-}
-
-public sealed record TransferIn : Movement
-{
-    public override MovementKind Kind => MovementKind.TransferIn;
+    public override MovementKind Kind => MovementKind.GoodsReceived;
     public override MovementEffect Effect => MovementEffect.StockIncrease;
     public required ProductId ProductId { get; init; }
     public required LocationId LocationId { get; init; }
@@ -161,6 +143,35 @@ public sealed record ReceiptRevoke : Movement
     public required long Reverses { get; init; }
 }
 
+/// <summary>
+/// Fund in outside a sale — cash pay-downs received on a customer receivable
+/// (docs/decisions/0004 §3). A ledger event on the receivable pairs with this
+/// movement in one atomic transaction in a later slice; the cash side is
+/// first-class here.
+/// </summary>
+public sealed record FundIn : Movement
+{
+    public override MovementKind Kind => MovementKind.FundIn;
+    public override MovementEffect Effect => MovementEffect.FundIncrease;
+    public required PaymentMethod Method { get; init; }
+    public required Money Amount { get; init; }
+    public required string Reason { get; init; }
+}
+
+/// <summary>
+/// An approved cash expense paid out of the drawer (docs/decisions/0004 §4):
+/// a first-class movement with a reason and, where required, an approver —
+/// never a day-close text field.
+/// </summary>
+public sealed record FundOut : Movement
+{
+    public override MovementKind Kind => MovementKind.FundOut;
+    public override MovementEffect Effect => MovementEffect.FundDecrease;
+    public required PaymentMethod Method { get; init; }
+    public required Money Amount { get; init; }
+    public required string Reason { get; init; }
+}
+
 public sealed record CountObserved : Movement
 {
     public override MovementKind Kind => MovementKind.CountObserved;
@@ -168,33 +179,4 @@ public sealed record CountObserved : Movement
     public required ProductId ProductId { get; init; }
     public required LocationId LocationId { get; init; }
     public required Quantity ObservedQuantity { get; init; }
-}
-
-public sealed record TripClose : Movement
-{
-    public override MovementKind Kind => MovementKind.TripClose;
-    public override MovementEffect Effect => MovementEffect.None;
-    public required TripId TripId { get; init; }
-}
-
-public sealed record TripReopen : Movement
-{
-    public override MovementKind Kind => MovementKind.TripReopen;
-    public override MovementEffect Effect => MovementEffect.None;
-    public required TripId TripId { get; init; }
-    public required string Reason { get; init; }
-}
-
-/// <summary>
-/// Cancellation of a trip before any sale (docs/01:45), with the authorized
-/// reason. No balance effect — the revert of the trip's loads is a separate,
-/// preceding TransferOut/TransferIn pair per load line, committed in the same
-/// batch (BG-005c; the cancel marker itself never touches stock).
-/// </summary>
-public sealed record TripCancel : Movement
-{
-    public override MovementKind Kind => MovementKind.TripCancel;
-    public override MovementEffect Effect => MovementEffect.None;
-    public required TripId TripId { get; init; }
-    public required string Reason { get; init; }
 }

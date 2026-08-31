@@ -3,7 +3,6 @@ using BentaGo.Core.Domain.Documents;
 using BentaGo.Core.Domain.Identity;
 using BentaGo.Core.Domain.Payments;
 using BentaGo.Core.Domain.Reconciliation;
-using BentaGo.Core.Domain.Trips;
 
 namespace BentaGo.Core.Domain.Receipts;
 
@@ -64,7 +63,7 @@ public sealed record ReceiptDocument(
             .Where(p => p.Method == PaymentMethod.Cash)
             .Aggregate(Money.Zero, (acc, p) => acc.Plus(p.Change));
         return new ReceiptDocument(
-            new ReceiptMeta(sale.ReceiptNumber, sale.CreatedUtc, sale.Peddler, sale.Trip),
+            new ReceiptMeta(sale.ReceiptNumber, sale.CreatedUtc, sale.Day),
             lines,
             subtotal,
             discounts,
@@ -126,8 +125,7 @@ public sealed record ReceiptDocument(
             new ReceiptMeta(
                 $"CLOSE-{closeId.Value:D}",
                 closedUtc,
-                report.Peddler,
-                report.Trip),
+                report.Day),
             Array.Empty<ReceiptLine>(),
             Money.Zero,
             Money.Zero,
@@ -157,12 +155,11 @@ public sealed record ReceiptDocument(
     }
 }
 
-/// <summary>Header block: receipt number, date/time, peddler/trip ids.</summary>
+/// <summary>Header block: receipt number, date/time, trading day key.</summary>
 public sealed record ReceiptMeta(
     string ReceiptNumber,
     DateTimeOffset CreatedUtc,
-    PeddlerId Peddler,
-    TripId Trip);
+    DayKey Day);
 
 /// <summary>One item line at the captured unit price and quantity.</summary>
 public sealed record ReceiptLine(string Name, Money UnitPrice, Quantity Quantity, Money Discount);
@@ -173,7 +170,7 @@ public enum ReceiptKind
     /// <summary>A committed sale (BG-007 sale path — byte-stable).</summary>
     Sale,
 
-    /// <summary>A trip close-summary (BG-008 Slice C).</summary>
+    /// <summary>A day close-summary (BG-008 Slice C).</summary>
     CloseSummary,
 }
 
@@ -278,7 +275,7 @@ public sealed class EscPos80mmEncoder : IReceiptEncoder
         }
 
         WriteText(buffer, $"R#{document.Meta.ReceiptNumber} {document.Meta.CreatedUtc:yyyy-MM-dd HH:mm}");
-        WriteText(buffer, $"TRIP {document.Meta.Trip.Value} PDL {document.Meta.Peddler.Value}");
+        WriteText(buffer, $"DAY {document.Meta.Day}");
 
         buffer.WriteByte(0x1D);
         buffer.WriteByte(0x56);
@@ -321,7 +318,7 @@ public sealed class EscPos80mmEncoder : IReceiptEncoder
         WriteText(buffer, PadCenter(new string('=', NominalColumns), NominalColumns));
 
         WriteText(buffer, $"CLOSED {document.Meta.CreatedUtc:yyyy-MM-dd HH:mm}");
-        WriteText(buffer, $"TRIP {document.Meta.Trip.Value} PDL {document.Meta.Peddler.Value}");
+        WriteText(buffer, $"DAY {document.Meta.Day}");
         WriteText(buffer, $"CLOSE {close.CloseId}");
 
         if (document.IsReprint)
