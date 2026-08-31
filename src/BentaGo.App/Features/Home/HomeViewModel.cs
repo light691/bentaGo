@@ -7,7 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace BentaGo.App.Features.Home;
 
 /// <summary>
-/// Home placeholder (BG-P1d): the peddler home was deleted with the
+/// Home placeholder (BG-P1d): the BG-004 dashboard home was deleted with the
 /// route-selling domain; this screen keeps the shell's Home route alive
 /// (greeting + day status + primary actions) until P5 lands the real
 /// register-first shell. Retained across navigation (the shell default).

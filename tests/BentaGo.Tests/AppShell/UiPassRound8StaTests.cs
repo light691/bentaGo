@@ -10,11 +10,11 @@ using BentaGo.App.Features.Reconciliation;
 using BentaGo.App.Features.Sales;
 using BentaGo.App.Features.Stock;
 using BentaGo.App.Mvvm;
-using BentaGo.Infrastructure.Persistence;
 using BentaGo.App.Navigation;
 using BentaGo.App.Ui;
 using BentaGo.Core.Domain;
 using BentaGo.Infrastructure.Hosting;
+using BentaGo.Infrastructure.Persistence;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 

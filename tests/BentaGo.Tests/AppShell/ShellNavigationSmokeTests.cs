@@ -3,8 +3,8 @@ using BentaGo.App;
 using BentaGo.App.Dialogs.Confirm;
 using BentaGo.App.Dialogs.Payment;
 using BentaGo.App.Features.Help;
-using BentaGo.App.Features.Login;
 using BentaGo.App.Features.Home;
+using BentaGo.App.Features.Login;
 using BentaGo.App.Features.Reconciliation;
 using BentaGo.App.Features.Sales;
 using BentaGo.App.Features.Stock;
@@ -32,9 +32,7 @@ public sealed class ViewModelConstructionTests : IDisposable
     public void AllScreenViewModelsConstructFromHost()
     {
         using var host = BentaGoHost.Build(development: true, dataRootOverride: _tempRoot, extra: ObservableObjectFactory.RegisterAppServices);
-        // The app data source reads the live SQLite fold; production migrates
-        // before the shell exists (App.OnStartup).
-        host.GetRequiredService<DbInitializer>().EnsureCreatedOrMigrateAsync().GetAwaiter().GetResult();
+        Migrate(host);
 
         Type[] screenTypes =
         [
@@ -53,6 +51,13 @@ public sealed class ViewModelConstructionTests : IDisposable
             Assert.NotNull(host.GetRequiredService(type));
         }
     }
+
+    /// <summary>
+    /// The app data source reads the live SQLite fold; production migrates
+    /// before the shell exists (App.OnStartup), so the test host does too.
+    /// </summary>
+    private static void Migrate(IServiceProvider host) =>
+        host.GetRequiredService<DbInitializer>().EnsureCreatedOrMigrateAsync().GetAwaiter().GetResult();
 
     public void Dispose()
     {
