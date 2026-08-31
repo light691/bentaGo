@@ -12,5 +12,6 @@ One row per human gate: question, options, default on no answer, status. A gate 
 | Client real CSV samples | Real exports before release | From client | v1 fixtures slide in cleanly via versioned contract | OPEN. Release gate only |
 | BG-008 perf | Close-calc P95 1073ms vs rule <=1000ms (median 872ms, fold-bound) | Optimize the fold vs accept with documented deviation | Accept documented | OPEN. Surfaced in ledger 1852df1; operator decides before or during BG-P5 |
 | Pivot checkpoint | BG-P1a checkpoint b310de3 was lost (branch never pushed; old checkout deleted). Accept restart from Core stage | Restart P1a per docs/05 vs salvage attempt | Restart (no salvage source exists) | OPEN-DEFAULT. Recorded in HANDOFF.md section 3b and ledger |
+| Design prototype | BG-P5 derives the design from the operator's prototype (docs/05 line 391), and no prototype exists in the repo. Provide one, or regenerate from HANDOFF section 5's design prompt | Operator-made prototype vs design prompt re-run vs keep old designs' patterns and design in-session | Design prompt re-run, mining the two superseded PNGs for UX patterns worth carrying (Hold Sale, GCash reference capture, denomination cash count) | OPEN. Blocks only BG-P5, not BG-P1..P4 |
 
 
