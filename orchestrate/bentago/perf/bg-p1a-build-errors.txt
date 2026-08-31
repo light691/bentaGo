@@ -1,0 +1,561 @@
+﻿
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\ReceiptCodec.cs(8,27): error CS0234: The type or namespace name 
+'Trips' does not exist in the namespace 'BentaGo.Core.Domain' (are you missing an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\UseCaseServices.cs(8,27): error CS0234: The type or namespace 
+name 'Trips' does not exist in the namespace 'BentaGo.Core.Domain' (are you missing an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Contracts\ILedgerStore.cs(109,23): error CS0246: The type or namespace 
+name 'Trip' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Contracts\ILedgerStore.cs(112,23): error CS0246: The type or namespace 
+name 'StockLoad' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Contracts\ILedgerStore.cs(116,24): error CS0246: The type or namespace 
+name 'DailyClose' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\CheckoutSession.cs(67,12): error CS0246: The type or namespace 
+name 'TripId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\CheckoutSession.cs(68,12): error CS0246: The type or namespace 
+name 'PeddlerId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\InMemoryLedgerStore.cs(58,30): error CS0246: The type or 
+namespace name 'Trip' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\InMemoryLedgerStore.cs(64,30): error CS0246: The type or 
+namespace name 'StockLoad' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Contracts\Sales.cs(68,5): error CS0246: The type or namespace name 
+'TripId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\InMemoryLedgerStore.cs(72,31): error CS0246: The type or 
+namespace name 'DailyClose' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Contracts\Sales.cs(69,5): error CS0246: The type or namespace name 
+'PeddlerId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\InMemoryLedgerStore.cs(24,27): error CS0246: The type or 
+namespace name 'Trip' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\InMemoryLedgerStore.cs(27,27): error CS0246: The type or 
+namespace name 'StockLoad' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\InMemoryLedgerStore.cs(30,27): error CS0246: The type or 
+namespace name 'DailyClose' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Contracts\Sales.cs(132,5): error CS0246: The type or namespace name 
+'PeddlerId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Contracts\Sales.cs(132,24): error CS0246: The type or namespace name 
+'TripId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Contracts\Sales.cs(127,20): error CS0246: The type or namespace name 
+'TripId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Contracts\Sales.cs(141,38): error CS0246: The type or namespace name 
+'TripId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Contracts\Sales.cs(141,51): error CS0246: The type or namespace name 
+'PeddlerId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\CheckoutSession.cs(52,9): error CS0246: The type or namespace 
+name 'Trip' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\ProductSearchService.cs(77,31): error CS0246: The type or 
+namespace name 'PeddlerId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\InMemoryLedgerStore.cs(38,27): error CS0246: The type or 
+namespace name 'StockLoad' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\InMemoryLedgerStore.cs(42,27): error CS0246: The type or 
+namespace name 'DailyClose' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Contracts\Sales.cs(154,49): error CS0246: The type or namespace name 
+'PeddlerId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Contracts\UseCases.cs(20,34): error CS0246: The type or namespace name 
+'StockLoad' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Contracts\Sales.cs(156,43): error CS0246: The type or namespace name 
+'PeddlerId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\ReconciliationReportService.cs(32,47): error CS0246: The type or 
+namespace name 'PeddlerId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\ReconciliationReportService.cs(32,66): error CS0246: The type or 
+namespace name 'TripId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Contracts\Sales.cs(160,46): error CS0246: The type or namespace name 
+'PeddlerId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\SaleQueryService.cs(20,56): error CS0246: The type or namespace 
+name 'PeddlerId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Contracts\Sales.cs(163,32): error CS0246: The type or namespace name 
+'PeddlerId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\TripLifecycleScenario.cs(197,32): error CS0246: The type or 
+namespace name 'PeddlerId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Contracts\Reconciliation.cs(21,40): error CS0246: The type or namespace 
+name 'PeddlerId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Contracts\Reconciliation.cs(21,59): error CS0246: The type or namespace 
+name 'TripId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\ReconciliationReportService.cs(71,47): error CS0246: The type or 
+namespace name 'PeddlerId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\ReconciliationReportService.cs(71,66): error CS0246: The type or 
+namespace name 'TripId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Contracts\Reconciliation.cs(25,40): error CS0246: The type or namespace 
+name 'PeddlerId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Contracts\Reconciliation.cs(25,59): error CS0246: The type or namespace 
+name 'TripId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\TripLifecycleScenario.cs(224,20): error CS0246: The type or 
+namespace name 'LoadLine' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Contracts\UseCases.cs(32,35): error CS0246: The type or namespace name 
+'DailyClose' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\ReconciliationReportService.cs(86,50): error CS0246: The type or 
+namespace name 'PeddlerId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\ReconciliationReportService.cs(86,69): error CS0246: The type or 
+namespace name 'TripId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Contracts\Reconciliation.cs(29,43): error CS0246: The type or namespace 
+name 'PeddlerId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Contracts\Reconciliation.cs(29,62): error CS0246: The type or namespace 
+name 'TripId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\TwoPeddlersScenario.cs(236,90): error CS0246: The type or 
+namespace name 'TripId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Contracts\UseCases.cs(45,27): error CS0246: The type or namespace name 
+'NewTripCommand' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Contracts\UseCases.cs(45,12): error CS0246: The type or namespace name 
+'Trip' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Contracts\UseCases.cs(34,36): error CS0246: The type or namespace name 
+'CancelRef' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Contracts\UseCases.cs(137,34): error CS0246: The type or namespace name 
+'ReopenCommand' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\TwoPeddlersScenario.cs(247,90): error CS0246: The type or 
+namespace name 'TripId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\TwoPeddlersScenario.cs(247,103): error CS0246: The type or 
+namespace name 'PeddlerId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Contracts\UseCases.cs(54,30): error CS0246: The type or namespace name 
+'LoadCommand' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Contracts\UseCases.cs(54,47): error CS0246: The type or namespace name 
+'PeddlerId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Contracts\UseCases.cs(131,32): error CS0246: The type or namespace name 
+'CloseCommand' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\ReconciliationReportService.cs(97,39): error CS0246: The type or 
+namespace name 'PeddlerId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\ReconciliationReportService.cs(97,58): error CS0246: The type or 
+namespace name 'TripId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\ReconciliationReportService.cs(97,20): error CS0246: The type or 
+namespace name 'Trip' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\ReconciliationReportService.cs(114,51): error CS0246: The type or 
+namespace name 'TripId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Contracts\UseCases.cs(64,34): error CS0246: The type or namespace name 
+'CancelTripCommand' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Contracts\UseCases.cs(64,57): error CS0246: The type or namespace name 
+'PeddlerId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\ReconciliationReportService.cs(176,38): error CS0246: The type or 
+namespace name 'TripId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\UseCaseServices.cs(52,37): error CS0246: The type or namespace 
+name 'LoadCommand' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\UseCaseServices.cs(52,54): error CS0246: The type or namespace 
+name 'PeddlerId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\SaleQueryService.cs(47,50): error CS0246: The type or namespace 
+name 'PeddlerId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Contracts\UseCases.cs(77,43): error CS0246: The type or namespace name 
+'PeddlerId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Contracts\UseCases.cs(77,26): error CS0246: The type or namespace name 
+'Trip' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\ReconciliationReportService.cs(233,31): error CS0246: The type or 
+namespace name 'TripId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\SaleQueryService.cs(61,53): error CS0246: The type or namespace 
+name 'PeddlerId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\UseCaseServices.cs(28,34): error CS0246: The type or namespace 
+name 'NewTripCommand' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\UseCaseServices.cs(28,19): error CS0246: The type or namespace 
+name 'Trip' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\ReconciliationReportService.cs(266,35): error CS0246: The type or 
+namespace name 'TripId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\SaleQueryService.cs(78,39): error CS0246: The type or namespace 
+name 'PeddlerId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\SaleQueryService.cs(137,42): error CS0246: The type or namespace 
+name 'PeddlerId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\UseCaseServices.cs(284,39): error CS0246: The type or namespace 
+name 'CloseCommand' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\UseCaseServices.cs(314,41): error CS0246: The type or namespace 
+name 'ReopenCommand' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\UseCaseServices.cs(350,41): error CS0246: The type or namespace 
+name 'CancelTripCommand' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\UseCaseServices.cs(350,64): error CS0246: The type or namespace 
+name 'PeddlerId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\UseCaseServices.cs(399,50): error CS0246: The type or namespace 
+name 'PeddlerId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\UseCaseServices.cs(399,33): error CS0246: The type or namespace 
+name 'Trip' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Contracts\UseCases.cs(80,26): error CS0246: The type or namespace name 
+'PeddlerId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Contracts\UseCases.cs(80,45): error CS0246: The type or namespace name 
+'TripId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Contracts\UseCases.cs(80,12): error CS0246: The type or namespace name 
+'Trip' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Contracts\UseCases.cs(84,29): error CS0246: The type or namespace name 
+'PeddlerId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\UseCaseServices.cs(409,33): error CS0246: The type or namespace 
+name 'PeddlerId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\UseCaseServices.cs(409,52): error CS0246: The type or namespace 
+name 'TripId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\UseCaseServices.cs(409,19): error CS0246: The type or namespace 
+name 'Trip' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Contracts\UseCases.cs(88,48): error CS0246: The type or namespace name 
+'PeddlerId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\UseCaseServices.cs(428,36): error CS0246: The type or namespace 
+name 'PeddlerId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\UseCaseServices.cs(440,55): error CS0246: The type or namespace 
+name 'PeddlerId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\UseCaseServices.cs(488,37): error CS0246: The type or namespace 
+name 'PeddlerId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\UseCaseServices.cs(488,21): error CS0246: The type or namespace 
+name 'TripId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\UseCaseServices.cs(502,45): error CS0246: The type or namespace 
+name 'PeddlerId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\ReceiptCodec.cs(8,27): error CS0234: The type or namespace name 
+'Trips' does not exist in the namespace 'BentaGo.Core.Domain' (are you missing an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\UseCaseServices.cs(8,27): error CS0234: The type or namespace 
+name 'Trips' does not exist in the namespace 'BentaGo.Core.Domain' (are you missing an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Contracts\ILedgerStore.cs(109,23): error CS0246: The type or namespace 
+name 'Trip' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Contracts\ILedgerStore.cs(112,23): error CS0246: The type or namespace 
+name 'StockLoad' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Contracts\ILedgerStore.cs(116,24): error CS0246: The type or namespace 
+name 'DailyClose' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\CheckoutSession.cs(67,12): error CS0246: The type or namespace 
+name 'TripId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\CheckoutSession.cs(68,12): error CS0246: The type or namespace 
+name 'PeddlerId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\InMemoryLedgerStore.cs(58,30): error CS0246: The type or 
+namespace name 'Trip' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\InMemoryLedgerStore.cs(64,30): error CS0246: The type or 
+namespace name 'StockLoad' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Contracts\Sales.cs(68,5): error CS0246: The type or namespace name 
+'TripId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\InMemoryLedgerStore.cs(72,31): error CS0246: The type or 
+namespace name 'DailyClose' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Contracts\Sales.cs(69,5): error CS0246: The type or namespace name 
+'PeddlerId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\InMemoryLedgerStore.cs(24,27): error CS0246: The type or 
+namespace name 'Trip' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\InMemoryLedgerStore.cs(27,27): error CS0246: The type or 
+namespace name 'StockLoad' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\InMemoryLedgerStore.cs(30,27): error CS0246: The type or 
+namespace name 'DailyClose' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Contracts\Sales.cs(132,5): error CS0246: The type or namespace name 
+'PeddlerId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Contracts\Sales.cs(132,24): error CS0246: The type or namespace name 
+'TripId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Contracts\Sales.cs(127,20): error CS0246: The type or namespace name 
+'TripId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Contracts\Sales.cs(141,38): error CS0246: The type or namespace name 
+'TripId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Contracts\Sales.cs(141,51): error CS0246: The type or namespace name 
+'PeddlerId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\CheckoutSession.cs(52,9): error CS0246: The type or namespace 
+name 'Trip' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\ProductSearchService.cs(77,31): error CS0246: The type or 
+namespace name 'PeddlerId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\InMemoryLedgerStore.cs(38,27): error CS0246: The type or 
+namespace name 'StockLoad' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\InMemoryLedgerStore.cs(42,27): error CS0246: The type or 
+namespace name 'DailyClose' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Contracts\Sales.cs(154,49): error CS0246: The type or namespace name 
+'PeddlerId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Contracts\UseCases.cs(20,34): error CS0246: The type or namespace name 
+'StockLoad' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Contracts\Sales.cs(156,43): error CS0246: The type or namespace name 
+'PeddlerId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\ReconciliationReportService.cs(32,47): error CS0246: The type or 
+namespace name 'PeddlerId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\ReconciliationReportService.cs(32,66): error CS0246: The type or 
+namespace name 'TripId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Contracts\Sales.cs(160,46): error CS0246: The type or namespace name 
+'PeddlerId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\SaleQueryService.cs(20,56): error CS0246: The type or namespace 
+name 'PeddlerId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Contracts\Sales.cs(163,32): error CS0246: The type or namespace name 
+'PeddlerId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\TripLifecycleScenario.cs(197,32): error CS0246: The type or 
+namespace name 'PeddlerId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Contracts\Reconciliation.cs(21,40): error CS0246: The type or namespace 
+name 'PeddlerId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Contracts\Reconciliation.cs(21,59): error CS0246: The type or namespace 
+name 'TripId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\ReconciliationReportService.cs(71,47): error CS0246: The type or 
+namespace name 'PeddlerId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\ReconciliationReportService.cs(71,66): error CS0246: The type or 
+namespace name 'TripId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Contracts\Reconciliation.cs(25,40): error CS0246: The type or namespace 
+name 'PeddlerId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Contracts\Reconciliation.cs(25,59): error CS0246: The type or namespace 
+name 'TripId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\TripLifecycleScenario.cs(224,20): error CS0246: The type or 
+namespace name 'LoadLine' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Contracts\UseCases.cs(32,35): error CS0246: The type or namespace name 
+'DailyClose' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\ReconciliationReportService.cs(86,50): error CS0246: The type or 
+namespace name 'PeddlerId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\ReconciliationReportService.cs(86,69): error CS0246: The type or 
+namespace name 'TripId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Contracts\Reconciliation.cs(29,43): error CS0246: The type or namespace 
+name 'PeddlerId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Contracts\Reconciliation.cs(29,62): error CS0246: The type or namespace 
+name 'TripId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\TwoPeddlersScenario.cs(236,90): error CS0246: The type or 
+namespace name 'TripId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Contracts\UseCases.cs(45,27): error CS0246: The type or namespace name 
+'NewTripCommand' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Contracts\UseCases.cs(45,12): error CS0246: The type or namespace name 
+'Trip' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Contracts\UseCases.cs(34,36): error CS0246: The type or namespace name 
+'CancelRef' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Contracts\UseCases.cs(137,34): error CS0246: The type or namespace name 
+'ReopenCommand' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\TwoPeddlersScenario.cs(247,90): error CS0246: The type or 
+namespace name 'TripId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\TwoPeddlersScenario.cs(247,103): error CS0246: The type or 
+namespace name 'PeddlerId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Contracts\UseCases.cs(54,30): error CS0246: The type or namespace name 
+'LoadCommand' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Contracts\UseCases.cs(54,47): error CS0246: The type or namespace name 
+'PeddlerId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Contracts\UseCases.cs(131,32): error CS0246: The type or namespace name 
+'CloseCommand' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\ReconciliationReportService.cs(97,39): error CS0246: The type or 
+namespace name 'PeddlerId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\ReconciliationReportService.cs(97,58): error CS0246: The type or 
+namespace name 'TripId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\ReconciliationReportService.cs(97,20): error CS0246: The type or 
+namespace name 'Trip' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\ReconciliationReportService.cs(114,51): error CS0246: The type or 
+namespace name 'TripId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Contracts\UseCases.cs(64,34): error CS0246: The type or namespace name 
+'CancelTripCommand' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Contracts\UseCases.cs(64,57): error CS0246: The type or namespace name 
+'PeddlerId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\ReconciliationReportService.cs(176,38): error CS0246: The type or 
+namespace name 'TripId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\UseCaseServices.cs(52,37): error CS0246: The type or namespace 
+name 'LoadCommand' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\UseCaseServices.cs(52,54): error CS0246: The type or namespace 
+name 'PeddlerId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\SaleQueryService.cs(47,50): error CS0246: The type or namespace 
+name 'PeddlerId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Contracts\UseCases.cs(77,43): error CS0246: The type or namespace name 
+'PeddlerId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Contracts\UseCases.cs(77,26): error CS0246: The type or namespace name 
+'Trip' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\ReconciliationReportService.cs(233,31): error CS0246: The type or 
+namespace name 'TripId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\SaleQueryService.cs(61,53): error CS0246: The type or namespace 
+name 'PeddlerId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\UseCaseServices.cs(28,34): error CS0246: The type or namespace 
+name 'NewTripCommand' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\UseCaseServices.cs(28,19): error CS0246: The type or namespace 
+name 'Trip' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\ReconciliationReportService.cs(266,35): error CS0246: The type or 
+namespace name 'TripId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\SaleQueryService.cs(78,39): error CS0246: The type or namespace 
+name 'PeddlerId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\SaleQueryService.cs(137,42): error CS0246: The type or namespace 
+name 'PeddlerId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\UseCaseServices.cs(284,39): error CS0246: The type or namespace 
+name 'CloseCommand' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\UseCaseServices.cs(314,41): error CS0246: The type or namespace 
+name 'ReopenCommand' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\UseCaseServices.cs(350,41): error CS0246: The type or namespace 
+name 'CancelTripCommand' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\UseCaseServices.cs(350,64): error CS0246: The type or namespace 
+name 'PeddlerId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\UseCaseServices.cs(399,50): error CS0246: The type or namespace 
+name 'PeddlerId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\UseCaseServices.cs(399,33): error CS0246: The type or namespace 
+name 'Trip' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Contracts\UseCases.cs(80,26): error CS0246: The type or namespace name 
+'PeddlerId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Contracts\UseCases.cs(80,45): error CS0246: The type or namespace name 
+'TripId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Contracts\UseCases.cs(80,12): error CS0246: The type or namespace name 
+'Trip' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Contracts\UseCases.cs(84,29): error CS0246: The type or namespace name 
+'PeddlerId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\UseCaseServices.cs(409,33): error CS0246: The type or namespace 
+name 'PeddlerId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\UseCaseServices.cs(409,52): error CS0246: The type or namespace 
+name 'TripId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\UseCaseServices.cs(409,19): error CS0246: The type or namespace 
+name 'Trip' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Contracts\UseCases.cs(88,48): error CS0246: The type or namespace name 
+'PeddlerId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\UseCaseServices.cs(428,36): error CS0246: The type or namespace 
+name 'PeddlerId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\UseCaseServices.cs(440,55): error CS0246: The type or namespace 
+name 'PeddlerId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\UseCaseServices.cs(488,37): error CS0246: The type or namespace 
+name 'PeddlerId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\UseCaseServices.cs(488,21): error CS0246: The type or namespace 
+name 'TripId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+D:\bentago\.wt\bgp1\src\BentaGo.Application\Services\UseCaseServices.cs(502,45): error CS0246: The type or namespace 
+name 'PeddlerId' could not be found (are you missing a using directive or an assembly reference?) 
+[D:\bentago\.wt\bgp1\src\BentaGo.Application\BentaGo.Application.csproj]
+
+
