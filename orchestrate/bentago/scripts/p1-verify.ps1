@@ -38,5 +38,4 @@ $test = & dotnet test "$Worktree\BentaGo.sln" -c Release --nologo @filter 2>&1
 $line = ($test | Select-String 'Passed!|Failed!').Line
 Verdict 'tests' ($LASTEXITCODE -eq 0) "$line"
 
-if ($fail -eq 0) { Write-Output 'VERDICT PASS' } else { Write-Output "VERDICT FAIL ($fail gates red)" }
-exit ($fail -eq 0 ? 0 : 1)
+if ($fail -eq 0) { Write-Output 'VERDICT PASS'; exit 0 } else { Write-Output "VERDICT FAIL ($fail gates red)"; exit 1 }
