@@ -5,7 +5,6 @@ using BentaGo.Core.Domain.Builders;
 using BentaGo.Core.Domain.Commands;
 using BentaGo.Core.Domain.Documents;
 using BentaGo.Core.Domain.Ledger;
-using BentaGo.Core.Domain.Trips;
 
 namespace BentaGo.Application.Services;
 
@@ -23,72 +22,6 @@ namespace BentaGo.Application.Services;
 /// diagnostics (LANE9 rows recording rejected operations) and batch-style
 /// rows — because no single terminal performed them.
 /// </summary>
-public sealed class OpenTripService(ILedgerStore store) : IOpenTripService
-{
-    public Result<Trip> OpenTrip(NewTripCommand cmd)
-    {
-        store.Bind(); // refresh committed document sets (cross-process trips included)
-        Result<TripDraft> draft = TripBuilder.Build(store.Context, cmd);
-        if (draft.IsFailure)
-        {
-            return Result<Trip>.Fail(draft.Errors);
-        }
-
-        store.RegisterTrip(draft.Value.Document);
-
-        // Every trip transition is audited (brief line 6). docs/02:100 names
-        // "closes" among audited actions; trip lifecycle events use the
-        // canonical TRIP.* set (BG-005d): TRIP.OPEN here.
-        store.RecordAudit(new AuditEvent(
-            -1, cmd.By, cmd.NowUtc, TripAudit.TripOpenCategory,
-            $"trip {cmd.Id.Value:N} opened for peddler {cmd.Peddler.Value:N}", new ReopenRef(cmd.Id),
-            Terminal: Environment.MachineName));
-        return Result<Trip>.Ok(draft.Value.Document);
-    }
-}
-
-public sealed class LoadService(ILedgerStore store) : ILoadService
-{
-    public Result<LoadOutcome> Load(LoadCommand cmd, PeddlerId peddler)
-    {
-        store.Bind(); // refresh committed document sets (cross-process trips included)
-        Trip? trip = store.Context.FindTrip(cmd.Trip);
-        if (trip is not null && trip.Peddler != peddler)
-        {
-            // Cross-peddler access to a load is rejected, never silent
-            // (brief: trips/loads take the active peddler).
-            return Result<LoadOutcome>.Fail(new DomainError(
-                "TRIP_PEDDLER_MISMATCH",
-                $"trip {cmd.Trip} belongs to peddler {trip.Peddler}, not {peddler}"));
-        }
-
-        Result<LoadDraft> draft = LoadBuilder.Build(store.Context, cmd);
-        if (draft.IsFailure)
-        {
-            return Result<LoadOutcome>.Fail(draft.Errors);
-        }
-
-        store.RegisterLoad(draft.Value.Document);
-        store.Bind();
-        Result<AppendOutcome> outcome = store.Append(new AppendBatch(
-            draft.Value.Movements,
-            Audits: new[]
-            {
-                // LOAD stays the load category (it IS the load event): the
-                // canonical trip set only covers lifecycle transitions.
-                new AuditEvent(-1, cmd.By, cmd.NowUtc, "LOAD",
-                    $"load {cmd.LoadNumber} committed", new LoadRef(cmd.Id),
-                    Terminal: Environment.MachineName),
-            }));
-        if (outcome.IsFailure)
-        {
-            return Result<LoadOutcome>.Fail(outcome.Errors);
-        }
-
-        return Result<LoadOutcome>.Ok(new LoadOutcome(draft.Value.Document, outcome.Value.Receipt!));
-    }
-}
-
 public sealed class CheckoutService(ILedgerStore store) : ICheckoutService
 {
     public Result<CheckoutOutcome> Checkout(CheckoutKey key, NewSaleCommand cmd)
@@ -236,7 +169,7 @@ public sealed class AdjustmentService(ILedgerStore store) : IAdjustmentService
             Audits: new[]
             {
                 new AuditEvent(-1, cmd.By, cmd.NowUtc, "ADJUSTMENT",
-                    $"adjustment {cmd.Id} ({cmd.Kind}) on trip {cmd.Trip} approved by {cmd.ApprovedBy}: {cmd.Reason}",
+                    $"adjustment {cmd.Id} ({cmd.Kind}) on day {cmd.Day} approved by {cmd.ApprovedBy}: {cmd.Reason}",
                     new AdjustmentRef(cmd.Id),
                     Terminal: Environment.MachineName, Reason: cmd.Reason),
             }));
@@ -281,23 +214,23 @@ public sealed class CountService(ILedgerStore store) : ICountService
 
 public sealed class CloseService(ILedgerStore store) : ICloseService
 {
-    public Result<CloseOutcome> Close(CloseCommand cmd)
+    public Result<CloseOutcome> Close(DayCloseCommand cmd)
     {
-        store.Bind(); // refresh committed document sets (cross-process trips included)
-        Result<CloseDraft> draft = CloseBuilder.Build(store.Context, cmd);
+        store.Bind(); // refresh committed document sets (cross-process documents included)
+        Result<DayCloseDraft> draft = DayBuilder.Close(store.Context, cmd);
         if (draft.IsFailure)
         {
             return Result<CloseOutcome>.Fail(draft.Errors);
         }
 
-        store.RegisterClose(draft.Value.Document);
+        store.RegisterDayClose(draft.Value.Document);
         store.Bind();
         Result<AppendOutcome> outcome = store.Append(new AppendBatch(
-            draft.Value.Movements,
+            Array.Empty<Movement>(),
             Audits: new[]
             {
-                new AuditEvent(-1, cmd.By, cmd.NowUtc, TripAudit.TripCloseCategory,
-                    $"trip {cmd.Trip} closed (counted {draft.Value.Document.CountedCash.ToPesos():0.00})", new CloseRef(cmd.Id),
+                new AuditEvent(-1, cmd.By, cmd.NowUtc, "DAY.CLOSE",
+                    $"day {cmd.Day} closed (counted {new Money(draft.Value.Document.CountedCashCentavos).ToPesos():0.00})", null,
                     Terminal: Environment.MachineName),
             }));
         if (outcome.IsFailure)
@@ -311,22 +244,23 @@ public sealed class CloseService(ILedgerStore store) : ICloseService
 
 public sealed class ReopenService(ILedgerStore store) : IReopenService
 {
-    public Result<AppendReceipt> Reopen(ReopenCommand cmd)
+    public Result<AppendReceipt> Reopen(DayReopenCommand cmd)
     {
-        store.Bind(); // refresh committed document sets (cross-process trips included)
-        Result<ReopenDraft> draft = ReopenBuilder.Build(store.Context, cmd);
+        store.Bind(); // refresh committed document sets (cross-process documents included)
+        Result<DayReopenDraft> draft = DayBuilder.Reopen(store.Context, cmd);
         if (draft.IsFailure)
         {
             return Result<AppendReceipt>.Fail(draft.Errors);
         }
 
+        store.RegisterDayReopen(draft.Value.Document);
         store.Bind();
         Result<AppendOutcome> outcome = store.Append(new AppendBatch(
-            draft.Value.Movements,
+            Array.Empty<Movement>(),
             Audits: new[]
             {
-                new AuditEvent(-1, cmd.By, cmd.NowUtc, TripAudit.TripReopenCategory,
-                    $"trip {cmd.Trip} reopened: {cmd.Reason}", new ReopenRef(cmd.Trip),
+                new AuditEvent(-1, cmd.By, cmd.NowUtc, "DAY.REOPEN",
+                    $"day {cmd.Day} reopened: {cmd.Reason}", null,
                     Terminal: Environment.MachineName, Reason: cmd.Reason),
             }));
         if (outcome.IsFailure)
@@ -335,181 +269,5 @@ public sealed class ReopenService(ILedgerStore store) : IReopenService
         }
 
         return Result<AppendReceipt>.Ok(outcome.Value.Receipt!);
-    }
-}
-
-/// <summary>
-/// Trip cancellation (BG-005c): the trip belongs to the acting peddler, the
-/// pure state machine allows a pre-sales cancel, and any issued loads revert
-/// in the SAME append transaction as the TripCancel marker (one unit of
-/// work — brief). The transition audits under the canonical trip category
-/// TRIP.CANCEL (BG-005d), with the command's reason in the Reason column.
-/// </summary>
-public sealed class CancelTripService(ILedgerStore store) : ICancelTripService
-{
-    public Result<CancelOutcome> Cancel(CancelTripCommand cmd, PeddlerId peddler)
-    {
-        store.Bind(); // refresh committed document sets (cross-process trips included)
-        Trip? trip = store.Context.FindTrip(cmd.Trip);
-        if (trip is null)
-        {
-            return Result<CancelOutcome>.Fail(new DomainError("TRIP_UNKNOWN", $"no trip {cmd.Trip}"));
-        }
-
-        if (trip.Peddler != peddler)
-        {
-            return Result<CancelOutcome>.Fail(new DomainError(
-                "TRIP_PEDDLER_MISMATCH",
-                $"trip {cmd.Trip} belongs to peddler {trip.Peddler}, not {peddler}"));
-        }
-
-        Result<CancelDraft> draft = CancelBuilder.Build(store.Context, store.Movements, cmd);
-        if (draft.IsFailure)
-        {
-            return Result<CancelOutcome>.Fail(draft.Errors);
-        }
-
-        store.Bind();
-        Result<AppendOutcome> outcome = store.Append(new AppendBatch(
-            draft.Value.Movements,
-            Audits: new[]
-            {
-                new AuditEvent(-1, cmd.By, cmd.NowUtc, TripAudit.TripCancelCategory,
-                    $"trip {cmd.Trip.Value:N} cancelled: {cmd.Reason} (loads reverted)", new CancelRef(cmd.Trip),
-                    Terminal: Environment.MachineName, Reason: cmd.Reason),
-            }));
-        if (outcome.IsFailure)
-        {
-            return Result<CancelOutcome>.Fail(outcome.Errors);
-        }
-
-        return Result<CancelOutcome>.Ok(new CancelOutcome(draft.Value.Document, outcome.Value.Receipt!));
-    }
-}
-
-/// <summary>
-/// Peddler-scoped trip reads (BG-005c). Every method takes the peddler
-/// explicitly (the IActorContext carries only the user id today — BG-005a —
-/// so the peddler is passed through service methods per the brief; BG-005d
-/// binds it to the signed-in user's PeddlerId). On-hand values come from the
-/// movement fold, never a stored stock_qty.
-/// </summary>
-public sealed class TripReadService(ILedgerStore store) : ITripReadService
-{
-    public Result<IReadOnlyList<Trip>> ListTrips(PeddlerId peddler)
-    {
-        store.Bind();
-        return Result<IReadOnlyList<Trip>>.Ok(store.Context.Trips
-            .Where(t => t.Peddler == peddler)
-            .OrderBy(t => t.CreatedUtc)
-            .ThenBy(t => t.Id.Value)
-            .ToList());
-    }
-
-    public Result<Trip> GetTrip(PeddlerId peddler, TripId tripId)
-    {
-        store.Bind();
-        Trip? trip = store.Context.FindTrip(tripId);
-        if (trip is null)
-        {
-            return Result<Trip>.Fail(new DomainError("TRIP_UNKNOWN", $"no trip {tripId}"));
-        }
-
-        if (trip.Peddler != peddler)
-        {
-            return Result<Trip>.Fail(new DomainError(
-                "TRIP_PEDDLER_MISMATCH",
-                $"trip {tripId} belongs to peddler {trip.Peddler}, not {peddler}"));
-        }
-
-        return Result<Trip>.Ok(trip);
-    }
-
-    public Result<Quantity> OnHand(PeddlerId peddler, ProductId product)
-    {
-        store.Bind();
-        int total = 0;
-        foreach (LocationId location in LocationsOf(peddler))
-        {
-            total += store.State.StockOnHand(product, location).Units;
-        }
-
-        return Result<Quantity>.Ok(Quantity.Of(total));
-    }
-
-    public Result<IReadOnlyList<OnHandRow>> OnHandAll(PeddlerId peddler)
-    {
-        store.Bind();
-        var products = new HashSet<ProductId>();
-        var skus = new Dictionary<ProductId, string?>();
-        foreach (StockLoad load in store.Context.Loads)
-        {
-            if (load.Trip == default || !TripsOf(peddler).Contains(load.Trip))
-            {
-                continue;
-            }
-
-            foreach (StockLoadLine line in load.Lines)
-            {
-                products.Add(line.ProductId);
-                skus.TryAdd(line.ProductId, line.Sku);
-            }
-        }
-
-        foreach (Sale sale in store.Context.Sales)
-        {
-            if (sale.Peddler != peddler)
-            {
-                continue;
-            }
-
-            foreach (SaleLine line in sale.Lines)
-            {
-                products.Add(line.ProductId);
-                skus.TryAdd(line.ProductId, line.Sku);
-            }
-        }
-
-        var rows = new List<OnHandRow>(products.Count);
-        foreach (ProductId product in products.OrderBy(p => p.Value))
-        {
-            int total = 0;
-            foreach (LocationId location in LocationsOf(peddler))
-            {
-                total += store.State.StockOnHand(product, location).Units;
-            }
-
-            rows.Add(new OnHandRow(product, skus[product], Quantity.Of(total)));
-        }
-
-        return Result<IReadOnlyList<OnHandRow>>.Ok(rows);
-    }
-
-    private HashSet<TripId> TripsOf(PeddlerId peddler)
-    {
-        var trips = new HashSet<TripId>();
-        foreach (Trip trip in store.Context.Trips)
-        {
-            if (trip.Peddler == peddler)
-            {
-                trips.Add(trip.Id);
-            }
-        }
-
-        return trips;
-    }
-
-    private HashSet<LocationId> LocationsOf(PeddlerId peddler)
-    {
-        var locations = new HashSet<LocationId>();
-        foreach (Trip trip in store.Context.Trips)
-        {
-            if (trip.Peddler == peddler)
-            {
-                locations.Add(trip.Location);
-            }
-        }
-
-        return locations;
     }
 }

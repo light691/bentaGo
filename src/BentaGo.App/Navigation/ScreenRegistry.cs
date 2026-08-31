@@ -21,7 +21,6 @@ public sealed class ScreenRegistry
         // Admin (BG-005d-ui); reachability is role-gated (see ScreenKeys).
         new ScreenRegistration(ScreenKeys.AdminUsers, typeof(BentaGo.App.Features.Admin.UserManagementViewModel), Ui.AutomationIds.AdminUsersUsername),
         new ScreenRegistration(ScreenKeys.AdminImport, typeof(BentaGo.App.Features.Admin.CatalogImportViewModel), Ui.AutomationIds.AdminImportFilePath),
-        new ScreenRegistration(ScreenKeys.AdminOverview, typeof(BentaGo.App.Features.Admin.AdminOverviewViewModel), Ui.AutomationIds.AdminOverviewRefresh),
         // BG-007: printer profile + test receipt + scanner diagnostics.
         new ScreenRegistration(ScreenKeys.AdminDevices, typeof(BentaGo.App.Features.Admin.AdminDevicesViewModel), Ui.AutomationIds.AdminDevicesProfile),
     ];

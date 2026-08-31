@@ -55,7 +55,6 @@ public sealed class UserAccountService(IUserAccountStore store, IPasswordHasher 
             Username = username,
             PasswordHash = hasher.Hash(cmd.Password),
             Role = cmd.Role,
-            PeddlerLink = cmd.PeddlerLink,
             FailedAttempts = 0,
             LockedUntilUtc = null,
             DeactivatedUtc = null,

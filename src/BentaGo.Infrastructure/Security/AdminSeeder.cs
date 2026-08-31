@@ -66,7 +66,6 @@ public sealed class AdminSeeder : IAdminSeeder
                 Username = AdminUsername,
                 PasswordHash = Hash(),
                 Role = Role.Admin,
-                PeddlerLink = null,
                 FailedAttempts = 0,
                 LockedUntilUtc = null,
                 DeactivatedUtc = null,

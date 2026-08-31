@@ -43,7 +43,7 @@ public sealed class UserManagementViewModel : ValidatableViewModelBase, IRetaina
     private UserRow? _selectedRow;
     private string _newUsername = "";
     private string _newPassword = "";
-    private Role _selectedRole = Role.Peddler;
+    private Role _selectedRole = Role.Supervisor;
     private string _changePasswordNew = "";
     private string? _errorMessage;
     private string? _statusMessage;
@@ -204,7 +204,6 @@ public sealed class UserManagementViewModel : ValidatableViewModelBase, IRetaina
             NewUsername.Trim(),
             NewPassword,
             _selectedRole,
-            PeddlerLink: null, // peddler linking is a later slice; the schema column exists (BG-005a)
             by.Value,
             DateTimeOffset.UtcNow));
 
@@ -405,7 +404,6 @@ public sealed class RoleChip : ViewModelBase
     internal static IReadOnlyList<RoleChip> CreateAll(Action<Role> select, Role selected) =>
         new RoleChip[]
         {
-            new(Role.Peddler, "Peddler", selected == Role.Peddler, select),
             new(Role.Supervisor, "Supervisor", selected == Role.Supervisor, select),
             new(Role.Admin, "Admin", selected == Role.Admin, select),
         };

@@ -12,7 +12,6 @@ using BentaGo.Core.Domain.Documents;
 using BentaGo.Core.Domain.Identity;
 using BentaGo.Core.Domain.Payments;
 using BentaGo.Core.Domain.Receipts;
-using BentaGo.Core.Domain.Trips;
 using BentaGo.Infrastructure.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -140,7 +139,7 @@ public sealed class AdminDevicesViewModel : ViewModelBase, IRetainableScreen
     {
         var when = new DateTimeOffset(2026, 1, 15, 8, 30, 0, TimeSpan.Zero);
         return new ReceiptDocument(
-            new ReceiptMeta("TEST-0000", when, new PeddlerId(Guid.NewGuid()), new TripId(Guid.NewGuid())),
+            new ReceiptMeta("TEST-0000", when, new DayKey("2026-01-15")),
             new[]
             {
                 new ReceiptLine("SARDINES", Money.FromPesos(45m), Quantity.Of(1), Money.Zero),

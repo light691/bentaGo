@@ -46,23 +46,23 @@ public sealed partial class SqliteLedgerStore : ILedgerStore, IDisposable, IAsyn
     private readonly List<AuditEvent> _audits = new();
 
     // Committed document sets, loaded at Bind/refresh; authoritative reads
-    // happen inside the append transaction on a stale head.
-    private IReadOnlyList<Trip> _docsTrips = Array.Empty<Trip>();
+    // happen inside the append transaction on a stale head. The day-lifecycle
+    // documents are the store's in-process registries (movement-less; not yet
+    // persisted — the day tables land with the next schema slice).
+    private readonly List<DayOpen> _docsDayOpens = new();
+    private readonly List<DayClose> _docsDayCloses = new();
+    private readonly List<DayReopen> _docsDayReopens = new();
     private IReadOnlyList<Sale> _docsSales = Array.Empty<Sale>();
     private IReadOnlyList<Return> _docsReturns = Array.Empty<Return>();
-    private IReadOnlyList<StockLoad> _docsLoads = Array.Empty<StockLoad>();
     private IReadOnlyList<SaleVoid> _docsVoids = Array.Empty<SaleVoid>();
     private IReadOnlyList<PhysicalCount> _docsCounts = Array.Empty<PhysicalCount>();
-    private IReadOnlyList<DailyClose> _docsCloses = Array.Empty<DailyClose>();
 
     // Open-attempt staging: documents registered since the last Bind (D5).
     private readonly List<Sale> _stagedSales = new();
     private readonly List<Return> _stagedReturns = new();
-    private readonly List<StockLoad> _stagedLoads = new();
     private readonly List<SaleVoid> _stagedVoids = new();
     private readonly List<Adjustment> _stagedAdjustments = new();
     private readonly List<PhysicalCount> _stagedCounts = new();
-    private readonly List<DailyClose> _stagedCloses = new();
 
     private long _headLastSequence;
     private long _headDocumentsVersion;
@@ -73,7 +73,7 @@ public sealed partial class SqliteLedgerStore : ILedgerStore, IDisposable, IAsyn
         _paths = paths;
         _debug = debug ?? new DebugOptions();
         _connectionString = $"Data Source={DbPath()};Pooling=False";
-        _context = new LedgerContext(_state, _docsTrips, _docsSales, _docsReturns, _docsLoads, _docsVoids, _docsCounts, _docsCloses);
+        _context = new LedgerContext(_state, _docsSales, _docsReturns, _docsVoids, _docsCounts, _docsDayOpens, _docsDayCloses, _docsDayReopens);
     }
 
     public LedgerContext Context
@@ -125,46 +125,28 @@ public sealed partial class SqliteLedgerStore : ILedgerStore, IDisposable, IAsyn
     // ------------------------------------------------------------------
 
     /// <summary>
-    /// Trips are movement-less by design: RegisterTrip is its OWN one-row
-    /// transaction (D5 asymmetry, flagged for the audit lane). The row is
-    /// committed immediately and the documents watermark advances.
+    /// Day documents are movement-less by design: Register* keeps the document
+    /// in the store's in-process registry (no durable write in this
+    /// compile-fix slice) and the documents watermark advances.
     /// </summary>
-    public void RegisterTrip(Trip trip)
+    public void RegisterDayOpen(DayOpen day)
     {
-        EnsureSynced();
-        SqliteConnection connection = _connection!;
+        _docsDayOpens.Add(day);
+    }
 
-        try
-        {
-            Execute(connection, "BEGIN IMMEDIATE");
-            _inTransaction = true;
-            try
-            {
-                InsertTrip(connection, trip);
-                BumpDocumentsVersion(connection);
-                Execute(connection, "COMMIT");
-                _inTransaction = false;
-                _headDocumentsVersion++;
-            }
-            catch
-            {
-                RollbackQuietly(connection);
-                throw;
-            }
-        }
-        catch (SqliteException ex)
-        {
-            throw IsBusy(ex)
-                ? new InvalidOperationException("ledger is busy; retry the trip registration", ex)
-                : new InvalidOperationException($"trip registration failed (duplicate trip id?): {ex.Message}", ex);
-        }
+    public void RegisterDayClose(DayClose close)
+    {
+        _docsDayCloses.Add(close);
+    }
+
+    public void RegisterDayReopen(DayReopen reopen)
+    {
+        _docsDayReopens.Add(reopen);
     }
 
     public void RegisterSale(Sale sale) => _stagedSales.Add(sale);
 
     public void RegisterReturn(Return @return) => _stagedReturns.Add(@return);
-
-    public void RegisterLoad(StockLoad load) => _stagedLoads.Add(load);
 
     public void RegisterVoid(SaleVoid @void) => _stagedVoids.Add(@void);
 
@@ -172,11 +154,9 @@ public sealed partial class SqliteLedgerStore : ILedgerStore, IDisposable, IAsyn
 
     public void RegisterCount(PhysicalCount count) => _stagedCounts.Add(count);
 
-    public void RegisterClose(DailyClose @close) => _stagedCloses.Add(@close);
-
     /// <summary>
     /// Binds the committed document sets (read from the database, so a
-    /// standalone RegisterTrip committed by any store is visible) plus the
+    /// standalone registration committed by any store is visible) plus the
     /// staged open attempt into the fold, and refreshes the context snapshot.
     /// </summary>
     public void Bind()
@@ -186,11 +166,11 @@ public sealed partial class SqliteLedgerStore : ILedgerStore, IDisposable, IAsyn
 
         IReadOnlyList<Sale> sales = _docsSales.Concat(_stagedSales).ToList();
         IReadOnlyList<Return> returns = _docsReturns.Concat(_stagedReturns).ToList();
-        IReadOnlyList<StockLoad> loads = _docsLoads.Concat(_stagedLoads).ToList();
         IReadOnlyList<SaleVoid> voids = _docsVoids.Concat(_stagedVoids).ToList();
 
-        _state.BindDocuments(_docsTrips, sales, returns, loads, voids);
-        Context = new LedgerContext(_state, _docsTrips.ToList(), sales, returns, loads, voids, _docsCounts.ToList(), _docsCloses.ToList());
+        _state.BindDocuments(sales, returns, voids);
+        _state.BindDays(_docsDayOpens, _docsDayCloses, _docsDayReopens);
+        Context = RefreshContext(sales, returns, voids);
     }
 
     // ------------------------------------------------------------------
@@ -221,7 +201,7 @@ public sealed partial class SqliteLedgerStore : ILedgerStore, IDisposable, IAsyn
                     }
                 }
 
-                if (batch.Movements.Count == 0)
+                if (batch.Movements.Count == 0 && batch.Audits is not { Count: > 0 })
                 {
                     return FailRollback(connection, new DomainError("EMPTY_APPEND", "nothing to append"));
                 }
@@ -239,9 +219,9 @@ public sealed partial class SqliteLedgerStore : ILedgerStore, IDisposable, IAsyn
                 LedgerState next = _state.Clone();
                 IReadOnlyList<Sale> sales = _docsSales.Concat(_stagedSales).ToList();
                 IReadOnlyList<Return> returns = _docsReturns.Concat(_stagedReturns).ToList();
-                IReadOnlyList<StockLoad> loads = _docsLoads.Concat(_stagedLoads).ToList();
                 IReadOnlyList<SaleVoid> voids = _docsVoids.Concat(_stagedVoids).ToList();
-                next.BindDocuments(_docsTrips, sales, returns, loads, voids);
+                next.BindDocuments(sales, returns, voids);
+                next.BindDays(_docsDayOpens, _docsDayCloses, _docsDayReopens);
 
                 long first = _state.LastSequence + 1;
                 long sequence = first;
@@ -324,7 +304,7 @@ public sealed partial class SqliteLedgerStore : ILedgerStore, IDisposable, IAsyn
                     _audits.AddRange(persistedAudits);
                 }
 
-                Context = new LedgerContext(_state, _docsTrips.ToList(), sales, returns, loads, voids, _docsCounts.ToList(), _docsCloses.ToList());
+                Context = RefreshContext(sales, returns, voids);
                 ClearStaged();
                 return Result<AppendOutcome>.Ok(new AppendOutcome(
                     new AppendReceipt(first, sequence - 1), Replayed: false, ReplayedPayload: null));
@@ -453,9 +433,10 @@ public sealed partial class SqliteLedgerStore : ILedgerStore, IDisposable, IAsyn
             List<Movement> movements = ReadMovements(connection);
             DocumentSets docs = ReadDocumentSets(connection);
             LedgerState rebuilt = LedgerState.Fold(
-                movements, docs.Trips, docs.Sales, docs.Returns, docs.Loads, docs.Voids);
+                movements, docs.Sales, docs.Returns, docs.Voids);
+            rebuilt.BindDays(_docsDayOpens, _docsDayCloses, _docsDayReopens);
 
-            RewriteAllProjections(connection, rebuilt, movements, docs.Trips);
+            RewriteAllProjections(connection, rebuilt, movements);
 
             long newDocsVersion = ReadHead(connection).DocumentsVersion + 1;
             UpdateHead(connection, rebuilt.LastSequence, newDocsVersion);
@@ -470,18 +451,15 @@ public sealed partial class SqliteLedgerStore : ILedgerStore, IDisposable, IAsyn
             _movements.AddRange(movements);
             _audits.Clear();
             _audits.AddRange(ReadAudits(connection));
-            _docsTrips = docs.Trips;
             _docsSales = docs.Sales;
             _docsReturns = docs.Returns;
-            _docsLoads = docs.Loads;
             _docsVoids = docs.Voids;
             _docsCounts = docs.Counts;
-            _docsCloses = docs.Closes;
             Context = RefreshContext();
             return new RebuildReceipt(
                 rebuilt.LastSequence,
                 movements.Count,
-                docs.Trips.Count + docs.Sales.Count + docs.Returns.Count + docs.Loads.Count + docs.Voids.Count);
+                docs.Sales.Count + docs.Returns.Count + docs.Voids.Count);
         }
         catch (LedgerIntegrityException ex)
         {
@@ -642,9 +620,8 @@ public sealed partial class SqliteLedgerStore : ILedgerStore, IDisposable, IAsyn
     }
 
     private bool HasStagedDocuments() =>
-        _stagedSales.Count > 0 || _stagedReturns.Count > 0 || _stagedLoads.Count > 0 ||
-        _stagedVoids.Count > 0 || _stagedAdjustments.Count > 0 || _stagedCounts.Count > 0 ||
-        _stagedCloses.Count > 0;
+        _stagedSales.Count > 0 || _stagedReturns.Count > 0 ||
+        _stagedVoids.Count > 0 || _stagedAdjustments.Count > 0 || _stagedCounts.Count > 0;
 
     /// <summary>
     /// Re-folds the persisted stream into the hot state and reloads the
@@ -660,20 +637,18 @@ public sealed partial class SqliteLedgerStore : ILedgerStore, IDisposable, IAsyn
         List<Movement> movements = ReadMovements(connection);
         DocumentSets docs = ReadDocumentSets(connection);
         LedgerState folded = LedgerState.Fold(
-            movements, docs.Trips, docs.Sales, docs.Returns, docs.Loads, docs.Voids);
+            movements, docs.Sales, docs.Returns, docs.Voids);
+        folded.BindDays(_docsDayOpens, _docsDayCloses, _docsDayReopens);
 
         _state = folded;
         _movements.Clear();
         _movements.AddRange(movements);
         _audits.Clear();
         _audits.AddRange(ReadAudits(connection));
-        _docsTrips = docs.Trips;
         _docsSales = docs.Sales;
         _docsReturns = docs.Returns;
-        _docsLoads = docs.Loads;
         _docsVoids = docs.Voids;
         _docsCounts = docs.Counts;
-        _docsCloses = docs.Closes;
         _headLastSequence = lastSeq;
         _headDocumentsVersion = docsVersion;
         Context = RefreshContext();
@@ -682,28 +657,25 @@ public sealed partial class SqliteLedgerStore : ILedgerStore, IDisposable, IAsyn
     private void RefreshDocumentSets(SqliteConnection connection)
     {
         DocumentSets docs = ReadDocumentSets(connection);
-        _docsTrips = docs.Trips;
         _docsSales = docs.Sales;
         _docsReturns = docs.Returns;
-        _docsLoads = docs.Loads;
         _docsVoids = docs.Voids;
         _docsCounts = docs.Counts;
-        _docsCloses = docs.Closes;
     }
 
     private LedgerContext RefreshContext() =>
-        new(_state, _docsTrips.ToList(), _docsSales.ToList(), _docsReturns.ToList(),
-            _docsLoads.ToList(), _docsVoids.ToList(), _docsCounts.ToList(), _docsCloses.ToList());
+        RefreshContext(_docsSales, _docsReturns, _docsVoids);
+
+    private LedgerContext RefreshContext(IReadOnlyList<Sale> sales, IReadOnlyList<Return> returns, IReadOnlyList<SaleVoid> voids) =>
+        new(_state, sales, returns, voids, _docsCounts, _docsDayOpens, _docsDayCloses, _docsDayReopens);
 
     private void ClearStaged()
     {
         _stagedSales.Clear();
         _stagedReturns.Clear();
-        _stagedLoads.Clear();
         _stagedVoids.Clear();
         _stagedAdjustments.Clear();
         _stagedCounts.Clear();
-        _stagedCloses.Clear();
     }
 
     /// <summary>

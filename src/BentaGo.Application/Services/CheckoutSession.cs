@@ -48,8 +48,7 @@ public sealed class CheckoutSession : ICheckoutSession
         ISaleNumberSource numbers,
         IActorContext actors,
         User user,
-        Func<DateTimeOffset> clock,
-        Trip openTrip)
+        Func<DateTimeOffset> clock)
     {
         _store = store;
         _products = products;
@@ -58,14 +57,12 @@ public sealed class CheckoutSession : ICheckoutSession
         _actors = actors;
         _user = user;
         _clock = clock;
-        Trip = openTrip.Id;
-        Peddler = openTrip.Peddler;
+        Day = DayKey.FromUtc(clock());
     }
 
     public CheckoutKey Key => _key;
     public CheckoutSessionState State => _state;
-    public TripId Trip { get; }
-    public PeddlerId Peddler { get; }
+    public DayKey Day { get; }
     public IReadOnlyList<SessionLine> Lines => _lines;
     public string ReceiptNumber => _receiptNumber;
 
@@ -111,7 +108,7 @@ public sealed class CheckoutSession : ICheckoutSession
             return Result<bool>.Fail(new DomainError("LINE_ZERO", "a sale line needs a positive quantity", product.Sku));
         }
 
-        LocationId location = TripLocation();
+        LocationId location = StoreLocations.Warehouse;
         foreach (SessionLine line in _lines)
         {
             if (line.ProductId != product.Id)
@@ -163,7 +160,7 @@ public sealed class CheckoutSession : ICheckoutSession
             return Result<bool>.Fail(new DomainError("LINE_ZERO", "a sale line needs a positive quantity", line.Sku));
         }
 
-        if (delta > 0 && _store.State.StockOnHand(line.ProductId, TripLocation()).Units < proposed)
+        if (delta > 0 && _store.State.StockOnHand(line.ProductId, StoreLocations.Warehouse).Units < proposed)
         {
             return Result<bool>.Fail(new DomainError(
                 "STOCK_INSUFFICIENT", "not enough stock on hand", line.Sku));
@@ -316,7 +313,7 @@ public sealed class CheckoutSession : ICheckoutSession
                 return BackToBuilding(verified.Errors);
             }
 
-            LocationId location = TripLocation();
+            LocationId location = StoreLocations.Warehouse;
             var errors = new List<DomainError>();
             var lines = new List<NewSaleLine>(_lines.Count);
             foreach (SessionLine line in _lines)
@@ -388,7 +385,7 @@ public sealed class CheckoutSession : ICheckoutSession
             }
 
             SaleId saleId = new(Guid.NewGuid());
-            var cmd = new NewSaleCommand(saleId, Trip, _receiptNumber, _user.Id, now, lines, payments);
+            var cmd = new NewSaleCommand(saleId, Day, _receiptNumber, _user.Id, now, lines, payments);
 
             Result<CheckoutOutcome> outcome = _checkout.Checkout(Key, cmd);
             if (outcome.IsFailure)
@@ -430,20 +427,6 @@ public sealed class CheckoutSession : ICheckoutSession
                 _state = CheckoutSessionState.Building;
             }
         }
-    }
-
-    private LocationId TripLocation()
-    {
-        _store.Bind();
-        foreach (Trip trip in _store.Context.Trips)
-        {
-            if (trip.Id == Trip)
-            {
-                return trip.Location;
-            }
-        }
-
-        throw new InvalidOperationException($"session trip {Trip} is not registered");
     }
 
     private SessionLine? FindLine(SaleLineId lineId)

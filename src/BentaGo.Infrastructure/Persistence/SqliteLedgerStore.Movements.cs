@@ -89,20 +89,11 @@ public sealed partial class SqliteLedgerStore
             long? amount = NullableLong(reader, 12);
             long? reverses = NullableLong(reader, 13);
             string? reason = NullableString(reader, 14);
-            string? trip = NullableString(reader, 15);
             long? observed = NullableLong(reader, 16);
 
             return kind switch
             {
-                "OpeningStock" => Moves.OpeningStock(sequence, whenUtc, actor, RequireRef<LoadRef>(kind, document),
-                    new ProductId(ParseGuid(RequireColumn(kind, "product_id", product))),
-                    new LocationId(ParseGuid(RequireColumn(kind, "location_id", location))),
-                    Quantity.Of(checked((int)RequireColumn(kind, "quantity", quantity)))),
-                "TransferOut" => Moves.TransferOut(sequence, whenUtc, actor, RequireDocumentRef(kind, document),
-                    new ProductId(ParseGuid(RequireColumn(kind, "product_id", product))),
-                    new LocationId(ParseGuid(RequireColumn(kind, "location_id", location))),
-                    Quantity.Of(checked((int)RequireColumn(kind, "quantity", quantity)))),
-                "TransferIn" => Moves.TransferIn(sequence, whenUtc, actor, RequireDocumentRef(kind, document),
+                "GoodsReceived" => Moves.GoodsReceived(sequence, whenUtc, actor, RequireRef<GoodsRef>(kind, document),
                     new ProductId(ParseGuid(RequireColumn(kind, "product_id", product))),
                     new LocationId(ParseGuid(RequireColumn(kind, "location_id", location))),
                     Quantity.Of(checked((int)RequireColumn(kind, "quantity", quantity)))),
@@ -160,13 +151,13 @@ public sealed partial class SqliteLedgerStore
                     new ProductId(ParseGuid(RequireColumn(kind, "product_id", product))),
                     new LocationId(ParseGuid(RequireColumn(kind, "location_id", location))),
                     Quantity.Of(checked((int)RequireColumn(kind, "observed_quantity", observed)))),
-                "TripClose" => Moves.TripClose(sequence, whenUtc, actor, RequireRef<CloseRef>(kind, document),
-                    new TripId(ParseGuid(RequireColumn(kind, "trip_id", trip)))),
-                "TripReopen" => Moves.TripReopen(sequence, whenUtc, actor, RequireRef<ReopenRef>(kind, document),
-                    new TripId(ParseGuid(RequireColumn(kind, "trip_id", trip))),
+                "FundIn" => Moves.FundIn(sequence, whenUtc, actor, RequireRef<FundRef>(kind, document),
+                    ParseMethod(RequireColumn(kind, "method", method)),
+                    new Money(RequireColumn(kind, "amount_centavos", amount)),
                     RequireColumn(kind, "reason", reason)),
-                "TripCancel" => Moves.TripCancel(sequence, whenUtc, actor, RequireRef<CancelRef>(kind, document),
-                    new TripId(ParseGuid(RequireColumn(kind, "trip_id", trip))),
+                "FundOut" => Moves.FundOut(sequence, whenUtc, actor, RequireRef<FundRef>(kind, document),
+                    ParseMethod(RequireColumn(kind, "method", method)),
+                    new Money(RequireColumn(kind, "amount_centavos", amount)),
                     RequireColumn(kind, "reason", reason)),
                 _ => throw new LedgerCorruptException($"unknown movement kind '{kind}' at sequence {sequence}"),
             };
@@ -187,21 +178,7 @@ public sealed partial class SqliteLedgerStore
     {
         switch (movement)
         {
-            case OpeningStock m:
-                product = D(m.ProductId);
-                location = D(m.LocationId);
-                quantity = m.Quantity.Units;
-                saleLine = paymentLine = method = reason = trip = null;
-                amount = reverses = observed = null;
-                break;
-            case TransferOut m:
-                product = D(m.ProductId);
-                location = D(m.LocationId);
-                quantity = m.Quantity.Units;
-                saleLine = paymentLine = method = reason = trip = null;
-                amount = reverses = observed = null;
-                break;
-            case TransferIn m:
+            case GoodsReceived m:
                 product = D(m.ProductId);
                 location = D(m.LocationId);
                 quantity = m.Quantity.Units;
@@ -288,6 +265,20 @@ public sealed partial class SqliteLedgerStore
                 product = location = saleLine = reason = trip = null;
                 quantity = observed = null;
                 break;
+            case FundIn m:
+                method = m.Method.ToString();
+                amount = m.Amount.Centavos;
+                reason = m.Reason;
+                product = location = saleLine = paymentLine = trip = null;
+                quantity = reverses = observed = null;
+                break;
+            case FundOut m:
+                method = m.Method.ToString();
+                amount = m.Amount.Centavos;
+                reason = m.Reason;
+                product = location = saleLine = paymentLine = trip = null;
+                quantity = reverses = observed = null;
+                break;
             case CountObserved m:
                 product = D(m.ProductId);
                 location = D(m.LocationId);
@@ -296,23 +287,6 @@ public sealed partial class SqliteLedgerStore
                 saleLine = paymentLine = method = reason = trip = null;
                 amount = reverses = null;
                 break;
-            case TripClose m:
-                trip = D(m.TripId);
-                product = location = saleLine = paymentLine = method = reason = null;
-                quantity = amount = reverses = observed = null;
-                break;
-            case TripReopen m:
-                trip = D(m.TripId);
-                reason = m.Reason;
-                product = location = saleLine = paymentLine = method = null;
-                quantity = amount = reverses = observed = null;
-                break;
-            case TripCancel m:
-                trip = D(m.TripId);
-                reason = m.Reason;
-                product = location = saleLine = paymentLine = method = null;
-                quantity = amount = reverses = observed = null;
-                break;
             default:
                 throw new LedgerCorruptException($"unknown movement kind '{movement.GetType().Name}'");
         }
@@ -320,31 +294,25 @@ public sealed partial class SqliteLedgerStore
 
     private static string DocKindName(DocumentRef reference) => reference switch
     {
-        LoadRef => "Load",
+        GoodsRef => "Goods",
         SaleRef => "Sale",
         VoidRef => "Void",
         ReturnRef => "Return",
         AdjustmentRef => "Adjustment",
         CountRef => "Count",
-        CloseRef => "Close",
-        ReopenRef => "Reopen",
-        CancelRef => "Cancel",
-        TransferRef => "Transfer",
+        FundRef => "Fund",
         _ => throw new LedgerCorruptException($"unknown document reference '{reference.GetType().Name}'"),
     };
 
     private static string DocId(DocumentRef reference) => reference switch
     {
-        LoadRef r => D(r.Id),
+        GoodsRef r => D(r.Id),
         SaleRef r => D(r.Id),
         VoidRef r => D(r.Id),
         ReturnRef r => D(r.Id),
         AdjustmentRef r => D(r.Id),
         CountRef r => D(r.Id),
-        CloseRef r => D(r.Id),
-        ReopenRef r => D(r.Trip),
-        CancelRef r => D(r.Trip),
-        TransferRef r => D(r.Id),
+        FundRef r => D(r.Id),
         _ => throw new LedgerCorruptException($"unknown document reference '{reference.GetType().Name}'"),
     };
 
@@ -353,16 +321,13 @@ public sealed partial class SqliteLedgerStore
         Guid id = ParseGuid(docId);
         return docKind switch
         {
-            "Load" => new LoadRef(new LoadId(id)),
+            "Goods" => new GoodsRef(new GoodsId(id)),
             "Sale" => new SaleRef(new SaleId(id)),
             "Void" => new VoidRef(new VoidId(id)),
             "Return" => new ReturnRef(new ReturnId(id)),
             "Adjustment" => new AdjustmentRef(new AdjustmentId(id)),
             "Count" => new CountRef(new CountId(id)),
-            "Close" => new CloseRef(new CloseId(id)),
-            "Reopen" => new ReopenRef(new TripId(id)),
-            "Cancel" => new CancelRef(new TripId(id)),
-            "Transfer" => new TransferRef(new TransferId(id)),
+            "Fund" => new FundRef(new FundEntryId(id)),
             _ => throw new LedgerCorruptException($"unknown document kind '{docKind}'"),
         };
     }
@@ -519,11 +484,6 @@ public sealed partial class SqliteLedgerStore
         where T : DocumentRef =>
         reference as T ?? throw new LedgerCorruptException($"{kind} carries a {reference.GetType().Name} document; expected {typeof(T).Name}");
 
-    private static DocumentRef RequireDocumentRef(string kind, DocumentRef reference) =>
-        reference is LoadRef or TransferRef
-            ? reference
-            : throw new LedgerCorruptException($"{kind} carries a {reference.GetType().Name} document; expected Load or Transfer");
-
     private static PaymentMethod ParseMethod(string method) =>
         Enum.TryParse<PaymentMethod>(method, out PaymentMethod parsed)
             ? parsed
@@ -538,11 +498,8 @@ public sealed partial class SqliteLedgerStore
     private static Guid ParseGuid(string value) => Guid.Parse(value);
 
     private static string D(UserId value) => value.Value.ToString("D");
-    private static string D(PeddlerId value) => value.Value.ToString("D");
     private static string D(ProductId value) => value.Value.ToString("D");
     private static string D(LocationId value) => value.Value.ToString("D");
-    private static string D(TripId value) => value.Value.ToString("D");
-    private static string D(LoadId value) => value.Value.ToString("D");
     private static string D(SaleId value) => value.Value.ToString("D");
     private static string D(SaleLineId value) => value.Value.ToString("D");
     private static string D(VoidId value) => value.Value.ToString("D");
@@ -550,6 +507,7 @@ public sealed partial class SqliteLedgerStore
     private static string D(AdjustmentId value) => value.Value.ToString("D");
     private static string D(CountId value) => value.Value.ToString("D");
     private static string D(CloseId value) => value.Value.ToString("D");
-    private static string D(TransferId value) => value.Value.ToString("D");
+    private static string D(GoodsId value) => value.Value.ToString("D");
+    private static string D(FundEntryId value) => value.Value.ToString("D");
     private static string D(PaymentLineId value) => value.Value.ToString("D");
 }

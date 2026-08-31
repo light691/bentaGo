@@ -42,9 +42,6 @@
     <DataTemplate DataType="{x:Type admin:CatalogImportViewModel}">
         <admin:CatalogImportView />
     </DataTemplate>
-    <DataTemplate DataType="{x:Type admin:AdminOverviewViewModel}">
-        <admin:AdminOverviewView />
-    </DataTemplate>
 
     <!-- Dialogs are hosted by DialogHost through the same map. -->
     <DataTemplate DataType="{x:Type payment:PaymentDialogViewModel}">

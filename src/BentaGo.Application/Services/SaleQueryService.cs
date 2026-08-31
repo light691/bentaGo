@@ -10,24 +10,17 @@ namespace BentaGo.Application.Services;
 
 /// <summary>
 /// Read-only transaction history (D9). Pure folds over store.Bind() +
-/// Context/State/Audits — the TripReadService/AdminReadService pattern; no
-/// ILedgerStore extension, no in-memory-mirror churn, restart/rebuild
-/// identical for free. Results are peddler-scoped (cross-peddler →
-/// TRIP_PEDDLER_MISMATCH).
+/// Context/State/Audits — no ILedgerStore extension, no in-memory-mirror
+/// churn, restart/rebuild identical for free.
 /// </summary>
 public sealed class SaleQueryService(ILedgerStore store) : ISaleQueryService
 {
-    public Result<IReadOnlyList<SaleHistoryRow>> Query(PeddlerId peddler, SaleHistoryFilter? filter = null)
+    public Result<IReadOnlyList<SaleHistoryRow>> Query(SaleHistoryFilter? filter = null)
     {
         store.Bind();
         var rows = new List<SaleHistoryRow>();
         foreach (Sale sale in store.Context.Sales)
         {
-            if (sale.Peddler != peddler)
-            {
-                continue;
-            }
-
             if (!Matches(sale, filter))
             {
                 continue;
@@ -44,21 +37,21 @@ public sealed class SaleQueryService(ILedgerStore store) : ISaleQueryService
         return Result<IReadOnlyList<SaleHistoryRow>>.Ok(rows);
     }
 
-    public Result<SaleDetail> GetByReceiptNumber(PeddlerId peddler, string receiptNumber)
+    public Result<SaleDetail> GetByReceiptNumber(string receiptNumber)
     {
         store.Bind();
         foreach (Sale sale in store.Context.Sales)
         {
             if (string.Equals(sale.ReceiptNumber, receiptNumber, StringComparison.OrdinalIgnoreCase))
             {
-                return DetailFor(peddler, sale);
+                return DetailFor(sale);
             }
         }
 
         return Result<SaleDetail>.Fail(new DomainError("UNKNOWN_SALE", $"no sale {receiptNumber}"));
     }
 
-    public Result<SaleDetail> GetByPaymentReference(PeddlerId peddler, string reference)
+    public Result<SaleDetail> GetByPaymentReference(string reference)
     {
         store.Bind();
         foreach (Sale sale in store.Context.Sales)
@@ -67,7 +60,7 @@ public sealed class SaleQueryService(ILedgerStore store) : ISaleQueryService
             {
                 if (payment.Reference.Contains(reference, StringComparison.OrdinalIgnoreCase))
                 {
-                    return DetailFor(peddler, sale);
+                    return DetailFor(sale);
                 }
             }
         }
@@ -75,7 +68,7 @@ public sealed class SaleQueryService(ILedgerStore store) : ISaleQueryService
         return Result<SaleDetail>.Fail(new DomainError("UNKNOWN_SALE", $"no sale with payment reference {reference}"));
     }
 
-    public Result<SaleDetail> GetById(PeddlerId peddler, SaleId saleId)
+    public Result<SaleDetail> GetById(SaleId saleId)
     {
         store.Bind();
         Sale? sale = store.Context.FindSale(saleId);
@@ -84,7 +77,7 @@ public sealed class SaleQueryService(ILedgerStore store) : ISaleQueryService
             return Result<SaleDetail>.Fail(new DomainError("UNKNOWN_SALE", $"no sale {saleId}"));
         }
 
-        return DetailFor(peddler, sale);
+        return DetailFor(sale);
     }
 
     private bool Matches(Sale sale, SaleHistoryFilter? filter)
@@ -100,7 +93,7 @@ public sealed class SaleQueryService(ILedgerStore store) : ISaleQueryService
             return false;
         }
 
-        if (filter.Trip is { } trip && sale.Trip != trip)
+        if (filter.DayKey is { } dayKey && sale.Day != dayKey)
         {
             return false;
         }
@@ -131,18 +124,11 @@ public sealed class SaleQueryService(ILedgerStore store) : ISaleQueryService
     }
 
     private SaleHistoryRow ToRow(Sale sale) => new(
-        sale.Id, sale.ReceiptNumber, sale.CreatedUtc, sale.Peddler, sale.Trip, sale.Location,
+        sale.Id, sale.ReceiptNumber, sale.CreatedUtc, sale.Day, sale.Location,
         sale.Total, store.State.Sale(sale.Id).Status, PaymentsOf(sale), PrintStatusOf(sale.Id));
 
-    private Result<SaleDetail> DetailFor(PeddlerId peddler, Sale sale)
+    private Result<SaleDetail> DetailFor(Sale sale)
     {
-        if (sale.Peddler != peddler)
-        {
-            return Result<SaleDetail>.Fail(new DomainError(
-                "TRIP_PEDDLER_MISMATCH",
-                $"sale {sale.ReceiptNumber} belongs to peddler {sale.Peddler}, not {peddler}"));
-        }
-
         var lines = new List<SaleLineDetail>(sale.Lines.Count);
         foreach (SaleLine line in sale.Lines)
         {
@@ -152,7 +138,7 @@ public sealed class SaleQueryService(ILedgerStore store) : ISaleQueryService
         }
 
         return Result<SaleDetail>.Ok(new SaleDetail(
-            sale.Id, sale.ReceiptNumber, sale.Trip, sale.Peddler, sale.Location,
+            sale.Id, sale.ReceiptNumber, sale.Day, sale.Location,
             sale.CreatedUtc, sale.CreatedBy, sale.Total, store.State.Sale(sale.Id).Status,
             lines, PaymentsOf(sale), PrintStatusOf(sale.Id)));
     }

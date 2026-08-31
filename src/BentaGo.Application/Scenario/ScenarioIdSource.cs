@@ -3,6 +3,9 @@ using System.Text;
 
 namespace BentaGo.Application.Scenario;
 
+/// <summary>A rendered scenario/fixture report: the text the caller prints.</summary>
+public sealed record ScenarioReport(string Text);
+
 /// <summary>
 /// Deterministic Guid source for scenarios and tests: same seed, same ids,
 /// same order, byte-identical re-runs. Each id is the first 16 bytes of

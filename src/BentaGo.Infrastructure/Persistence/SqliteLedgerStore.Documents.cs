@@ -7,37 +7,21 @@ using Microsoft.Data.Sqlite;
 namespace BentaGo.Infrastructure.Persistence;
 
 /// <summary>
-/// Document persistence for <see cref="SqliteLedgerStore"/>: the five
-/// fold-bound document sets (trips, sales+lines+payments, returns+lines,
-/// loads+lines, voids) are read back into domain records, and the staged
-/// open-attempt documents are INSERTed in the append transaction (D5).
+/// Document persistence for <see cref="SqliteLedgerStore"/>: the fold-bound
+/// document sets (sales+lines+payments, returns+lines, voids) are read back
+/// into domain records, and the staged open-attempt documents are INSERTed in
+/// the append transaction (D5). Day-lifecycle documents (open/close/reopen)
+/// are movement-less and are kept by the store's in-process registries —
+/// this compile-fix slice stops persisting the retired trip/ledger document
+/// tables; the day tables land with the next schema slice.
 /// </summary>
 public sealed partial class SqliteLedgerStore
 {
     private sealed record DocumentSets(
-        IReadOnlyList<Trip> Trips,
         IReadOnlyList<Sale> Sales,
         IReadOnlyList<Return> Returns,
-        IReadOnlyList<StockLoad> Loads,
         IReadOnlyList<SaleVoid> Voids,
-        IReadOnlyList<PhysicalCount> Counts,
-        IReadOnlyList<DailyClose> Closes);
-
-    private void InsertTrip(SqliteConnection connection, Trip trip)
-    {
-        using var command = connection.CreateCommand();
-        command.CommandText =
-            """
-            INSERT INTO "Trips" ("id", "peddler_id", "location_id", "created_utc", "created_by")
-            VALUES ($id, $peddler, $location, $created, $createdBy)
-            """;
-        command.Parameters.AddWithValue("$id", D(trip.Id));
-        command.Parameters.AddWithValue("$peddler", D(trip.Peddler));
-        command.Parameters.AddWithValue("$location", D(trip.Location));
-        command.Parameters.AddWithValue("$created", IsoUtc(trip.CreatedUtc));
-        command.Parameters.AddWithValue("$createdBy", D(trip.CreatedBy));
-        command.ExecuteNonQuery();
-    }
+        IReadOnlyList<PhysicalCount> Counts);
 
     /// <summary>Inserts ONLY the open-attempt documents (committed sets are already in the DB).</summary>
     private void InsertStagedDocuments(SqliteConnection connection)
@@ -65,15 +49,6 @@ public sealed partial class SqliteLedgerStore
             }
         }
 
-        foreach (StockLoad load in _stagedLoads)
-        {
-            InsertLoad(connection, load);
-            foreach (StockLoadLine line in load.Lines)
-            {
-                InsertLoadLine(connection, load.Id, line);
-            }
-        }
-
         foreach (SaleVoid @void in _stagedVoids)
         {
             InsertVoid(connection, @void);
@@ -92,11 +67,6 @@ public sealed partial class SqliteLedgerStore
                 InsertCountLine(connection, count.Id, line);
             }
         }
-
-        foreach (DailyClose @close in _stagedCloses)
-        {
-            InsertClose(connection, @close);
-        }
     }
 
     private static void InsertSale(SqliteConnection connection, Sale sale)
@@ -107,9 +77,12 @@ public sealed partial class SqliteLedgerStore
             INSERT INTO "Sales" ("id", "trip_id", "peddler_id", "location_id", "receipt_number", "created_utc", "created_by", "total_centavos")
             VALUES ($id, $trip, $peddler, $location, $receipt, $created, $createdBy, $total)
             """;
+        // Compile-fix slice: the schema's NOT NULL trip/peddler columns carry
+        // the sale's trading-day key and an empty guid sentinel — the day is
+        // what the store-POS fold needs back on read.
         command.Parameters.AddWithValue("$id", D(sale.Id));
-        command.Parameters.AddWithValue("$trip", D(sale.Trip));
-        command.Parameters.AddWithValue("$peddler", D(sale.Peddler));
+        command.Parameters.AddWithValue("$trip", sale.Day.Value);
+        command.Parameters.AddWithValue("$peddler", Guid.Empty.ToString("D"));
         command.Parameters.AddWithValue("$location", D(sale.Location));
         command.Parameters.AddWithValue("$receipt", sale.ReceiptNumber);
         command.Parameters.AddWithValue("$created", IsoUtc(sale.CreatedUtc));
@@ -185,39 +158,6 @@ public sealed partial class SqliteLedgerStore
         command.ExecuteNonQuery();
     }
 
-    private static void InsertLoad(SqliteConnection connection, StockLoad load)
-    {
-        using var command = connection.CreateCommand();
-        command.CommandText =
-            """
-            INSERT INTO "StockLoads" ("id", "load_number", "trip_id", "by", "when_utc")
-            VALUES ($id, $number, $trip, $by, $when)
-            """;
-        command.Parameters.AddWithValue("$id", D(load.Id));
-        command.Parameters.AddWithValue("$number", load.LoadNumber);
-        command.Parameters.AddWithValue("$trip", D(load.Trip));
-        command.Parameters.AddWithValue("$by", D(load.By));
-        command.Parameters.AddWithValue("$when", IsoUtc(load.WhenUtc));
-        command.ExecuteNonQuery();
-    }
-
-    private static void InsertLoadLine(SqliteConnection connection, LoadId loadId, StockLoadLine line)
-    {
-        using var command = connection.CreateCommand();
-        command.CommandText =
-            """
-            INSERT INTO "StockLoadLines" ("load_id", "product_id", "sku", "product_name", "quantity", "unit_cost_centavos")
-            VALUES ($load, $product, $sku, $name, $quantity, $cost)
-            """;
-        command.Parameters.AddWithValue("$load", D(loadId));
-        command.Parameters.AddWithValue("$product", D(line.ProductId));
-        command.Parameters.AddWithValue("$sku", line.Sku);
-        command.Parameters.AddWithValue("$name", line.ProductName);
-        command.Parameters.AddWithValue("$quantity", line.Quantity.Units);
-        command.Parameters.AddWithValue("$cost", line.UnitCost.Centavos);
-        command.ExecuteNonQuery();
-    }
-
     private static void InsertVoid(SqliteConnection connection, SaleVoid @void)
     {
         using var command = connection.CreateCommand();
@@ -281,57 +221,15 @@ public sealed partial class SqliteLedgerStore
         command.ExecuteNonQuery();
     }
 
-    private static void InsertClose(SqliteConnection connection, DailyClose @close)
-    {
-        using var command = connection.CreateCommand();
-        command.CommandText =
-            """
-            INSERT INTO "DailyCloses" ("id", "trip_id", "expected_cash_centavos", "counted_cash_centavos", "variance_centavos", "notes", "by", "when_utc")
-            VALUES ($id, $trip, $expected, $counted, $variance, $notes, $by, $when)
-            """;
-        command.Parameters.AddWithValue("$id", D(@close.Id));
-        command.Parameters.AddWithValue("$trip", D(@close.Trip));
-        command.Parameters.AddWithValue("$expected", @close.ExpectedCash.Centavos);
-        command.Parameters.AddWithValue("$counted", @close.CountedCash.Centavos);
-        command.Parameters.AddWithValue("$variance", @close.Variance.Centavos);
-        command.Parameters.AddWithValue("$notes", (object?)@close.Notes ?? DBNull.Value);
-        command.Parameters.AddWithValue("$by", D(@close.By));
-        command.Parameters.AddWithValue("$when", IsoUtc(@close.WhenUtc));
-        command.ExecuteNonQuery();
-    }
-
     private static DocumentSets ReadDocumentSets(SqliteConnection connection)
     {
-        List<Trip> trips = ReadTrips(connection);
         Dictionary<SaleId, List<SaleLine>> lineGroups = ReadSaleLines(connection);
         Dictionary<SaleId, List<PaymentLine>> paymentGroups = ReadPaymentLines(connection);
         List<Sale> sales = ReadSales(connection, lineGroups, paymentGroups);
         List<Return> returns = ReadReturns(connection);
-        List<StockLoad> loads = ReadLoads(connection);
         List<SaleVoid> voids = ReadVoids(connection);
         List<PhysicalCount> counts = ReadCounts(connection);
-        List<DailyClose> closes = ReadCloses(connection);
-        return new DocumentSets(trips, sales, returns, loads, voids, counts, closes);
-    }
-
-    private static List<Trip> ReadTrips(SqliteConnection connection)
-    {
-        var trips = new List<Trip>();
-        using var command = connection.CreateCommand();
-        command.CommandText =
-            "SELECT \"id\", \"peddler_id\", \"location_id\", \"created_utc\", \"created_by\" FROM \"Trips\" ORDER BY \"created_utc\", \"id\"";
-        using SqliteDataReader reader = command.ExecuteReader();
-        while (reader.Read())
-        {
-            trips.Add(new Trip(
-                new TripId(ParseGuid(reader.GetString(0))),
-                new PeddlerId(ParseGuid(reader.GetString(1))),
-                new LocationId(ParseGuid(reader.GetString(2))),
-                ParseIso(reader.GetString(3)),
-                new UserId(ParseGuid(reader.GetString(4)))));
-        }
-
-        return trips;
+        return new DocumentSets(sales, returns, voids, counts);
     }
 
     private static Dictionary<SaleId, List<SaleLine>> ReadSaleLines(SqliteConnection connection)
@@ -405,8 +303,7 @@ public sealed partial class SqliteLedgerStore
             IReadOnlyList<PaymentLine> payments = paymentGroups.TryGetValue(saleId, out List<PaymentLine>? foundPayments) ? foundPayments : Array.Empty<PaymentLine>();
             sales.Add(new Sale(
                 saleId,
-                new TripId(ParseGuid(reader.GetString(1))),
-                new PeddlerId(ParseGuid(reader.GetString(2))),
+                new DayKey(reader.GetString(1)),
                 new LocationId(ParseGuid(reader.GetString(3))),
                 reader.GetString(4),
                 ParseIso(reader.GetString(5)),
@@ -460,52 +357,6 @@ public sealed partial class SqliteLedgerStore
         }
 
         return returns;
-    }
-
-    private static List<StockLoad> ReadLoads(SqliteConnection connection)
-    {
-        var groups = new Dictionary<LoadId, List<StockLoadLine>>();
-        using (var lineCommand = connection.CreateCommand())
-        {
-            lineCommand.CommandText =
-                "SELECT \"load_id\", \"product_id\", \"sku\", \"product_name\", \"quantity\", \"unit_cost_centavos\" FROM \"StockLoadLines\" ORDER BY \"rowid\"";
-            using SqliteDataReader lineReader = lineCommand.ExecuteReader();
-            while (lineReader.Read())
-            {
-                var loadId = new LoadId(ParseGuid(lineReader.GetString(0)));
-                if (!groups.TryGetValue(loadId, out List<StockLoadLine>? lines))
-                {
-                    lines = new List<StockLoadLine>();
-                    groups[loadId] = lines;
-                }
-
-                lines.Add(new StockLoadLine(
-                    new ProductId(ParseGuid(lineReader.GetString(1))),
-                    lineReader.GetString(2),
-                    lineReader.GetString(3),
-                    Quantity.Of(checked((int)lineReader.GetInt64(4))),
-                    new Money(lineReader.GetInt64(5))));
-            }
-        }
-
-        var loads = new List<StockLoad>();
-        using var command = connection.CreateCommand();
-        command.CommandText = "SELECT \"id\", \"load_number\", \"trip_id\", \"by\", \"when_utc\" FROM \"StockLoads\" ORDER BY \"rowid\"";
-        using SqliteDataReader reader = command.ExecuteReader();
-        while (reader.Read())
-        {
-            var loadId = new LoadId(ParseGuid(reader.GetString(0)));
-            IReadOnlyList<StockLoadLine> lines = groups.TryGetValue(loadId, out List<StockLoadLine>? found) ? found : Array.Empty<StockLoadLine>();
-            loads.Add(new StockLoad(
-                loadId,
-                reader.GetString(1),
-                new TripId(ParseGuid(reader.GetString(2))),
-                lines,
-                new UserId(ParseGuid(reader.GetString(3))),
-                ParseIso(reader.GetString(4))));
-        }
-
-        return loads;
     }
 
     private static List<SaleVoid> ReadVoids(SqliteConnection connection)
@@ -574,32 +425,5 @@ public sealed partial class SqliteLedgerStore
         }
 
         return counts;
-    }
-
-    /// <summary>
-    /// Reads the daily-close documents (the submitted counted cash + notes) that
-    /// the reconciliation projection exposes through <see cref="LedgerContext.Closes"/>.
-    /// </summary>
-    private static List<DailyClose> ReadCloses(SqliteConnection connection)
-    {
-        var closes = new List<DailyClose>();
-        using var command = connection.CreateCommand();
-        command.CommandText =
-            "SELECT \"id\", \"trip_id\", \"expected_cash_centavos\", \"counted_cash_centavos\", \"variance_centavos\", \"notes\", \"by\", \"when_utc\" FROM \"DailyCloses\" ORDER BY \"when_utc\", \"id\"";
-        using SqliteDataReader reader = command.ExecuteReader();
-        while (reader.Read())
-        {
-            closes.Add(new DailyClose(
-                new CloseId(ParseGuid(reader.GetString(0))),
-                new TripId(ParseGuid(reader.GetString(1))),
-                new Money(reader.GetInt64(2)),
-                new Money(reader.GetInt64(3)),
-                new Money(reader.GetInt64(4)),
-                reader.IsDBNull(5) ? null : reader.GetString(5),
-                new UserId(ParseGuid(reader.GetString(6))),
-                ParseIso(reader.GetString(7))));
-        }
-
-        return closes;
     }
 }

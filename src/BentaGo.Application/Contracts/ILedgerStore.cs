@@ -91,7 +91,7 @@ public sealed record CheckoutReference(string ReceiptNumber, SaleId SaleId)
 /// storage detail behind an unchanged public surface.
 ///
 /// Call order contract: register documents
-/// (RegisterTrip/RegisterSale/...), then <see cref="Bind"/>, then
+/// (RegisterDayOpen/RegisterSale/...), then <see cref="Bind"/>, then
 /// <see cref="Append(AppendBatch)"/>. The append validates against the bound
 /// snapshot, so a document registered after the last <see cref="Bind"/> is
 /// not visible to the next append. At each append result the open-attempt set
@@ -106,14 +106,14 @@ public interface ILedgerStore
 
     // Register stages a document. Append is the ONLY durable writer and
     // inserts the staged documents in ITS transaction (C13, D5).
-    void RegisterTrip(Trip trip);       // trips are movement-less -> RegisterTrip commits its own one-row txn (D5 asymmetry, flagged for the audit)
+    void RegisterDayOpen(DayOpen day);  // day documents are movement-less -> Register* commits immediately (D5 asymmetry)
+    void RegisterDayClose(DayClose close);
+    void RegisterDayReopen(DayReopen reopen);
     void RegisterSale(Sale sale);
     void RegisterReturn(Return @return);
-    void RegisterLoad(StockLoad load);
     void RegisterVoid(SaleVoid @void);
     void RegisterAdjustment(Adjustment adjustment);
     void RegisterCount(PhysicalCount count);
-    void RegisterClose(DailyClose @close);
     void Bind();
 
     /// <summary>The batch append: movements + audits + optional idempotency

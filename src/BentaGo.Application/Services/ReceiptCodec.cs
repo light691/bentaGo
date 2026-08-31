@@ -5,7 +5,6 @@ using BentaGo.Core.Domain;
 using BentaGo.Core.Domain.Documents;
 using BentaGo.Core.Domain.Identity;
 using BentaGo.Core.Domain.Receipts;
-using BentaGo.Core.Domain.Trips;
 
 namespace BentaGo.Application.Services;
 
@@ -39,8 +38,7 @@ public static class ReceiptCodec
     private sealed record Snapshot(
         string ReceiptNumber,
         DateTimeOffset CreatedUtc,
-        Guid Peddler,
-        Guid Trip,
+        string Day,
         IReadOnlyList<LineSnapshot> Lines,
         long SubtotalCents,
         long DiscountTotalCents,
@@ -55,8 +53,7 @@ public static class ReceiptCodec
         public static Snapshot From(ReceiptDocument document) => new(
             document.Meta.ReceiptNumber,
             document.Meta.CreatedUtc,
-            document.Meta.Peddler.Value,
-            document.Meta.Trip.Value,
+            document.Meta.Day.Value,
             document.Lines
                 .Select(l => new LineSnapshot(l.Name, l.UnitPrice.Centavos, l.Quantity.Units, l.Discount.Centavos))
                 .ToList(),
@@ -74,8 +71,7 @@ public static class ReceiptCodec
             new ReceiptMeta(
                 ReceiptNumber,
                 CreatedUtc,
-                new PeddlerId(Peddler),
-                new TripId(Trip)),
+                new DayKey(Day)),
             Lines
                 .Select(l => new ReceiptLine(
                     l.Name,

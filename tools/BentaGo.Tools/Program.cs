@@ -33,10 +33,8 @@ try
     return commandLine[0] switch
     {
         "status" => RunStatus(),
-        "scenario" when commandLine.Length > 1 && (commandLine[1] is "two-peddlers" or "trip-lifecycle") => await RunScenarioAsync(commandLine[1], commandLine.Skip(2).ToArray()),
         "ledger" when commandLine.Length > 1 => await RunLedgerAsync(commandLine.Skip(1).ToArray()),
         "lane8-crash-worker" => await RunLane8CrashWorkerAsync(commandLine.Skip(1).ToArray()),
-        "lanes" when commandLine.Length > 1 && commandLine[1] == "bg-003" => await RunLanesAsync(commandLine.Skip(2).ToArray()),
         "perf" when commandLine.Length > 1 && commandLine[1] == "bg-003" => await RunPerfAsync(commandLine.Skip(2).ToArray()),
         "perf" when commandLine.Length > 1 && commandLine[1] == "bg-007" => await RunPrintPerfAsync(commandLine.Skip(2).ToArray()),
         "perf" when commandLine.Length > 1 && commandLine[1] == "bg-008" => await RunBg008PerfAsync(commandLine.Skip(2).ToArray()),
@@ -62,31 +60,22 @@ static void PrintHelp()
 
         Commands:
           status                         Print data root, database path, schema version, database sha256.
-          scenario two-peddlers|trip-lifecycle
-                                         Print the deterministic business day.
-                                           two-peddlers: the BG-002/3 two-peddler day.
-                                           trip-lifecycle: BG-005c open -> load -> sell -> close
-                                           plus a cancel-bearing variant (loads revert) and the
-                                           peddler-scoped on-hand read model.
-                                           Options: --persist (run against SQLite), --data-root <dir>
-          ledger load|checkout|void|return|adjustment|count|close|reopen|cancel|rebuild [options]
+          ledger day-open|checkout|void|return|adjustment|count|close|reopen|rebuild [options]
                                          Run one business operation against the SQLite ledger. Common
                                          options: --data-root <dir>, --by <user-id>, --when <utc-iso>.
-                                         load also needs --peddler (scope guard). cancel needs
-                                         --trip <id> --peddler <id> --reason <text>.
-                                         checkout extra options: --key <checkout-key> --trip <id> --receipt <n>
+                                         day-open: --float <pesos> (default 0). close: --counted <pesos>
+                                         [--notes <text>]; reopen: --reason <text> [--approved-by <id>].
+                                         checkout extra options: --key <checkout-key> --receipt <n>
                                            --product <id> --qty <n> --price <pesos> --method <Cash|Gcash|Maya|BankTransfer|Credit>
                                            --fail-before-commit (L3 seam) --crash-after-write (L8 seam)
           lane8-crash-worker             Lane-8 crash child: sells the last unit in a transaction delayed
                                          before commit; parent kills it by PID. Options: --data-root <dir>
-          lanes bg-003                   Run all ten BG-003 live lanes on fresh temp roots.
-                                          Options: --head <sha>, --evidence-dir <dir> (writes bg-003-*.png)
           perf bg-003                    BG-003 perf harness: baselines first, then P95 checkout and
-                                         rebuild over a 10k-product / 100k-movement seeded file.
+                                         rebuild over a 10k-product / 60k-movement seeded file.
                                           Options: --data-root <dir>
           perf bg-008                    BG-008 perf probe: baselines (bg-003 aggregation, bg-006
                                          history load) first, then close-calc and report-render P95
-                                         over a 10,000-sale / 50,000-movement seeded file.
+                                         over a 10,000-sale seeded file.
                                            Options: --data-root <dir>, --out <tsv>, --head <sha>
           foundation migrate             Migrate the database schema to the latest version.
                                           Options: --data-root <dir> (default: BENTAGO_DATA_ROOT or a fresh temp dir)
@@ -98,71 +87,10 @@ static void PrintHelp()
                                           Runs entirely under a fresh temp data root and exits 0 only if all checks pass.
           help                           Show this text.
           bg006-lane-seed --root <dir>   Seed an isolated BentaGo data root for the BG-006 sales
-                                           demo recording: open trip with 50 Sardines/Kopi on the
-                                           route, catalog products, and the seller/seller user
+                                           demo recording: open day with 50 Sardines/Kopi in the
+                                           warehouse, catalog products, and the seller user
                                            (mirrors the tests/AppShell SalesSeed scenario).
         """);
-}
-
-static async Task<int> RunScenarioAsync(string scenarioName, string[] args)
-{
-    bool persist = args.Contains("--persist", StringComparer.Ordinal);
-    string root = ResolveDataRoot(args);
-
-    Func<ILedgerStore, ScenarioReport> run = scenarioName == "two-peddlers"
-        ? TwoPeddlersScenario.Run
-        : TripLifecycleScenario.Run;
-    Func<ILedgerStore, ScenarioReport> render = scenarioName == "two-peddlers"
-        ? TwoPeddlersScenario.Render
-        : TripLifecycleScenario.Render;
-
-    if (!persist)
-    {
-        var store = new InMemoryLedgerStore();
-        ScenarioReport report = run(store);
-        Console.Write(report.Text);
-        return 0;
-    }
-
-    try
-    {
-        ServiceProvider host = BentaGoHost.Build(development: true, dataRootOverride: root);
-        var initializer = host.GetRequiredService<DbInitializer>();
-        await initializer.EnsureCreatedOrMigrateAsync();
-
-        // Run the full deterministic day against SQLite.
-        var store1 = host.GetRequiredService<SqliteLedgerStore>();
-        ScenarioReport report1 = run(store1);
-        Console.Write(report1.Text);
-        Console.WriteLine();
-
-        // Byte-identity with the in-memory golden (C14).
-        var memory = new InMemoryLedgerStore();
-        string inMemory = run(memory).Text;
-        bool goldenIdentical = report1.Text == inMemory;
-        Console.WriteLine($"GOLDEN_IDENT:   {(goldenIdentical ? "PASS" : "FAIL")} (persisted vs in-memory)");
-
-        // Restart: close store1, reopen a fresh store over the same file —
-        // the fold must reproduce the persisted day without re-running it.
-        store1.Close();
-        var paths = host.GetRequiredService<IDataPathProvider>();
-        var store2 = new SqliteLedgerStore(paths, host.GetRequiredService<DebugOptions>());
-        string afterRestart = render(store2).Text;
-        bool restartOk = afterRestart == report1.Text;
-        Console.WriteLine($"RESTART:        {(restartOk ? "PASS" : "FAIL")} (render after reopen == first run)");
-
-        // Rebuild: full fold + projection rewrite; render must stay identical.
-        RebuildReceipt rebuilt = await store2.RebuildAsync();
-        bool rebuildOk = render(store2).Text == report1.Text;
-        Console.WriteLine($"REBUILD:        {(rebuildOk ? "PASS" : "FAIL")} (head {rebuilt.LastSequence}, {rebuilt.MovementCount} movements, {rebuilt.DocumentCount} documents)");
-
-        return goldenIdentical && restartOk && rebuildOk ? 0 : 1;
-    }
-    catch (Exception ex)
-    {
-        Console.Error.WriteLine($"ERROR: {ex}");
-        return 1;
-    }
 }
 
 static Dictionary<string, string> ParseOptions(string[] args)
@@ -236,7 +164,7 @@ static async Task<int> RunLedgerAsync(string[] args)
 {
     if (args.Length == 0 || string.IsNullOrWhiteSpace(args[0]))
     {
-        Console.Error.WriteLine("usage: ledger load|checkout|void|return|adjustment|count|close|reopen|cancel|rebuild [options]");
+        Console.Error.WriteLine("usage: ledger day-open|checkout|void|return|adjustment|count|close|reopen|rebuild [options]");
         return 1;
     }
 
@@ -257,78 +185,26 @@ static async Task<int> RunLedgerAsync(string[] args)
 
         switch (op)
         {
-            case "opening-stock":
+            case "day-open":
                 {
-                    // Pure OpeningStock against an opening load document with no
-                    // lines (scenario precedent): stock into a location.
-                    var loadId = new LoadId(Guid.NewGuid());
-                    var load = new StockLoad(loadId, "OPEN-" + Guid.NewGuid().ToString("N")[..8], default, Array.Empty<StockLoadLine>(), by, when);
-                    store.RegisterLoad(load);
+                    // Opens the trading day (movement-less DayOpen document).
+                    DayKey day = DayKey.FromUtc(when);
                     store.Bind();
-                    Result<AppendReceipt> open = store.Append(new[]
-                    {
-                    Moves.OpeningStock(0, when, by, new LoadRef(loadId),
-                        new ProductId(OptGuid(opts, "product", "product id")),
-                        new LocationId(OptGuid(opts, "location", "location id")),
-                        Quantity.Of(int.Parse(RequireOpt(opts, "qty")))),
-                });
-                    if (open.IsFailure)
-                    {
-                        Console.Error.WriteLine($"OPENING-STOCK: FAIL ({open.Errors[0].Code}: {open.Errors[0].Message})");
-                        return 1;
-                    }
-
-                    Console.WriteLine($"OPENING-STOCK: seq {open.Value.FirstSequence}-{open.Value.LastSequence}");
-                    return 0;
-                }
-
-            case "open-trip":
-                {
-                    string? tripOpt = Opt(opts, "trip");
-                    var tripId = new TripId(tripOpt is not null && Guid.TryParse(tripOpt, out Guid parsedTrip) ? parsedTrip : Guid.NewGuid());
-                    Result<Trip> result = host.GetRequiredService<IOpenTripService>().OpenTrip(new NewTripCommand(
-                        tripId,
-                        new PeddlerId(OptGuid(opts, "peddler", "peddler id")),
-                        new LocationId(OptGuid(opts, "location", "route location id")),
+                    Result<DayOpenDraft> draft = DayBuilder.Open(store.Context, new DayOpenCommand(
+                        new DayId(Guid.NewGuid()),
+                        day,
+                        decimal.TryParse(Opt(opts, "float"), out decimal floatPesos) ? Money.FromPesos(floatPesos).Centavos : 0,
                         by, when));
-                    if (result.IsFailure)
+                    if (draft.IsFailure)
                     {
-                        Console.Error.WriteLine($"OPEN-TRIP: FAIL ({string.Join("; ", result.Errors.Select(e => $"{e.Code}: {e.Message}"))})");
+                        Console.Error.WriteLine($"DAY-OPEN: FAIL ({draft.Errors[0].Code}: {draft.Errors[0].Message})");
                         return 1;
                     }
 
-                    Console.WriteLine($"OPEN-TRIP: {tripId.Value:N}");
-                    return 0;
-                }
-
-            case "load":
-                {
-                    var loadId = new LoadId(Guid.NewGuid());
-                    var command = new LoadCommand(
-                        loadId,
-                        RequireOpt(opts, "number"),
-                        new TripId(OptGuid(opts, "trip", "trip id")),
-                        new LocationId(OptGuid(opts, "from", "source location id")),
-                        new[]
-                        {
-                        new LoadLine(
-                            new ProductId(OptGuid(opts, "product", "product id")),
-                            Opt(opts, "sku") ?? "SKU",
-                            Opt(opts, "name") ?? "Product",
-                            Quantity.Of(int.Parse(RequireOpt(opts, "qty"))),
-                            Money.FromPesos(decimal.TryParse(Opt(opts, "cost"), out decimal cost) ? cost : 0m)),
-                        },
-                        by, when);
-                    Result<LoadOutcome> result = host.GetRequiredService<ILoadService>().Load(
-                        command,
-                        new PeddlerId(OptGuid(opts, "peddler", "peddler id (the load's trip must belong to it)")));
-                    if (result.IsFailure)
-                    {
-                        Console.Error.WriteLine($"LOAD: FAIL ({string.Join("; ", result.Errors.Select(e => $"{e.Code}: {e.Message}"))})");
-                        return 1;
-                    }
-
-                    Console.WriteLine($"LOAD:      {command.LoadNumber} seq {result.Value.Receipt.FirstSequence}-{result.Value.Receipt.LastSequence}");
+                    store.RegisterDayOpen(draft.Value.Document);
+                    store.RecordAudit(new AuditEvent(
+                        -1, by, when, "DAY.OPEN", $"day {day} opened", null, Terminal: Environment.MachineName));
+                    Console.WriteLine($"DAY-OPEN:  {day} float {draft.Value.Document.OpeningFloatCentavos}");
                     return 0;
                 }
 
@@ -358,7 +234,7 @@ static async Task<int> RunLedgerAsync(string[] args)
                     var paymentId = new PaymentLineId(Guid.NewGuid());
                     var command = new NewSaleCommand(
                         saleId,
-                        new TripId(OptGuid(opts, "trip", "trip id")),
+                        DayKey.FromUtc(when),
                         RequireOpt(opts, "receipt"),
                         by, when,
                         new[]
@@ -433,7 +309,7 @@ static async Task<int> RunLedgerAsync(string[] args)
                     var adjustmentId = new AdjustmentId(Guid.NewGuid());
                     Result<AdjustmentOutcome> result = host.GetRequiredService<IAdjustmentService>().Adjust(new AdjustmentCommand(
                         adjustmentId,
-                        new TripId(OptGuid(opts, "trip", "trip id")),
+                        DayKey.FromUtc(when),
                         new ProductId(OptGuid(opts, "product", "product id")),
                         new LocationId(OptGuid(opts, "location", "location id")),
                         Enum.Parse<AdjustmentKind>(RequireOpt(opts, "kind")),
@@ -457,19 +333,20 @@ static async Task<int> RunLedgerAsync(string[] args)
             case "close":
                 {
                     var closeId = new CloseId(Guid.NewGuid());
-                    Result<CloseOutcome> result = host.GetRequiredService<ICloseService>().Close(new CloseCommand(
+                    Result<CloseOutcome> result = host.GetRequiredService<ICloseService>().Close(new DayCloseCommand(
                         closeId,
-                        new TripId(OptGuid(opts, "trip", "trip id")),
-                        Money.FromPesos(decimal.Parse(RequireOpt(opts, "counted"))),
+                        DayKey.FromUtc(when),
+                        Money.FromPesos(decimal.Parse(RequireOpt(opts, "counted"))).Centavos,
                         Opt(opts, "notes"),
                         by, when));
-                    return PrintSimple(result, "CLOSE", $"trip {opts["trip"]}");
+                    return PrintSimple(result, "CLOSE", $"day {DayKey.FromUtc(when)}");
                 }
 
             case "reopen":
                 {
-                    Result<AppendReceipt> result = host.GetRequiredService<IReopenService>().Reopen(new ReopenCommand(
-                        new TripId(OptGuid(opts, "trip", "trip id")), RequireOpt(opts, "reason"), by, when));
+                    UserId approver = opts.ContainsKey("approved-by") ? new UserId(OptGuid(opts, "approved-by", "approver user id")) : by;
+                    Result<AppendReceipt> result = host.GetRequiredService<IReopenService>().Reopen(new DayReopenCommand(
+                        new DayId(Guid.NewGuid()), DayKey.FromUtc(when), RequireOpt(opts, "reason"), approver, by, when));
                     if (result.IsFailure)
                     {
                         Console.Error.WriteLine($"REOPEN: FAIL ({string.Join("; ", result.Errors.Select(e => $"{e.Code}: {e.Message}"))})");
@@ -477,24 +354,6 @@ static async Task<int> RunLedgerAsync(string[] args)
                     }
 
                     Console.WriteLine($"REOPEN:    ok seq {result.Value.FirstSequence}-{result.Value.LastSequence}");
-                    return 0;
-                }
-
-            case "cancel":
-                {
-                    Result<CancelOutcome> result = host.GetRequiredService<ICancelTripService>().Cancel(
-                        new CancelTripCommand(
-                            new TripId(OptGuid(opts, "trip", "trip id")),
-                            RequireOpt(opts, "reason"),
-                            by, when),
-                        new PeddlerId(OptGuid(opts, "peddler", "peddler id (the load's trip must belong to it)")));
-                    if (result.IsFailure)
-                    {
-                        Console.Error.WriteLine($"CANCEL: FAIL ({string.Join("; ", result.Errors.Select(e => $"{e.Code}: {e.Message}"))})");
-                        return 1;
-                    }
-
-                    Console.WriteLine($"CANCEL:    ok seq {result.Value.Receipt.FirstSequence}-{result.Value.Receipt.LastSequence}");
                     return 0;
                 }
 
@@ -569,20 +428,6 @@ static async Task<int> RunLane8CrashWorkerAsync(string[] args)
 
     Console.WriteLine($"WORKER: committed seq {outcome.Value.FirstSequence}-{outcome.Value.LastSequence}");
     return 0;
-}
-
-static async Task<int> RunLanesAsync(string[] args)
-{
-    Dictionary<string, string> opts = ParseOptions(args);
-    string? head = Opt(opts, "head");
-    string? evidenceDir = Opt(opts, "evidence-dir");
-
-    if (evidenceDir is not null)
-    {
-        Directory.CreateDirectory(evidenceDir);
-    }
-
-    return await BentaGo.Tools.LaneRunner.RunAsync(head, evidenceDir);
 }
 
 static async Task<int> RunPerfAsync(string[] args)
@@ -740,8 +585,8 @@ static int UnknownCommand(string[] args)
 }
 
 /// <summary>
-/// Seeds an isolated root for the BG-006 sales demo recording: an open trip
-/// with the catalog + stock the seller needs (mirrors tests/AppShell
+/// Seeds an isolated root for the BG-006 sales demo recording: an open day
+/// with the catalog + warehouse stock the seller needs (mirrors tests/AppShell
 /// SalesSeed so the recording state matches the lane state).
 /// </summary>
 static async Task<int> RunBg006LaneSeedAsync(string[] args)
@@ -755,52 +600,27 @@ static async Task<int> RunBg006LaneSeedAsync(string[] args)
     var store = host.GetRequiredService<SqliteLedgerStore>();
     var ids = new ScenarioIdSource("appshell-sales-v1");
 
-    TripId trip = new(ids.Next("trip"));
     ProductId product = new(ids.Next("product"));
     ProductId kopi = new(ids.Next("kopi"));
-    LocationId route = new(ids.Next("route"));
-    LocationId storeLoc = new(ids.Next("store"));
     UserId user = new(ids.Next("user"));
-    PeddlerId peddler = new(ids.Next("peddler"));
 
     var when = new DateTimeOffset(2026, 1, 15, 8, 0, 0, TimeSpan.Zero);
-    store.RegisterTrip(new Trip(trip, peddler, route, when, user));
+    DayKey day = DayKey.FromUtc(when);
+    LocationId warehouse = StoreLocations.Warehouse;
 
-    var openId = new LoadId(ids.Next("open"));
-    store.RegisterLoad(new StockLoad(openId, "P-OPEN", trip, Array.Empty<StockLoadLine>(), user, when));
+    store.RegisterDayOpen(new DayOpen(new DayId(ids.Next("day")), day, 0, user, when));
     store.Bind();
-    Result<AppendReceipt> open = store.Append(new[]
+
+    var goodsId = new GoodsId(ids.Next("goods"));
+    store.Bind();
+    Result<AppendReceipt> received = store.Append(new[]
     {
-        Moves.OpeningStock(0, when, user, new LoadRef(openId), product, storeLoc, Quantity.Of(100)),
-        Moves.OpeningStock(1, when, user, new LoadRef(openId), kopi, storeLoc, Quantity.Of(100)),
+        Moves.GoodsReceived(0, when, user, new GoodsRef(goodsId), product, warehouse, Quantity.Of(100)),
+        Moves.GoodsReceived(1, when, user, new GoodsRef(goodsId), kopi, warehouse, Quantity.Of(100)),
     });
-    if (!open.IsSuccess)
+    if (!received.IsSuccess)
     {
-        Console.Error.WriteLine($"SEED:           FAIL ({open.Errors.FirstOrDefault()?.Code ?? "opening stock failed"})");
-        return 1;
-    }
-
-    var loadId = new LoadId(ids.Next("load"));
-    Result<LoadDraft> load = LoadBuilder.Build(store.Context, new LoadCommand(
-        loadId, "P-LOAD", trip, storeLoc,
-        new[]
-        {
-            new LoadLine(product, "SARDINES", "Sardines", Quantity.Of(50), Money.FromPesos(30m)),
-            new LoadLine(kopi, "KOPI", "Kopi", Quantity.Of(50), Money.FromPesos(30m)),
-        },
-        user, when));
-    if (!load.IsSuccess)
-    {
-        Console.Error.WriteLine($"SEED:           FAIL ({load.Errors.FirstOrDefault()?.Code ?? "load build failed"})");
-        return 1;
-    }
-
-    store.RegisterLoad(load.Value.Document);
-    store.Bind();
-    Result<AppendReceipt> loadAppend = store.Append(load.Value.Movements);
-    if (!loadAppend.IsSuccess)
-    {
-        Console.Error.WriteLine($"SEED:           FAIL ({loadAppend.Errors.FirstOrDefault()?.Code ?? "load append failed"})");
+        Console.Error.WriteLine($"SEED:           FAIL ({received.Errors.FirstOrDefault()?.Code ?? "goods receipt failed"})");
         return 1;
     }
 
@@ -809,8 +629,7 @@ static async Task<int> RunBg006LaneSeedAsync(string[] args)
         Id = user,
         Username = "seller",
         PasswordHash = host.GetRequiredService<IPasswordHasher>().Hash("seller"),
-        Role = Role.Peddler,
-        PeddlerLink = peddler,
+        Role = Role.Supervisor,
         CreatedBy = user,
         CreatedUtc = when,
     });

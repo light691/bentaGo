@@ -5,6 +5,7 @@ using BentaGo.Application.Scenario;
 using BentaGo.Application.Services;
 using BentaGo.Core.Common;
 using BentaGo.Core.Domain;
+using BentaGo.Core.Domain.Builders;
 using BentaGo.Core.Domain.Commands;
 using BentaGo.Core.Domain.Documents;
 using BentaGo.Core.Domain.Ledger;
@@ -28,20 +29,57 @@ namespace BentaGo.Tools;
 public static class PerfRunner
 {
     private const int ProductCount = 10_000;
-    private const int MovementsPerProduct = 10;
+    private const int MovementsPerProduct = 6;
     private const int WarmCheckouts = 1;
     private const int SampledCheckouts = 100;
 
     private static readonly ScenarioIdSource Ids = new("perf-v1");
 
-    private static readonly TripId Trip = new(Ids.Next("trip"));
-    private static readonly LocationId Store = new(Ids.Next("store"));
-    private static readonly LocationId Route = new(Ids.Next("route"));
-    private static readonly LocationId Route2 = new(Ids.Next("route-b"));
-    private static readonly PeddlerId Peddler = new(Ids.Next("peddler"));
     private static readonly UserId User = new(Ids.Next("user"));
 
     private static readonly DateTimeOffset When = new(2026, 1, 15, 8, 0, 0, TimeSpan.Zero);
+
+    private static readonly DayKey Day = DayKey.FromUtc(When);
+
+    /// <summary>
+    /// Registers the trading day (movement-less day document) and rebinds, so
+    /// sale builders see the day as open. Idempotent per store instance.
+    /// </summary>
+    private static void EnsureDayOpen(ILedgerStore store)
+    {
+        store.RegisterDayOpen(new DayOpen(new DayId(Ids.Next("day")), Day, 0, User, When));
+        store.Bind();
+    }
+
+    /// <summary>
+    /// Baseline (b): a minimal in-memory day (open day, goods receipt, one
+    /// sale) through the real builders — the scenario-median workload.
+    /// </summary>
+    private static void RunInMemoryDay()
+    {
+        var store = new InMemoryLedgerStore();
+        EnsureDayOpen(store);
+        ProductId product = PerfProduct(0);
+        var goodsId = new GoodsId(Ids.Next("goods"));
+        var saleId = new SaleId(Ids.Next("sale"));
+        var lineId = new SaleLineId(Ids.Next("line"));
+        var paymentId = new PaymentLineId(Ids.Next("pay"));
+        _ = store.Append(new[]
+        {
+            Moves.GoodsReceived(0, When, User, new GoodsRef(goodsId), product, StoreLocations.Warehouse, Quantity.Of(50)),
+        });
+        Result<SaleDraft> draft = SaleBuilder.Build(store.Context, new NewSaleCommand(
+            saleId, Day, "R-PERF", User, When.AddHours(1),
+            new[] { new NewSaleLine(lineId, product, "SKU", "Product", Money.FromPesos(45m), Quantity.Of(1), Money.Zero) },
+            new[] { new NewPaymentLine(paymentId, PaymentMethod.Cash, "", Money.FromPesos(45m), Money.FromPesos(45m), Money.Zero) }));
+        if (draft.IsFailure)
+        {
+            throw new InvalidOperationException($"in-memory baseline sale failed: {draft.Errors[0].Code}");
+        }
+
+        store.RegisterSale(draft.Value.Document);
+        _ = store.Append(draft.Value.Movements);
+    }
 
     /// <summary>
     /// Product id derivable per index WITHOUT the shared counter (the seed
@@ -61,7 +99,7 @@ public static class PerfRunner
             Enumerable.Range(0, 7).Select(unused =>
             {
                 var stopwatch = Stopwatch.StartNew();
-                _ = TwoPeddlersScenario.Run(new InMemoryLedgerStore());
+                RunInMemoryDay();
                 stopwatch.Stop();
                 return stopwatch.Elapsed.TotalMilliseconds;
             }));
@@ -74,7 +112,7 @@ public static class PerfRunner
         var seedWatch = Stopwatch.StartNew();
         await SeedAsync(dbPath);
         seedWatch.Stop();
-        Console.WriteLine($"SEED: 100000 movements / {ProductCount} products in {seedWatch.ElapsedMilliseconds} ms");
+        Console.WriteLine($"SEED: {ProductCount * MovementsPerProduct} movements / {ProductCount} products in {seedWatch.ElapsedMilliseconds} ms");
 
         // Cold: the first checkout on a FRESH store (includes the one-shot
         // full re-fold) — recorded, not sampled (R7 decision).
@@ -142,7 +180,7 @@ public static class PerfRunner
         var paths = new DataPathProvider(Path.GetDirectoryName(Path.GetDirectoryName(dbPath))!);
         var store = new SqliteLedgerStore(paths, new DebugOptions());
 
-        store.RegisterTrip(new Trip(Trip, Peddler, Route, When, User));
+        EnsureDayOpen(store);
 
         var movements = new List<Movement>(ProductCount * MovementsPerProduct);
         var products = Enumerable.Range(0, ProductCount).Select(PerfProduct).ToArray();
@@ -151,36 +189,26 @@ public static class PerfRunner
         {
             ProductId product = products[i];
             string number = $"PERF-{i:D6}";
-            var openingId = new LoadId(Ids.Next($"open-{i}"));
-            var loadId = new LoadId(Ids.Next($"load-{i}"));
-            var transferId = new LoadId(Ids.Next($"transfer-{i}"));
+            var goodsId = new GoodsId(Ids.Next($"goods-{i}"));
             var countId = new CountId(Ids.Next($"count-{i}"));
             var adj1 = new AdjustmentId(Ids.Next($"adj-a-{i}"));
             var adj2 = new AdjustmentId(Ids.Next($"adj-b-{i}"));
             var adj3 = new AdjustmentId(Ids.Next($"adj-c-{i}"));
             var adj4 = new AdjustmentId(Ids.Next($"adj-d-{i}"));
 
-            store.RegisterLoad(new StockLoad(openingId, $"PERF-OPEN-{number}", Trip, Array.Empty<StockLoadLine>(), User, When));
-            store.RegisterLoad(new StockLoad(loadId, $"PERF-LOAD-{number}", Trip,
-                new[] { new StockLoadLine(product, "SKU", "Product", Quantity.Of(50), Money.FromPesos(30m)) }, User, When));
-            store.RegisterLoad(new StockLoad(transferId, $"PERF-TRN-{number}", Trip, Array.Empty<StockLoadLine>(), User, When));
-            store.RegisterCount(new PhysicalCount(countId, Route,
+            store.RegisterCount(new PhysicalCount(countId, StoreLocations.Warehouse,
                 new[] { new CountLine(product, Quantity.Of(47), null) }, User, When));
-            store.RegisterAdjustment(new Adjustment(adj1, Trip, product, Route, AdjustmentKind.Decrease, "perf decrease", User, When, User));
-            store.RegisterAdjustment(new Adjustment(adj2, Trip, product, Route, AdjustmentKind.Damage, "perf damage", User, When, User));
-            store.RegisterAdjustment(new Adjustment(adj3, Trip, product, Route, AdjustmentKind.Increase, "perf increase", User, When, User));
-            store.RegisterAdjustment(new Adjustment(adj4, Trip, product, Route, AdjustmentKind.Loss, "perf loss", User, When, User));
+            store.RegisterAdjustment(new Adjustment(adj1, Day, product, StoreLocations.Warehouse, AdjustmentKind.Decrease, "perf decrease", User, When, User));
+            store.RegisterAdjustment(new Adjustment(adj2, Day, product, StoreLocations.Warehouse, AdjustmentKind.Damage, "perf damage", User, When, User));
+            store.RegisterAdjustment(new Adjustment(adj3, Day, product, StoreLocations.Warehouse, AdjustmentKind.Increase, "perf increase", User, When, User));
+            store.RegisterAdjustment(new Adjustment(adj4, Day, product, StoreLocations.Warehouse, AdjustmentKind.Loss, "perf loss", User, When, User));
 
-            movements.Add(Moves.OpeningStock(0, When, User, new LoadRef(openingId), product, Store, Quantity.Of(100)));
-            movements.Add(Moves.TransferOut(0, When, User, new LoadRef(loadId), product, Store, Quantity.Of(50)));
-            movements.Add(Moves.TransferIn(0, When, User, new LoadRef(loadId), product, Route, Quantity.Of(50)));
-            movements.Add(Moves.CountObserved(0, When, User, new CountRef(countId), product, Route, Quantity.Of(47)));
-            movements.Add(Moves.AdjustmentDecrease(0, When, User, new AdjustmentRef(adj1), product, Route, Quantity.Of(1), "perf decrease"));
-            movements.Add(Moves.Damage(0, When, User, new AdjustmentRef(adj2), product, Route, Quantity.Of(1), "perf damage"));
-            movements.Add(Moves.AdjustmentIncrease(0, When, User, new AdjustmentRef(adj3), product, Route, Quantity.Of(1), "perf increase"));
-            movements.Add(Moves.Loss(0, When, User, new AdjustmentRef(adj4), product, Route, Quantity.Of(1), "perf loss"));
-            movements.Add(Moves.TransferOut(0, When, User, new TransferRef(new TransferId(Ids.Next($"tid-{i}"))), product, Route, Quantity.Of(1)));
-            movements.Add(Moves.TransferIn(0, When, User, new TransferRef(new TransferId(Ids.Next($"tid-b-{i}"))), product, Route2, Quantity.Of(1)));
+            movements.Add(Moves.GoodsReceived(0, When, User, new GoodsRef(goodsId), product, StoreLocations.Warehouse, Quantity.Of(100)));
+            movements.Add(Moves.CountObserved(0, When, User, new CountRef(countId), product, StoreLocations.Warehouse, Quantity.Of(47)));
+            movements.Add(Moves.AdjustmentDecrease(0, When, User, new AdjustmentRef(adj1), product, StoreLocations.Warehouse, Quantity.Of(1), "perf decrease"));
+            movements.Add(Moves.Damage(0, When, User, new AdjustmentRef(adj2), product, StoreLocations.Warehouse, Quantity.Of(1), "perf damage"));
+            movements.Add(Moves.AdjustmentIncrease(0, When, User, new AdjustmentRef(adj3), product, StoreLocations.Warehouse, Quantity.Of(1), "perf increase"));
+            movements.Add(Moves.Loss(0, When, User, new AdjustmentRef(adj4), product, StoreLocations.Warehouse, Quantity.Of(1), "perf loss"));
         }
 
         store.Bind();
@@ -202,6 +230,7 @@ public static class PerfRunner
         var paths = new DataPathProvider(Path.GetDirectoryName(Path.GetDirectoryName(dbPath))!);
         var store = new SqliteLedgerStore(paths, new DebugOptions());
         var checkout = new CheckoutService(store);
+        EnsureDayOpen(store);
 
         var stopwatch = Stopwatch.StartNew();
         Result<CheckoutOutcome> outcome = checkout.Checkout(
@@ -222,6 +251,7 @@ public static class PerfRunner
     {
         var store = host.GetRequiredService<SqliteLedgerStore>();
         var checkout = host.GetRequiredService<ICheckoutService>();
+        EnsureDayOpen(store);
 
         for (int i = 0; i < WarmCheckouts; i++)
         {
@@ -258,7 +288,7 @@ public static class PerfRunner
         var lineId = new SaleLineId(Guid.NewGuid());
         var paymentId = new PaymentLineId(Guid.NewGuid());
         return new NewSaleCommand(
-            new SaleId(Guid.NewGuid()), Trip, receipt, User, When.AddHours(2),
+            new SaleId(Guid.NewGuid()), Day, receipt, User, When.AddHours(2),
             new[]
             {
                 new NewSaleLine(lineId, product, "SKU", "Product", Money.FromPesos(45m), Quantity.Of(1), Money.Zero),
