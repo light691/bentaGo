@@ -4,7 +4,7 @@ using BentaGo.App.Dialogs.Confirm;
 using BentaGo.App.Dialogs.Payment;
 using BentaGo.App.Features.Help;
 using BentaGo.App.Features.Login;
-using BentaGo.App.Features.PeddlerHome;
+using BentaGo.App.Features.Home;
 using BentaGo.App.Features.Reconciliation;
 using BentaGo.App.Features.Sales;
 using BentaGo.App.Features.Stock;
@@ -36,7 +36,7 @@ public sealed class ViewModelConstructionTests : IDisposable
         Type[] screenTypes =
         [
             typeof(LoginViewModel),
-            typeof(PeddlerHomeViewModel),
+            typeof(HomeViewModel),
             typeof(SalesViewModel),
             typeof(StockViewModel),
             typeof(ReconciliationViewModel),
@@ -133,7 +133,7 @@ public sealed class ShellNavigationSmokeTests
                 navigation.Navigate(ScreenKeys.Home);
                 Assert.Equal(ScreenKeys.Home, navigation.CurrentKey);
 
-                // Retention: the peddler home VM survives an away-and-back
+                // Retention: the home VM survives an away-and-back
                 // detour (reference-equal, not recreated).
                 var homeInstance = viewModel.Current;
                 navigation.Navigate(ScreenKeys.Sales);

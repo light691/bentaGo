@@ -341,14 +341,14 @@ public sealed class UserAccountServiceTests
     [Fact]
     public async Task SpoofedAdminBy_CreateUser_RejectedActorMismatch()
     {
-        // A peddler session passes cmd.By = the ADMIN's id: the gate must
+        // A non-admin session passes cmd.By = the ADMIN's id: the gate must
         // reject on the actor binding, before the role check and before any
         // lookup of the admin, so the spoof can never reach the store.
-        User peddler = Actor(Role.Supervisor);
+        User attacker = Actor(Role.Supervisor);
         User admin = Actor(Role.Admin);
-        await _store.AddAsync(peddler);
+        await _store.AddAsync(attacker);
         await _store.AddAsync(admin);
-        SignIn(peddler);
+        SignIn(attacker);
 
         Result<User> result = await _service.CreateUserAsync(new CreateUserCommand(
             new UserId(Guid.NewGuid()), "spoofed", "pw", Role.Admin, admin.Id, T0));

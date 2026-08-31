@@ -33,7 +33,7 @@ public sealed class PrintTicketStore : IPrintTicketStore
     {
         _paths.EnsureCreated();
         bool failed = _debug.ConsumeFailNextPrint();
-        string? reason = failed ? "simulated print hardware failure" : null;
+        string? reason = failed ? "injected print hardware failure" : null;
 
         if (!failed)
         {
@@ -47,7 +47,7 @@ public sealed class PrintTicketStore : IPrintTicketStore
         // transaction AFTER the sale committed (C5). The terminal is the
         // machine that rendered the ticket (Environment.MachineName, the
         // docs/01:77 source); Reason stays null — no command carries one here
-        // (a simulated failure is described in the message, not the column).
+        // (an injected failure is described in the message, not the column).
         _ledger.RecordAudit(new AuditEvent(
             -1, sale.CreatedBy, sale.CreatedUtc, "PRINT",
             failed

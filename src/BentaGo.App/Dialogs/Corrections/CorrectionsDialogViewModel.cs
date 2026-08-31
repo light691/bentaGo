@@ -191,7 +191,7 @@ public sealed class CorrectionsDialogViewModel : DialogViewModelBase<Corrections
     public IReadOnlyList<KindOption> Kinds => _kinds;
 
     /// <summary>True when the panel cannot offer corrections at all (signed
-    /// out, no peddler link, no open trip); the copy is in FatalMessage.</summary>
+    /// out, no open trading day); the copy is in FatalMessage.</summary>
     public bool HasFatalState => !string.IsNullOrEmpty(FatalMessage);
 
     public string? FatalMessage
@@ -297,12 +297,12 @@ public sealed class CorrectionsDialogViewModel : DialogViewModelBase<Corrections
     }
 
     /// <summary>Supervisor/Admin actors self-approve (ApprovedBy = own id);
-    /// a peddler actor must choose from the approver list.</summary>
+    /// a cashier actor must choose from the approver list.</summary>
     public bool IsSelfApproval { get; private set; }
 
     public string? SelfApprovalText { get; private set; }
 
-    /// <summary>The approver picker is offered to peddler actors on the
+    /// <summary>The approver picker is offered to cashier actors on the
     /// approval-carrying forms (void, damage/loss, adjustment) only.</summary>
     public bool NeedsApproverPicker => !IsSelfApproval && !IsReturnMode;
 
@@ -686,7 +686,7 @@ public sealed class CorrectionsDialogViewModel : DialogViewModelBase<Corrections
     }
 
     /// <summary>The approval resolution the builders demand: a self-approving
-    /// Supervisor/Admin fills its own id; a peddler's choice is validated at
+    /// Supervisor/Admin fills its own id; a cashier's choice is validated at
     /// submit time, so this never returns null past Validate().</summary>
     private UserId ResolveApprover() =>
         IsSelfApproval ? _actorId : SelectedApprover!.Id;
@@ -758,5 +758,5 @@ public sealed record AdjustmentProductOption(ProductId Product, string Sku, stri
 /// <summary>One active Admin/Supervisor account able to approve.</summary>
 public sealed record ApproverOption(UserId Id, string Label);
 
-/// <summary>Where returned units land: null = the sale's (peddler) location.</summary>
+/// <summary>Where returned units land: null = the sale's location.</summary>
 public sealed record DestinationOption(LocationId? Location, string Label);

@@ -13,7 +13,7 @@ public sealed class ScreenRegistry
     public static IReadOnlyList<ScreenRegistration> All { get; } =
     [
         new ScreenRegistration(ScreenKeys.Login, typeof(BentaGo.App.Features.Login.LoginViewModel), Ui.AutomationIds.LoginUsername),
-        new ScreenRegistration(ScreenKeys.Home, typeof(BentaGo.App.Features.PeddlerHome.PeddlerHomeViewModel), Ui.AutomationIds.HomeNewSaleButton),
+        new ScreenRegistration(ScreenKeys.Home, typeof(BentaGo.App.Features.Home.HomeViewModel), Ui.AutomationIds.HomeNewSaleButton),
         new ScreenRegistration(ScreenKeys.Sales, typeof(BentaGo.App.Features.Sales.SalesViewModel), Ui.AutomationIds.SalesScanBox),
         new ScreenRegistration(ScreenKeys.Stock, typeof(BentaGo.App.Features.Stock.StockViewModel), Ui.AutomationIds.StockSearchBox),
         new ScreenRegistration(ScreenKeys.Transactions, typeof(BentaGo.App.Features.Transactions.TransactionsViewModel), Ui.AutomationIds.TransactionsList),

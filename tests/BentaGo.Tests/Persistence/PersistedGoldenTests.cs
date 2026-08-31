@@ -7,7 +7,7 @@ using Xunit;
 namespace BentaGo.Tests.Persistence;
 
 /// <summary>
-/// C14 golden contract for the persisted world: the SQLite two-peddler day
+/// C14 golden contract for the persisted world: the SQLite single-store day
 /// renders byte-for-byte identical to the in-memory golden both after the run
 /// and after a reopen (the fold replays the persisted stream).
 /// </summary>

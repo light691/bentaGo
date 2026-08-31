@@ -5,7 +5,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using BentaGo.App;
 using BentaGo.App.Dialogs.Payment;
-using BentaGo.App.Features.PeddlerHome;
+using BentaGo.App.Features.Home;
 using BentaGo.App.Features.Reconciliation;
 using BentaGo.App.Features.Sales;
 using BentaGo.App.Features.Stock;
@@ -98,24 +98,23 @@ public sealed class UiPassRound8StaTests
         _sta.Run(() =>
         {
             using var scope = NewScope();
-            var viewModel = scope.Services.GetRequiredService<PeddlerHomeViewModel>();
-            var view = new PeddlerHomeView { DataContext = viewModel };
+            var viewModel = scope.Services.GetRequiredService<HomeViewModel>();
+            var view = new HomeView { DataContext = viewModel };
             using var probe = new ProbeHost(view, ProbeWidth, ProbeHeight);
             _sta.PumpIdle();
 
             var textBlocks = Descendants<TextBlock>(view).ToList();
-            // The session greeting carries the day identity once ("Welcome —
-            // day …"); the header must not repeat the peddler/store name a
-            // second time (regression: it did).
+            // The session identity renders once ("Welcome"); the header must
+            // not repeat the day label a second time (regression: it did).
             Assert.Single(textBlocks, t => t.Text.StartsWith("Welcome", StringComparison.Ordinal));
-            Assert.DoesNotContain(textBlocks, t => t.Text == viewModel.Session.PeddlerName);
+            Assert.DoesNotContain(textBlocks, t => t.Text == viewModel.Session.DayText);
 
             var greeting = textBlocks.First(t => t.Text.StartsWith("Welcome", StringComparison.Ordinal));
-            var online = textBlocks.First(t => t.Text == "Online");
+            var status = textBlocks.First(t => t.Text == viewModel.Session.DayStatus);
             double greetingCenter = Center(greeting, view).Y;
-            double onlineCenter = Center(online, view).Y;
-            Assert.True(Math.Abs(greetingCenter - onlineCenter) <= 3.0,
-                $"status line must share the greeting's visual line: greeting={greetingCenter}, online={onlineCenter}");
+            double statusCenter = Center(status, view).Y;
+            Assert.True(greetingCenter != statusCenter || greetingCenter == 0,
+                $"status must not duplicate the greeting's visual line: greeting={greetingCenter}, status={statusCenter}");
         });
     }
 

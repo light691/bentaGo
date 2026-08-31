@@ -45,7 +45,7 @@ public sealed class AdminDevicesViewModel : ViewModelBase, IRetainableScreen
 
         Profiles =
         [
-            new ProfileOption(PrinterProfile.Fake, "Simulated printer (no hardware)"),
+            new ProfileOption(PrinterProfile.Fake, "Preview printer (no hardware)"),
             new ProfileOption(PrinterProfile.UsbEscPos, "USB ESC/POS 80 mm (Epson TM-class)"),
         ];
         SelectedProfile = PrinterProfile.Fake;

@@ -250,7 +250,7 @@ public sealed class SalesViewModel : ValidatableViewModelBase, IRetainableScreen
         ? "-₱0.00"
         : $"-{MoneyDisplay.Peso(DiscountTotal)}";
 
-    /// <summary>False until a session is open (AUTH_ACTOR_*/NO_PEDDLER_LINK/NO_OPEN_TRIP).</summary>
+    /// <summary>False until a session is open (AUTH_ACTOR_*/DAY_NOT_OPEN).</summary>
     public bool IsSessionReady
     {
         get => _isSessionReady;
@@ -776,9 +776,9 @@ public sealed class SalesViewModel : ValidatableViewModelBase, IRetainableScreen
             "AUTH_ACTOR_NOT_SIGNED_IN" => "You are not signed in.",
             "AUTH_ACTOR_DEACTIVATED" => "This account is deactivated. Ask an admin.",
             "AUTH_ACTOR_UNKNOWN" => "Sign in again and retry.",
-            "NO_PEDDLER_LINK" => "This account is not linked to a peddler. Ask an admin.",
+            // Reconciliation's no-day fatal: the fold has no open trading day
+            // (the builder code DAY_NOT_OPEN maps further down).
             "NO_OPEN_TRIP" => "There is no open trading day - open one from Stock.",
-            "TRIP_PEDDLER_MISMATCH" => "That record belongs to another peddler.",
             "STOCK_INSUFFICIENT" => "Not enough stock on hand for that quantity.",
             "BANK_REFERENCE_REQUIRED" => "A bank transfer needs a reference number.",
             "PAYMENT_TOTAL" => "Payments do not equal the sale total.",

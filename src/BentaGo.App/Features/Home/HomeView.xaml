@@ -1,0 +1,120 @@
+<UserControl x:Class="BentaGo.App.Features.Home.HomeView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="clr-namespace:BentaGo.App.Ui">
+    <!-- Home placeholder (BG-P1d): the deleted peddler home's layout shell
+         (reference alignment, action rows, quick actions) with the dashboard
+         cards, connectivity chip, and route wording removed. P5 replaces
+         this with the real register-first shell - no new visual work here. -->
+    <Grid Margin="{StaticResource ScreenPadding}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- Header: greeting + trading-day status (no connectivity, no
+             peddler name - the session projection carries the day only). -->
+        <StackPanel Grid.Row="0">
+            <TextBlock Text="BENTAGO STORE" Style="{StaticResource PageEyebrowTextStyle}" />
+            <TextBlock Text="{Binding Session.Greeting}"
+                       Style="{StaticResource HeaderTextStyle}" />
+            <TextBlock Style="{StaticResource StatusTextStyle}">
+                <Run Text="{Binding Session.DayText, Mode=OneWay}" />
+                <Run Text="  ·  " />
+                <Run Text="{Binding Session.DayStatus, Mode=OneWay}" />
+                <Run Text="  ·  now " /><Run Text="{Binding Session.NowText, Mode=OneWay}" />
+            </TextBlock>
+        </StackPanel>
+
+        <!-- Primary action panel: NEW SALE stays the first thing on screen. -->
+        <Border Grid.Row="1" Margin="{StaticResource Thickness.RowGap}" Style="{StaticResource ActionPanelStyle}">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel VerticalAlignment="Center">
+                    <TextBlock Text="Start a sale" Style="{StaticResource TitleTextStyle}" />
+                    <TextBlock Text="Scan or search a product to open a new order."
+                               Style="{StaticResource StatusTextStyle}"
+                               Margin="{StaticResource Thickness.XS}" />
+                </StackPanel>
+                <Button Grid.Column="1" Content="NEW SALE"
+                        Style="{StaticResource Button.PrimaryStyle}"
+                        Command="{Binding NewSaleCommand}"
+                        MinWidth="200"
+                        VerticalAlignment="Center"
+                        ui:FocusTarget.Id="Home.NewSaleButton" />
+            </Grid>
+        </Border>
+
+        <!-- Action row: one aligned band at the content origin, shared
+             Button.HomeActionStyle (the BG-004 geometry, unchanged). -->
+        <Grid Grid.Row="2" Margin="{StaticResource Thickness.RowGap}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Button Grid.Column="0" Content="My Stock"
+                    Style="{StaticResource Button.HomeActionStyle}"
+                    Command="{Binding StockCommand}"
+                    ui:FocusTarget.Id="Home.StockButton" />
+            <Button Grid.Column="2" Content="Transactions"
+                    Style="{StaticResource Button.HomeActionStyle}"
+                    Command="{Binding TransactionsCommand}"
+                    ui:FocusTarget.Id="Home.TransactionsButton" />
+            <Button Grid.Column="4" Content="Close / Reconcile"
+                    Style="{StaticResource Button.HomeActionStyle}"
+                    Command="{Binding CloseDayCommand}"
+                    ui:FocusTarget.Id="Home.EndTripButton" />
+        </Grid>
+
+        <!-- Quick Actions (Keyboard First): F2 live, F8/F11 parked, F12
+             live - the same chips the keyboard-first contract mandates. -->
+        <Grid Grid.Row="3" Margin="{StaticResource Thickness.RowGap}">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+            <TextBlock Grid.Row="0" Text="Quick Actions (Keyboard First)"
+                       Style="{StaticResource FieldLabelStyle}"
+                       Margin="{StaticResource Thickness.RowGap}" />
+            <Border Grid.Row="1"
+                    Style="{StaticResource ActionPanelStyle}"
+                    Margin="{StaticResource Thickness.RowGap}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="12" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="12" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="12" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Button Grid.Column="0" Content="F2 Scan"
+                            Style="{StaticResource Button.ActionBarStyle}"
+                            Command="{Binding NewSaleCommand}"
+                            ui:FocusTarget.Id="Home.QuickAction.Scan" />
+                    <Button Grid.Column="2" Content="F8 Pay"
+                            Style="{StaticResource Button.ActionBarStyle}"
+                            IsEnabled="False"
+                            ui:FocusTarget.Id="Home.QuickAction.Pay" />
+                    <Button Grid.Column="4" Content="F11 Print"
+                            Style="{StaticResource Button.ActionBarStyle}"
+                            IsEnabled="False"
+                            ui:FocusTarget.Id="Home.QuickAction.Print" />
+                    <Button Grid.Column="6" Content="F12 Close Day"
+                            Style="{StaticResource Button.ActionBarStyle}"
+                            Command="{Binding CloseDayCommand}"
+                            ui:FocusTarget.Id="Home.QuickAction.EndTrip" />
+                </Grid>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>

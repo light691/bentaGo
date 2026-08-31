@@ -167,7 +167,7 @@ public sealed record ProductHit(Product Product, Quantity OnHand);
 /// exact SKU → exact barcode (verbatim, leading zeros significant) → name
 /// infix (NOCASE, wildcard-escaped, capped). The keyboard-HID scanner CR
 /// suffix is trimmed at this boundary. On-hand comes from the movement fold
-/// for the session actor's peddler (never a stored stock column).
+/// at the single warehouse (never a stored stock column).
 /// </summary>
 public interface IProductSearchService
 {

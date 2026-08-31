@@ -1,7 +1,7 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:features="clr-namespace:BentaGo.App.Features.Login"
-                    xmlns:home="clr-namespace:BentaGo.App.Features.PeddlerHome"
+                    xmlns:home="clr-namespace:BentaGo.App.Features.Home"
                     xmlns:sales="clr-namespace:BentaGo.App.Features.Sales"
                     xmlns:stock="clr-namespace:BentaGo.App.Features.Stock"
                     xmlns:recon="clr-namespace:BentaGo.App.Features.Reconciliation"
@@ -21,8 +21,8 @@
     <DataTemplate DataType="{x:Type features:LoginViewModel}">
         <features:LoginView />
     </DataTemplate>
-    <DataTemplate DataType="{x:Type home:PeddlerHomeViewModel}">
-        <home:PeddlerHomeView />
+    <DataTemplate DataType="{x:Type home:HomeViewModel}">
+        <home:HomeView />
     </DataTemplate>
     <DataTemplate DataType="{x:Type sales:SalesViewModel}">
         <sales:SalesView />

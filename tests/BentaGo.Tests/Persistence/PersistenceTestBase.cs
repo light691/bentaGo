@@ -123,7 +123,7 @@ public abstract class PersistenceTestBase : IDisposable
 
 /// <summary>
 /// Deterministic single-store day scenario (the BG-P1a replacement for the
-/// deleted two-peddler trip scenario): one trading day with a float, goods
+/// deleted route-selling trip scenario): one trading day with a float, goods
 /// receipts, cash/GCash sales, a void, a return with refund, physical counts,
 /// and a day close. Same seed -> same ids -> byte-identical renders.
 /// </summary>

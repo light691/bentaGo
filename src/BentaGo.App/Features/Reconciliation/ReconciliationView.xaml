@@ -28,7 +28,7 @@
             </StackPanel>
 
             <StackPanel Grid.Row="1" Margin="{StaticResource Thickness.RowGap}">
-                <!-- Fatal state: no trip / no peddler link / signed out. -->
+                <!-- Fatal state: no open trading day / signed out. -->
                 <Border Style="{StaticResource EmptyStateStyle}"
                         Margin="{StaticResource Thickness.RowGap}"
                         Visibility="{Binding HasFatalState, Converter={StaticResource BoolToVisibility}}">
@@ -374,13 +374,13 @@
                 </Border>
 
                 <!-- Reopen with admin approval (the corrections-panel policy:
-                     a peddler actor picks an active Admin/Supervisor; a
+                     a cashier actor picks an active Admin/Supervisor; a
                      Supervisor/Admin self-approves). -->
                 <Border Grid.Column="1" Style="{StaticResource CardStyle}" Margin="{StaticResource Thickness.XS}"
                         Visibility="{Binding IsClosed, Converter={StaticResource BoolToVisibility}}">
                     <StackPanel>
                         <TextBlock Text="REOPEN" Style="{StaticResource PageEyebrowTextStyle}" />
-                        <TextBlock Text="Authorized reopen of this closed trip" Style="{StaticResource TitleTextStyle}" />
+                        <TextBlock Text="Authorized reopen of this closed trading day" Style="{StaticResource TitleTextStyle}" />
                         <TextBlock Text="Reason (recorded in the audit)"
                                    Style="{StaticResource FieldLabelStyle}"
                                    Margin="{StaticResource Thickness.M}" />

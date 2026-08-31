@@ -51,7 +51,6 @@ public sealed class MainViewModel : ViewModelBase
         HelpOverlay = services.GetRequiredService<HelpOverlayViewModel>();
 
         VersionText = "v" + (Assembly.GetEntryAssembly()?.GetName().Version?.ToString(3) ?? "1.0.0");
-        SimulatedLabel = "Simulated data - BG-002 scenario";
 
         Login.Authenticated += (_, _) => OnAuthenticated();
         _navigation.Navigated += OnNavigated;
@@ -127,8 +126,6 @@ public sealed class MainViewModel : ViewModelBase
     public HelpOverlayViewModel HelpOverlay { get; }
 
     public string VersionText { get; }
-
-    public string SimulatedLabel { get; }
 
     public ViewModelBase? Current
     {

@@ -84,13 +84,13 @@
                     <!-- Per-mode header. -->
                     <StackPanel Grid.Row="0" Visibility="{Binding IsVoidMode, Converter={StaticResource BoolToVisibility}}">
                         <TextBlock Text="VOID SALE" Style="{StaticResource TitleTextStyle}" />
-                        <TextBlock Text="Pick a sale from today's trip, add the reason, and record the approval."
+                        <TextBlock Text="Pick a sale from today's trading day, add the reason, and record the approval."
                                    Style="{StaticResource StatusTextStyle}"
                                    Margin="{StaticResource Thickness.XS}" />
                     </StackPanel>
                     <StackPanel Grid.Row="0" Visibility="{Binding IsReturnMode, Converter={StaticResource BoolToVisibility}}">
                         <TextBlock Text="RETURN LINE" Style="{StaticResource TitleTextStyle}" />
-                        <TextBlock Text="Return part of a sold line to peddler stock or the main store."
+                        <TextBlock Text="Return part of a sold line to the store's stock."
                                    Style="{StaticResource StatusTextStyle}"
                                    Margin="{StaticResource Thickness.XS}" />
                     </StackPanel>
@@ -99,7 +99,7 @@
                             <Run Text="{Binding SelectedModeId, Mode=OneWay}" />
                             <Run Text=" — stock movement" />
                         </TextBlock>
-                        <TextBlock Text="Record the movement against this trip's stock with the reason and approval."
+                        <TextBlock Text="Record the movement against the store's stock with the reason and approval."
                                    Style="{StaticResource StatusTextStyle}"
                                    Margin="{StaticResource Thickness.XS}" />
                     </StackPanel>

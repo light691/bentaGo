@@ -5,8 +5,8 @@ using BentaGo.App.Dialogs.Corrections;
 using BentaGo.App.Dialogs.Payment;
 using BentaGo.App.Features.Admin;
 using BentaGo.App.Features.Help;
+using BentaGo.App.Features.Home;
 using BentaGo.App.Features.Login;
-using BentaGo.App.Features.PeddlerHome;
 using BentaGo.App.Features.Reconciliation;
 using BentaGo.App.Features.Sales;
 using BentaGo.App.Features.Stock;
@@ -42,8 +42,8 @@ public static class ObservableObjectFactory
     /// <summary>
     /// The full BG-004 app registration surface. Tests build their own host
     /// with a throwaway data root and call this so the real shell and the
-    /// test host can never drift apart. The BG-005 data-source swap is the
-    /// single line marked below (bg-004-synthesis §12).
+    /// test host can never drift apart. The data source is the live SQLite
+    /// fold since BG-P1d (the marked line).
     /// </summary>
     public static void RegisterAppServices(Microsoft.Extensions.DependencyInjection.IServiceCollection services)
     {
@@ -51,13 +51,13 @@ public static class ObservableObjectFactory
         services.AddSingleton<INavigationService, NavigationService>();
         services.AddSingleton<IFocusService, FocusCoordinator>();
         services.AddSingleton<IDialogService, DialogService>();
-        services.AddSingleton<IAppDataSource, ScenarioDataSource>(); // BG-005: swap this line only
+        services.AddSingleton<IAppDataSource, SqliteAppDataSource>(); // BG-P1d: the live SQLite fold serves the screens
 
         // BG-005d admin glue: the import seam is intentionally NOT
         // host-registered until the UI wires it (IProductImportService
         // contract doc), and the admin read-mostly glue composes the
-        // registered persistence + ledger seams (users/peddlers enumeration
-        // reads use the EF context — no store enumeration seam exists).
+        // registered persistence + ledger seams (user enumeration reads use
+        // the EF context — no store enumeration seam exists).
         services.AddSingleton<IProductStore, ProductStore>();
         services.AddSingleton<IProductImportService, ProductImportService>();
         services.AddSingleton<AdminReadService>();
@@ -67,7 +67,7 @@ public static class ObservableObjectFactory
 
         services.AddTransient<MainViewModel>();
         services.AddTransient<LoginViewModel>();
-        services.AddTransient<PeddlerHomeViewModel>();
+        services.AddTransient<HomeViewModel>();
         services.AddTransient<SalesViewModel>();
         services.AddTransient<StockViewModel>();
         services.AddTransient<TransactionsViewModel>();

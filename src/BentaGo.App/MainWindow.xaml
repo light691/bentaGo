@@ -127,9 +127,8 @@
         </Grid>
 
         <!-- Status strip (round-6, reference-faithful): light full-width strip
-             below the rail; green dot + dark "Offline — local data" lead,
-             muted simulated-data segment, version right. No SQLite/EF claim
-             on this branch (lands with the BG-003 merge). -->
+             below the rail; green dot + dark "Local data" lead, version right
+             (the BG-002 scenario segment is gone since BG-P1d). -->
         <Border Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
                 Background="{DynamicResource Brush.Surface.Sunken}"
                 BorderBrush="{DynamicResource Brush.Border.Default}"
@@ -142,13 +141,9 @@
                 </Grid.ColumnDefinitions>
                 <StackPanel Orientation="Horizontal">
                     <Border Style="{StaticResource StatusStripDotStyle}" VerticalAlignment="Center" />
-                    <TextBlock x:Name="StatusLeadText" Text="Offline — local data"
+                    <TextBlock x:Name="StatusLeadText" Text="Local data"
                                Style="{StaticResource StatusBarLeadTextStyle}"
                                Margin="8,0,0,0"
-                               VerticalAlignment="Center" />
-                    <TextBlock Text="{Binding SimulatedLabel}"
-                               Style="{StaticResource StatusTextStyle}"
-                               Margin="24,0,0,0"
                                VerticalAlignment="Center" />
                 </StackPanel>
                 <TextBlock Grid.Column="2" Text="{Binding VersionText}"

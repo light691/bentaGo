@@ -210,7 +210,7 @@ public sealed class ReconciliationViewModel : ValidatableViewModelBase, IRetaina
         set => SetProperty(ref _selectedApprover, value);
     }
 
-    /// <summary>Supervisor/Admin actors self-approve the reopen; a peddler
+    /// <summary>Supervisor/Admin actors self-approve the reopen; a cashier
     /// actor must pick an approver (the corrections-panel policy).</summary>
     public bool IsSelfApproval
     {

@@ -32,8 +32,8 @@ namespace BentaGo.Tests.AppShell.LiveLanes;
 /// BG-007 live lanes L6-L10 (docs/05 "Verify, live"): the in-process STA
 /// driver opens the REAL corrections panel through the F8 path
 /// (<see cref="SalesViewModel.OpenCorrectionsCommand"/>) and proves the 007b
-/// rules against the working ledger — the peddler approval gate, supervisor
-/// self-approval, the partial return to peddler stock, the damage/loss
+/// rules against the working ledger — the cashier approval gate, supervisor
+/// self-approval, the partial return to store stock, the damage/loss
 /// adjustment kind, and the TRIP_CLOSED_CORRECTION gate. Each lane seeds the
 /// same SalesSeed root and drives the checkout through the canned payment
 /// result, then asserts the store movements/audits. Env-gated
@@ -68,7 +68,7 @@ public sealed class Bg007CorrectionsLanes
             SaleId saleId = session.QuerySales().Value.Single().Id;
 
             // The correction panel resolves its actor from IActorContext: sign
-            // the supervisor in, who is peddler-linked to this trip.
+            // the supervisor in (the day's actor).
             session.Actors.Set(session.Supervisor);
 
             bool selfApproval = false;

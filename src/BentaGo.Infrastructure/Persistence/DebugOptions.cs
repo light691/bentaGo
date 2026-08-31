@@ -45,7 +45,7 @@ public sealed class DebugOptions
     public Action? PreCommit { get; set; }
 
     /// <summary>
-    /// The next print fails (simulated hardware failure) so C5 — a failed
+    /// The next print fails (an injected hardware failure) so C5 — a failed
     /// print records PRINT_FAILED and changes nothing about the sale — is
     /// testable; the flag then clears.
     /// </summary>

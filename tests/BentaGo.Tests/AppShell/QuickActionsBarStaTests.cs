@@ -3,7 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using BentaGo.App;
-using BentaGo.App.Features.PeddlerHome;
+using BentaGo.App.Features.Home;
 using BentaGo.App.Features.Sales;
 using BentaGo.App.Mvvm;
 using BentaGo.App.Ui;
@@ -39,7 +39,7 @@ public sealed class QuickActionsBarStaTests
                     dataRootOverride: temp,
                     extra: ObservableObjectFactory.RegisterAppServices);
 
-                VerifyScreen(services, new PeddlerHomeView(), services.GetRequiredService<PeddlerHomeViewModel>(), "Home");
+                VerifyScreen(services, new HomeView(), services.GetRequiredService<HomeViewModel>(), "Home");
                 VerifyScreen(services, new SalesView(), services.GetRequiredService<SalesViewModel>(), "Sales");
             }
             finally

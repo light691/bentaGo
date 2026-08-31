@@ -86,13 +86,30 @@ public sealed class MigrationTests : IDisposable
         Assert.True(await TableExistsAsync(connection, "FundEntries"));
         Assert.True(await TableExistsAsync(connection, "ReceiptSerials"));
 
-        // The schema reset killed every route-selling table.
+        // The schema reset killed every route-selling table (the pivot,
+        // docs/decisions/0002): the surviving table set is exactly the
+        // day-era one — no pre-pivot registry survives.
         Assert.False(await TableExistsAsync(connection, "Trips"));
         Assert.False(await TableExistsAsync(connection, "StockLoads"));
         Assert.False(await TableExistsAsync(connection, "TripStates"));
         Assert.False(await TableExistsAsync(connection, "CellBreakdown"));
         Assert.False(await TableExistsAsync(connection, "DailyCloses"));
-        Assert.False(await TableExistsAsync(connection, "Peddlers"));
+        HashSet<string> tables = await TableNamesAsync(connection);
+        HashSet<string> expected = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "AppSettings", "PrintJobs", "Products", "Users",
+            "Movements", "Sales", "SaleLines", "PaymentLines",
+            "SaleVoids", "Returns", "ReturnLines", "Adjustments",
+            "PhysicalCounts", "CountLines", "DayOpens", "DayCloses",
+            "DayReopens", "GoodsReceipts", "GoodsReceiptLines", "FundEntries",
+            "ReceiptSerials", "AuditEvents", "LedgerHead", "CellBalances",
+            "FundBalances", "ObservedQuantities", "IdempotencyKeys",
+            "__EFMigrationsHistory",
+        };
+        foreach (string table in tables)
+        {
+            Assert.True(expected.Contains(table), $"unexpected table '{table}': the schema reset left pre-pivot objects behind");
+        }
 
         // Append-only triggers on Movements.
         Assert.True(await TriggerExistsAsync(connection, "Movements_NoUpdate"));
@@ -165,6 +182,20 @@ public sealed class MigrationTests : IDisposable
         command.CommandText = "SELECT COUNT(1) FROM sqlite_master WHERE type = 'table' AND name = $name";
         command.Parameters.AddWithValue("$name", name);
         return Convert.ToInt64(await command.ExecuteScalarAsync()) == 1;
+    }
+
+    private static async Task<HashSet<string>> TableNamesAsync(SqliteConnection connection)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'";
+        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        await using var reader = await command.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+            names.Add(reader.GetString(0));
+        }
+
+        return names;
     }
 
     private static async Task<bool> TableExistsAsync(string dbPath, string name)
