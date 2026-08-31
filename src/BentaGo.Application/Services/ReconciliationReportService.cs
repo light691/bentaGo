@@ -17,9 +17,11 @@ namespace BentaGo.Application.Services;
 /// rebuild.
 ///
 /// Semantics for this slice:
-///  - Expected cash is the folded <see cref="Fund.PhysicalCash"/>; the
-///    operator's count is the latest DayClose for the day. Variance is
-///    expected minus counted.
+///  - Expected cash is the ADR-0004 day fold (docs/decisions/0004 §1):
+///    opening float + cash sales − cash refunds/revokes − approved cash
+///    expenses (FundOut) + cash pay-downs received (FundIn); the operator's
+///    count is the latest DayClose for the day. Variance is expected minus
+///    counted.
 ///  - Expected stock is the fold's StockOnHand at the warehouse; the observed
 ///    count is the latest CountObserved for the cell. Quantity variance is
 ///    counted minus expected (a negative is a shortage).
@@ -35,7 +37,7 @@ public sealed class ReconciliationReportService(ILedgerStore store) : IReconcili
 
         LocationId location = StoreLocations.Warehouse;
 
-        Money expectedCash = store.State.FundsOnHand(Fund.PhysicalCash);
+        Money expectedCash = new Money(store.State.ExpectedCash(day));
         DayClose? latestClose = store.Context.DayCloses
             .Where(c => c.Day == day)
             .OrderBy(c => c.WhenUtc).ThenBy(c => c.Id.Value)

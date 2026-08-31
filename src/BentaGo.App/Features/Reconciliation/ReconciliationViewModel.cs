@@ -461,7 +461,9 @@ public sealed class ReconciliationViewModel : ValidatableViewModelBase, IRetaina
         };
     }
 
-    private Money ExpectedCash => _store.State.FundsOnHand(Fund.PhysicalCash);
+    /// <summary>The ADR-0004 day fold (docs/decisions/0004 §1): opening float
+    /// + cash sales − cash refunds − approved cash expenses + pay-downs.</summary>
+    private Money ExpectedCash => new Money(_store.State.ExpectedCash(_day));
 
     private Money CountedCash() =>
         TryParseAmount(ActualCashText, out Money counted) ? counted : Money.Zero;

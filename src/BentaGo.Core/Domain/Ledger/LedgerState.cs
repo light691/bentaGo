@@ -35,6 +35,8 @@ public sealed class LedgerState
     private readonly Dictionary<Fund, long> _funds = new();
     private readonly Dictionary<(ProductId, LocationId), long> _observed = new();
     private readonly Dictionary<DayKey, DayLifecycleState> _days = new();
+    private readonly Dictionary<DayKey, long> _openingFloat = new();
+    private readonly Dictionary<DayKey, long> _dayCash = new();
     private readonly Dictionary<SaleId, long> _receivedBySale = new();
     private readonly Dictionary<SaleId, long> _returnedBySale = new();
     private readonly HashSet<SaleId> _voidedSales = new();
@@ -102,6 +104,7 @@ public sealed class LedgerState
         foreach (DayOpen open in opens)
         {
             _days[open.Day] = DayLifecycleState.Open;
+            _openingFloat[open.Day] = open.OpeningFloatCentavos;
         }
 
         foreach (DayClose close in closes)
@@ -127,6 +130,20 @@ public sealed class LedgerState
     /// <summary>The lifecycle state of a trading day; a day with no documents is New.</summary>
     public DayLifecycleState Day(DayKey day) =>
         _days.TryGetValue(day, out DayLifecycleState state) ? state : DayLifecycleState.New;
+
+    /// <summary>The opening float bound from the day's <see cref="DayOpen"/> document; zero when the day never opened.</summary>
+    public long OpeningFloat(DayKey day) =>
+        _openingFloat.TryGetValue(day, out long centavos) ? centavos : 0;
+
+    /// <summary>
+    /// The expected drawer cash for a trading day (docs/decisions/0004 §1):
+    /// opening float + cash sales − cash refunds/revoked cash − approved cash
+    /// expenses (FundOut) + cash pay-downs received (FundIn). Every term is a
+    /// pure fold of the append-only stream, each cash flow day-keyed by its
+    /// own movement timestamp (corrections attach to the day they happen on).
+    /// </summary>
+    public long ExpectedCash(DayKey day) =>
+        OpeningFloat(day) + (_dayCash.TryGetValue(day, out long centavos) ? centavos : 0);
 
     public SaleState Sale(SaleId id)
     {
@@ -431,12 +448,22 @@ public sealed class LedgerState
                 break;
             case Receipt m:
                 Fund(m.Method.FundOf()!.Value, +m.Amount.Centavos);
+                if (m.Method == PaymentMethod.Cash)
+                {
+                    DayCash(DayKey.FromUtc(m.WhenUtc), +m.Amount.Centavos);
+                }
+
                 _receipts[movement.Sequence] = new ReceiptInfo(m.Method, ((SaleRef)m.Document).Id, m.Amount.Centavos, m.PaymentLineId);
                 _receivedBySale[((SaleRef)m.Document).Id] =
                     (_receivedBySale.TryGetValue(((SaleRef)m.Document).Id, out long recv) ? recv : 0) + m.Amount.Centavos;
                 break;
             case ReceiptRefund m:
                 Fund(m.Method.FundOf()!.Value, -m.Amount.Centavos);
+                if (m.Method == PaymentMethod.Cash)
+                {
+                    DayCash(DayKey.FromUtc(m.WhenUtc), -m.Amount.Centavos);
+                }
+
                 long refunded = _refundedByReceipt.TryGetValue(m.Reverses, out long rf) ? rf : 0;
                 _refundedByReceipt[m.Reverses] = refunded + m.Amount.Centavos;
                 if (_receipts.TryGetValue(m.Reverses, out ReceiptInfo? refundedReceipt))
@@ -448,6 +475,11 @@ public sealed class LedgerState
                 break;
             case ReceiptRevoke m:
                 Fund(m.Method.FundOf()!.Value, -m.Amount.Centavos);
+                if (m.Method == PaymentMethod.Cash)
+                {
+                    DayCash(DayKey.FromUtc(m.WhenUtc), -m.Amount.Centavos);
+                }
+
                 _revokedByReceipt[m.Reverses] = m.Amount.Centavos;
                 if (_receipts.TryGetValue(m.Reverses, out ReceiptInfo? revokedReceipt))
                 {
@@ -458,9 +490,19 @@ public sealed class LedgerState
                 break;
             case FundIn m:
                 Fund(m.Method.FundOf()!.Value, +m.Amount.Centavos);
+                if (m.Method == PaymentMethod.Cash)
+                {
+                    DayCash(DayKey.FromUtc(m.WhenUtc), +m.Amount.Centavos);
+                }
+
                 break;
             case FundOut m:
                 Fund(m.Method.FundOf()!.Value, -m.Amount.Centavos);
+                if (m.Method == PaymentMethod.Cash)
+                {
+                    DayCash(DayKey.FromUtc(m.WhenUtc), -m.Amount.Centavos);
+                }
+
                 break;
             case CountObserved m:
                 _observed[(m.ProductId, m.LocationId)] = m.ObservedQuantity.Units;
@@ -617,6 +659,13 @@ public sealed class LedgerState
         _funds[fund] = current + delta;
     }
 
+    /// <summary>The day-scoped cash term of the expected-cash fold (docs/decisions/0004 §1).</summary>
+    private void DayCash(DayKey day, long delta)
+    {
+        long current = _dayCash.TryGetValue(day, out long c) ? c : 0;
+        _dayCash[day] = current + delta;
+    }
+
     /// <summary>
     /// Copies this state so a batch can be validated-and-applied off to the
     /// side: on any failure the clone is discarded and the live state is
@@ -634,6 +683,10 @@ public sealed class LedgerState
             copy._observed[key] = value;
         foreach ((var key, DayLifecycleState value) in _days)
             copy._days[key] = value;
+        foreach ((var key, long value) in _openingFloat)
+            copy._openingFloat[key] = value;
+        foreach ((var key, long value) in _dayCash)
+            copy._dayCash[key] = value;
         foreach ((var key, long value) in _receivedBySale)
             copy._receivedBySale[key] = value;
         foreach ((var key, long value) in _returnedBySale)

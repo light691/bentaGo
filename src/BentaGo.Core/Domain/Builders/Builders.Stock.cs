@@ -231,21 +231,11 @@ public static class DayBuilder
             return Result<DayCloseDraft>.Fail(new DomainError("COUNT_NEGATIVE", "the counted cash cannot be negative"));
         }
 
-        // Expected cash per docs/decisions/0004 §1. The day-scoped derivation
-        // over the ledger (float + cash sales - cash refunds - cash expenses
-        // + cash pay-downs) is the P1b fold slice; this slice pins the
-        // document shape and the close arithmetic over a supplied expected.
-        DayOpen? open = null;
-        foreach (DayOpen candidate in ctx.DayOpens)
-        {
-            if (candidate.Day == cmd.Day)
-            {
-                open = candidate;
-                break;
-            }
-        }
-
-        long expectedCash = open?.OpeningFloatCentavos ?? 0;
+        // Expected cash per docs/decisions/0004 §1, derived by the day-keyed
+        // fold: opening float + cash sales − cash refunds/revokes − approved
+        // cash expenses (FundOut) + cash pay-downs received (FundIn). The
+        // fold is the single source of truth; the close document records it.
+        long expectedCash = ctx.State.ExpectedCash(cmd.Day);
         long difference = expectedCash - cmd.CountedCashCentavos;
         DayBalanceLabel label = difference == 0
             ? DayBalanceLabel.Balanced

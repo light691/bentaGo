@@ -67,16 +67,18 @@ public sealed class ReconciliationGoldenTests : PersistenceTestBase
 
         ReconciliationReport report = new ReconciliationReportService(memory).Build(SingleDayScenario.Day).Value;
 
-        // Expected cash equals the day's folded physical cash.
-        Assert.Equal(memory.State.FundsOnHand(Fund.PhysicalCash), report.Totals.ExpectedCash);
+        // Expected cash equals the ADR-0004 day fold: opening float plus the
+        // day's cash flows (docs/decisions/0004 §1) — fixture updated
+        // deliberately for the corrected formula (was the 270.00 fund fold).
+        Assert.Equal(new Money(memory.State.ExpectedCash(SingleDayScenario.Day)), report.Totals.ExpectedCash);
         Assert.Equal(2, report.Totals.Sales);                          // R-000001 + R-000004
         Assert.Equal(Money.FromPesos(315m), report.Totals.SalesTotal); // 225 + 90
         Assert.Equal(1, report.Totals.Voided);                         // R-000003
         Assert.Equal(1, report.Totals.Returns);                        // return on sale R-000004
         Assert.Equal(Money.FromPesos(45m), report.Totals.RefundTotal);
-        Assert.Equal(Money.FromPesos(270m), report.Totals.ExpectedCash);
+        Assert.Equal(Money.FromPesos(370m), report.Totals.ExpectedCash); // float 100 + cash 270
         Assert.Equal(Money.FromPesos(180m), report.Totals.CountedCash);
-        Assert.Equal(Money.FromPesos(90m), report.Totals.CashVariance);
+        Assert.Equal(Money.FromPesos(190m), report.Totals.CashVariance);
         Assert.Equal(VarianceLabel.Shortage, report.Totals.CashLabel);
 
         // Per-product: sardines counted 96 vs expected 95 -> +1 overage @ 45.00.

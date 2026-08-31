@@ -102,11 +102,12 @@ public sealed class Bg008Lanes
             await WaitUntilAsync(() => session.Navigation.CurrentKey == ScreenKeys.Reconciliation);
             var vm = (ReconciliationViewModel)session.ViewModel.Current!;
 
-            // The operator counts 180.00: the banner must show SHORT 104.00.
+            // The operator counts 180.00: the banner must show SHORT 190.00
+            // (the ADR-0004 fold: float 100.00 + cash 270.00 = 370.00).
             vm.ActualCashText = "180";
             _sta.PumpIdle();
             bool bannerShort = vm.IsShort && vm.BannerText.Contains("SHORT", StringComparison.Ordinal) &&
-                vm.BannerText.Contains("90", StringComparison.Ordinal);
+                vm.BannerText.Contains("190", StringComparison.Ordinal);
 
             vm.ExportReconciliationCsvCommand.Execute(null);
             vm.ExportTransactionsCsvCommand.Execute(null);
@@ -120,9 +121,9 @@ public sealed class Bg008Lanes
             Result<ReconciliationReport> report = session.Reports.Build(session.Day);
             bool reportOk = report.IsSuccess;
             var totals = report.Value.Totals;
-            bool ledgerCash = session.Store.State.FundsOnHand(Fund.PhysicalCash) == totals.ExpectedCash;
+            bool ledgerCash = session.Store.State.ExpectedCash(session.Day) == totals.ExpectedCash.Centavos;
 
-            // Reconciliation CSV: the Physical Cash row carries 284 / 180 / 104.
+            // Reconciliation CSV: the Physical Cash row carries 370 / 180 / 190.
             string reconCsv = filesExist ? File.ReadAllText(reconPath) : "";
             string[] reconLines = reconCsv.TrimEnd('\n').Split('\n');
             int cashRow = -1;
@@ -230,7 +231,8 @@ public sealed class Bg008Lanes
             await WaitUntilAsync(() => session.Navigation.CurrentKey == ScreenKeys.Reconciliation);
             var vm = (ReconciliationViewModel)session.ViewModel.Current!;
             // The seeded day is closed (+reopened) with counted cash 180.00
-            // vs folded cash 270.00, so entering 180 shorts by 90.00.
+            // vs the ADR-0004 fold (float 100.00 + cash 270.00 = 370.00),
+            // so entering 180 shorts by 190.00.
             bool hasReport = vm.HasReport;
             bool hasClose = session.Store.Context.DayCloses.Any(c => c.Day == session.Day);
 
@@ -238,13 +240,13 @@ public sealed class Bg008Lanes
             _sta.PumpIdle();
             bool bannerShort = vm.IsShort
                 && vm.BannerText.Contains("SHORT", StringComparison.Ordinal)
-                && vm.BannerText.Contains("90", StringComparison.Ordinal);
+                && vm.BannerText.Contains("190", StringComparison.Ordinal);
 
             // Domain report: exactly the folds a reviewer reads.
             ReconciliationReport report = session.Reports.Build(session.Day).Value;
-            bool cashExplained = report.Totals.ExpectedCash.Centavos == 27000
+            bool cashExplained = report.Totals.ExpectedCash.Centavos == 37000
                 && report.Totals.CountedCash.Centavos == 18000
-                && report.Totals.CashVariance.Centavos == 9000
+                && report.Totals.CashVariance.Centavos == 19000
                 && report.Totals.CashLabel == VarianceLabel.Shortage;
             bool stockExplained = report.StockRows.Single(r => r.Sku == "Sardines").CountedUnits == 96;
             bool everyLineSigned = report.StockRows.All(r =>
@@ -254,9 +256,9 @@ public sealed class Bg008Lanes
             // Screen report: the reviewer sees the same rows + notes.
             bool screenCash = hasReport
                 && vm.Report!.CashLabelText == "SHORTAGE"
-                && vm.Report.ExpectedCashText.Contains("270", StringComparison.Ordinal)
+                && vm.Report.ExpectedCashText.Contains("370", StringComparison.Ordinal)
                 && vm.Report.CountedCashText.Contains("180", StringComparison.Ordinal)
-                && vm.Report.CashVarianceText.Contains("90", StringComparison.Ordinal);
+                && vm.Report.CashVarianceText.Contains("190", StringComparison.Ordinal);
             ReportStockRowView? sardines = hasReport
                 ? vm.Report!.StockRows.SingleOrDefault(r => r.Sku == "Sardines")
                 : null;

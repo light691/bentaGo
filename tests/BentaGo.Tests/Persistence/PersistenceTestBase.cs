@@ -205,9 +205,11 @@ public static class SingleDayScenario
         store.Bind();
         Assert.True(store.Append(count.Value.Movements).IsSuccess, "count append failed");
 
-        // Day close: physical cash folded to 270.00; the operator counted
-        // 180.00 -> the report shorts by 90.00 (the close doc's own expected
-        // is the day float per the P1a slice, so its label is Overage).
+        // Day close: the ADR-0004 fold says expected = float 100.00 + cash
+        // sales 270.00 (225 + 90, the voided sale's cash revoked back out) =
+        // 370.00; the operator counted 180.00 -> the close shorts by 190.00.
+        // Fixture updated deliberately for docs/decisions/0004 (was: the
+        // float-only P1a close, 100.00 expected / 80.00 overage).
         Result<DayCloseDraft> close = DayBuilder.Close(store.Context, new DayCloseCommand(
             new CloseId(ids.Next("close")), Day, CountedCashCentavos: 18_000, "single day close", user, When.AddHours(5)));
         Assert.True(close.IsSuccess, close.Errors.FirstOrDefault()?.Code ?? "close build failed");
