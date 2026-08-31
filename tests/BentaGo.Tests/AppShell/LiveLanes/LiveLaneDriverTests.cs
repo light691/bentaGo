@@ -391,7 +391,7 @@ public sealed class LiveLaneDriverTests
             WaitFor(() => session.Navigation.CurrentKey == ScreenKeys.Home);
             _sta.PumpIdle();
             EnsureDefaultTheme();
-            railNavy &= LaneEvidence.SaveReviewPng("bg-004-peddler-home.png", 1366, 768, session.Window);
+            railNavy &= LaneEvidence.SaveReviewPng("bg-004-home.png", 1366, 768, session.Window);
 
             var sales = session.Services.GetRequiredService<SalesViewModel>();
             session.Navigation.Navigate(ScreenKeys.Sales);
@@ -435,7 +435,7 @@ public sealed class LiveLaneDriverTests
                 "bg-004-review-pack", "review pack (6 screenshots @1366x768)",
                 railNavy ? LaneEvidence.VerdictPass : LaneEvidence.VerdictFail,
                 railNavy
-                    ? "bg-004-login-1366.png, bg-004-peddler-home.png, bg-004-sales.png, bg-004-payment.png, bg-004-stock.png, bg-004-reconciliation.png; rail verified navy on all five shell captures"
+                    ? "bg-004-login-1366.png, bg-004-home.png, bg-004-sales.png, bg-004-payment.png, bg-004-stock.png, bg-004-reconciliation.png; rail verified navy on all five shell captures"
                     : "a shell capture rendered the rail WITHOUT the brand navy (#01274F) - a high-contrast dictionary was mounted during the review pack",
                 null);
         });

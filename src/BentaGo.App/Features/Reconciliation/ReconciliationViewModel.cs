@@ -22,29 +22,28 @@ using BentaGo.Core.Domain.Ledger;
 using BentaGo.Core.Domain.Payments;
 using BentaGo.Core.Domain.Receipts;
 using BentaGo.Core.Domain.Reconciliation;
-using BentaGo.Core.Domain.Trips;
 using BentaGo.Infrastructure.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace BentaGo.App.Features.Reconciliation;
 
 /// <summary>
-/// End trip / reconciliation (BG-008 Slice B, docs/05 449-482): the REAL
-/// reconciliation screen over the merged use cases — expected cash from the
-/// trip's physical-cash fold, per-product expected stock from the movement
-/// fold, count entry through <see cref="ICountService"/> (Save Draft: the
-/// submitted counts become facts, NO trip lock and NO final audit event),
-/// Submit Close through <see cref="ICloseService"/> (DailyClose + TripClose
-/// movement + close lock + the close receipt on screen), Reopen through
+/// Day close / reconciliation (BG-008 Slice B retargeted to the single-store
+/// day lifecycle, docs/decisions/0004): expected cash from the day's
+/// physical-cash fold, per-product expected stock from the movement fold at
+/// the warehouse, count entry through <see cref="ICountService"/> (Save
+/// Draft: the submitted counts become facts, NO day lock and NO final audit
+/// event), Submit Close through <see cref="ICloseService"/> (DayClose
+/// document + close lock + the close receipt on screen), Reopen through
 /// <see cref="IReopenService"/> with the corrections-panel approval policy
-/// (a peddler actor picks an active Admin/Supervisor; a Supervisor/Admin
+/// (a non-approver actor picks an active Admin/Supervisor; a Supervisor/Admin
 /// self-approves), and the report view rendering
 /// <see cref="IReconciliationReportService"/>'s totals + variances + notes.
 ///
 /// Every rejected use case surfaces the shared FriendlyError copy and leaves
-/// the ledger untouched (the service commits nothing on failure). The trip is
-/// the session actor's open trip, or their most recent one so a CLOSED trip
-/// still renders its lock, close receipt, and report.
+/// the ledger untouched (the service commits nothing on failure). The day is
+/// today's Manila day derived from the host clock; a CLOSED day still renders
+/// its lock, close receipt, and report.
 /// </summary>
 public sealed class ReconciliationViewModel : ValidatableViewModelBase, IRetainableScreen
 {
@@ -55,7 +54,7 @@ public sealed class ReconciliationViewModel : ValidatableViewModelBase, IRetaina
     public const string NoteRequiredOverCopy = "A note is required to explain a cash OVER. Record where the difference came from.";
     public const string ReopenReasonRequiredCopy = "A reopen reason is required.";
     public const string ReopenApproverRequiredCopy = "A reopen needs an admin approval. Choose an admin or supervisor above.";
-    public const string ClosedTripCorrectionCopy = "This trip is closed - corrections need an authorized reopen.";
+    public const string ClosedDayCorrectionCopy = "This day is closed - corrections need an authorized reopen.";
 
     private readonly ILedgerStore _store;
     private readonly IActorContext _actors;
@@ -75,11 +74,9 @@ public sealed class ReconciliationViewModel : ValidatableViewModelBase, IRetaina
     private string _closeNotesText = "";
     private string _reopenReasonText = "";
     private bool _isClosed;
-    private bool _hasTrip;
+    private bool _hasDay;
     private string? _fatalMessage;
     private string? _errorBanner;
-    private string _tripNumberText = "-";
-    private string _tripStatusText = "-";
     private IReadOnlyList<MethodSummary> _methodRows = Array.Empty<MethodSummary>();
     private string _grossSalesText = MoneyDisplay.Peso(Money.Zero);
     private string _discountsText = MoneyDisplay.Peso(Money.Zero);
@@ -94,8 +91,7 @@ public sealed class ReconciliationViewModel : ValidatableViewModelBase, IRetaina
     private ReconciliationReportView? _report;
 
     private User _actor = null!;
-    private PeddlerId _peddler;
-    private Trip _trip = null!;
+    private DayKey _day;
     private IReadOnlyList<User> _accounts = Array.Empty<User>();
 
     public ReconciliationViewModel(IServiceProvider services)
@@ -135,55 +131,27 @@ public sealed class ReconciliationViewModel : ValidatableViewModelBase, IRetaina
         Result<User> actor = await ActorGuard.ResolveAsync(_actors, _users);
         if (actor.IsFailure)
         {
-            HasTrip = false;
+            HasDay = false;
             FatalMessage = SalesViewModel.FriendlyError(actor.Errors[0].Code);
             return;
         }
 
         _actor = actor.Value;
-        if (_actor.PeddlerLink is not { } peddler)
-        {
-            HasTrip = false;
-            FatalMessage = SalesViewModel.FriendlyError("NO_PEDDLER_LINK");
-            return;
-        }
-
-        _peddler = peddler;
         _store.Bind();
 
-        // Trip context (the corrections-panel rule): the open trip when one
-        // exists, otherwise the peddler's most recent one — a CLOSED trip must
-        // still render its lock, close receipt, and report.
-        Trip? trip = null;
-        foreach (Trip candidate in _store.Context.Trips)
+        // Day context: today's Manila trading day from the host clock. A
+        // day with no open document is NEW — nothing to reconcile yet.
+        _day = DayKey.FromUtc(_clock());
+        DayLifecycleState lifecycle = _store.State.Day(_day);
+        if (lifecycle == DayLifecycleState.New)
         {
-            if (candidate.Peddler != _peddler)
-            {
-                continue;
-            }
-
-            if (_store.State.Trip(candidate.Id).Status == TripStatus.Open)
-            {
-                trip = candidate;
-                break;
-            }
-
-            if (trip is null || candidate.CreatedUtc > trip.CreatedUtc)
-            {
-                trip = candidate;
-            }
-        }
-
-        if (trip is null)
-        {
-            HasTrip = false;
+            HasDay = false;
             FatalMessage = SalesViewModel.FriendlyError("NO_OPEN_TRIP");
             return;
         }
 
-        _trip = trip;
-        HasTrip = true;
-        IsClosed = _store.State.Trip(_trip.Id).Status == TripStatus.Closed;
+        HasDay = true;
+        IsClosed = lifecycle == DayLifecycleState.Closed;
 
         IReadOnlyList<User> accounts = await _reads.ListUsersAsync();
         _accounts = accounts;
@@ -193,7 +161,7 @@ public sealed class ReconciliationViewModel : ValidatableViewModelBase, IRetaina
             .ToArray();
         IsSelfApproval = _actor.Role is Role.Admin or Role.Supervisor;
 
-        RebuildTripDisplay();
+        RebuildDayDisplay();
         RebuildCountRows();
         RefreshCloseReceipt();
         RefreshReport();
@@ -215,9 +183,12 @@ public sealed class ReconciliationViewModel : ValidatableViewModelBase, IRetaina
 
     public ICommand FocusCashCommand { get; }
 
-    public string TripNumberText => _tripNumberText;
+    /// <summary>Header identity for the day on reconciliation (the shell
+    /// labels it "Trip " — the display text carries the day key).</summary>
+    public string TripNumberText => HasDay ? $"DAY {_day.Value}" : "-";
 
-    public string TripStatusText => _tripStatusText;
+    /// <summary>The day lifecycle verdict: OPEN | CLOSED.</summary>
+    public string TripStatusText => IsClosed ? "CLOSED" : "OPEN";
 
     public IReadOnlyList<MethodSummary> MethodRows => _methodRows;
 
@@ -239,7 +210,7 @@ public sealed class ReconciliationViewModel : ValidatableViewModelBase, IRetaina
         set => SetProperty(ref _selectedApprover, value);
     }
 
-    /// <summary>Supervisor/Admin actors self-approve the reopen; a peddler
+    /// <summary>Supervisor/Admin actors self-approve the reopen; a cashier
     /// actor must pick an approver (the corrections-panel policy).</summary>
     public bool IsSelfApproval
     {
@@ -254,7 +225,7 @@ public sealed class ReconciliationViewModel : ValidatableViewModelBase, IRetaina
         }
     }
 
-    public bool NeedsApproverPicker => HasTrip && !_isSelfApproval;
+    public bool NeedsApproverPicker => HasDay && !_isSelfApproval;
 
     public string? SelfApprovalText => _isSelfApproval
         ? $"Self-approved ({_actor.Username})"
@@ -293,14 +264,14 @@ public sealed class ReconciliationViewModel : ValidatableViewModelBase, IRetaina
     /// <summary>Field error with corrective copy (docs/03 §7 wording).</summary>
     public void SetCountedError() => SetFieldError(nameof(ActualCashText), CountedErrorCopy);
 
-    /// <summary>True when the screen has a resolvable trip; the copy is in
-    /// FatalMessage otherwise (signed out, no peddler link, no trip).</summary>
-    public bool HasTrip
+    /// <summary>True when the screen has a resolvable trading day; the copy
+    /// is in FatalMessage otherwise (signed out, day not open).</summary>
+    public bool HasDay
     {
-        get => _hasTrip;
+        get => _hasDay;
         private set
         {
-            if (SetProperty(ref _hasTrip, value))
+            if (SetProperty(ref _hasDay, value))
             {
                 OnPropertyChanged(nameof(NeedsApproverPicker));
                 NotifySubmitGate();
@@ -330,12 +301,12 @@ public sealed class ReconciliationViewModel : ValidatableViewModelBase, IRetaina
         }
     }
 
-    /// <summary>The shared TRIP_CLOSED_CORRECTION copy from the Sales mapper:
-    /// a closed trip gates corrections until an authorized reopen.</summary>
-    public string? CorrectionGateText => IsClosed ? ClosedTripCorrectionCopy : null;
+    /// <summary>The shared DAY_CLOSED_CORRECTION copy from the Sales mapper:
+    /// a closed day gates corrections until an authorized reopen.</summary>
+    public string? CorrectionGateText => IsClosed ? ClosedDayCorrectionCopy : null;
 
-    public bool DraftSaved => HasTrip && _store.Context.Counts.Any(
-        c => c.Location == _trip.Location && c.WhenUtc >= _trip.CreatedUtc);
+    public bool DraftSaved => HasDay && _store.Context.Counts.Any(
+        c => c.Location == StoreLocations.Warehouse && c.WhenUtc >= DayOpenUtc());
 
     public string DraftStatusText => DraftSaved
         ? DraftSavedCopy
@@ -358,19 +329,19 @@ public sealed class ReconciliationViewModel : ValidatableViewModelBase, IRetaina
     public bool HasExportStatus => !string.IsNullOrEmpty(ExportStatusText);
 
     /// <summary>Gate: a resolvable open trip (draft counts never lock).</summary>
-    public bool CanSaveDraft => HasTrip && !IsClosed;
+    public bool CanSaveDraft => HasDay && !IsClosed;
 
     /// <summary>Gate: a parseable counted cash on an open trip.</summary>
-    public bool CanSubmitClose => HasTrip && !IsClosed && TryParseAmount(ActualCashText, out _);
+    public bool CanSubmitClose => HasDay && !IsClosed && TryParseAmount(ActualCashText, out _);
 
     /// <summary>Gate: a closed trip (reopen is the authorized exit).</summary>
-    public bool CanReopen => HasTrip && IsClosed;
+    public bool CanReopen => HasDay && IsClosed;
 
     /// <summary>Gate: a trip is on screen (the CSV exports need its data).</summary>
-    public bool CanExport => HasTrip;
+    public bool CanExport => HasDay;
 
     /// <summary>Gate: a trip is on screen (the close summary prints from its close).</summary>
-    public bool CanPrintSummary => HasTrip;
+    public bool CanPrintSummary => HasDay;
 
     /// <summary>The screen-level corrective banner (submit/reopen rejections).
     /// The use case commits nothing on failure, so the banner is the only
@@ -426,7 +397,7 @@ public sealed class ReconciliationViewModel : ValidatableViewModelBase, IRetaina
     {
         get
         {
-            if (!HasTrip || !TryParseAmount(ActualCashText, out _))
+            if (!HasDay || !TryParseAmount(ActualCashText, out _))
             {
                 return "Pending";
             }
@@ -444,9 +415,9 @@ public sealed class ReconciliationViewModel : ValidatableViewModelBase, IRetaina
     {
         get
         {
-            if (!HasTrip)
+            if (!HasDay)
             {
-                return "NO TRIP TO RECONCILE";
+                return "NO DAY TO RECONCILE";
             }
 
             if (string.IsNullOrWhiteSpace(ActualCashText))
@@ -490,16 +461,27 @@ public sealed class ReconciliationViewModel : ValidatableViewModelBase, IRetaina
         };
     }
 
-    private Money ExpectedCash => _store.State.TripCash(_trip.Id, Fund.PhysicalCash);
+    /// <summary>The ADR-0004 day fold (docs/decisions/0004 §1): opening float
+    /// + cash sales − cash refunds − approved cash expenses + pay-downs.</summary>
+    private Money ExpectedCash => new Money(_store.State.ExpectedCash(_day));
 
     private Money CountedCash() =>
         TryParseAmount(ActualCashText, out Money counted) ? counted : Money.Zero;
+
+    /// <summary>The open document's timestamp for the day (the draft-saved
+    /// gate only recognizes counts recorded after the day opened); UTC min
+    /// when the day has no open document.</summary>
+    private DateTimeOffset DayOpenUtc() =>
+        _store.Context.DayOpens
+            .Where(o => o.Day == _day)
+            .OrderBy(o => o.WhenUtc).ThenBy(o => o.Id.Value)
+            .FirstOrDefault()?.WhenUtc ?? DateTimeOffset.MinValue;
 
     private void SaveDraft()
     {
         if (!CanSaveDraft)
         {
-            ErrorBanner = ClosedTripCorrectionCopy;
+            ErrorBanner = ClosedDayCorrectionCopy;
             return;
         }
 
@@ -521,7 +503,7 @@ public sealed class ReconciliationViewModel : ValidatableViewModelBase, IRetaina
         }
 
         Result<CountOutcome> outcome = _counts.Count(new CountCommand(
-            new CountId(Guid.NewGuid()), _trip.Location, lines, _actor.Id, _clock()));
+            new CountId(Guid.NewGuid()), StoreLocations.Warehouse, lines, _actor.Id, _clock()));
         if (outcome.IsFailure)
         {
             ErrorBanner = SalesViewModel.FriendlyError(outcome.Errors[0].Code);
@@ -534,7 +516,7 @@ public sealed class ReconciliationViewModel : ValidatableViewModelBase, IRetaina
         _store.Bind();
 
         // The counts are now ledger facts (observation movements + a COUNT
-        // audit); the trip stays open and no final audit event exists.
+        // audit); the day stays open and no final audit event exists.
         RebuildCountRows();
         RefreshReport();
         OnPropertyChanged(nameof(DraftStatusText));
@@ -543,7 +525,7 @@ public sealed class ReconciliationViewModel : ValidatableViewModelBase, IRetaina
 
     private void SubmitClose()
     {
-        if (!HasTrip)
+        if (!HasDay)
         {
             ErrorBanner = FatalMessage;
             return;
@@ -571,10 +553,10 @@ public sealed class ReconciliationViewModel : ValidatableViewModelBase, IRetaina
             return;
         }
 
-        Result<CloseOutcome> outcome = _closes.Close(new CloseCommand(
+        Result<CloseOutcome> outcome = _closes.Close(new DayCloseCommand(
             new CloseId(Guid.NewGuid()),
-            _trip.Id,
-            CountedCash(),
+            _day,
+            CountedCash().Centavos,
             NullIfBlank(CloseNotesText),
             _actor.Id,
             _clock()));
@@ -589,7 +571,7 @@ public sealed class ReconciliationViewModel : ValidatableViewModelBase, IRetaina
         _store.Bind();
 
         IsClosed = true;
-        RebuildTripDisplay();
+        RebuildDayDisplay();
         RebuildCountRows();
         RefreshCloseReceipt();
         RefreshReport();
@@ -615,26 +597,25 @@ public sealed class ReconciliationViewModel : ValidatableViewModelBase, IRetaina
             return;
         }
 
-        // The approver is recorded with the reason (the reopen command has no
-        // approval field): the audit then carries reason + approving actor.
-        string reason = IsSelfApproval
-            ? ReopenReasonText.Trim()
-            : $"{ReopenReasonText.Trim()} (approved by {SelectedApprover!.Username})";
+        // The approver is recorded on the reopen command (ApprovedBy); the
+        // audit then carries reason + approving actor.
+        string reason = ReopenReasonText.Trim();
+        UserId approver = IsSelfApproval ? _actor.Id : SelectedApprover!.Id;
 
-        Result<AppendReceipt> outcome = _reopens.Reopen(new ReopenCommand(
-            _trip.Id, reason, _actor.Id, _clock()));
+        Result<AppendReceipt> outcome = _reopens.Reopen(new DayReopenCommand(
+            new DayId(Guid.NewGuid()), _day, reason, approver, _actor.Id, _clock()));
         if (outcome.IsFailure)
         {
             ErrorBanner = SalesViewModel.FriendlyError(outcome.Errors[0].Code);
             return;
         }
 
-        // Rebind so the reopen movement is visible before the read models
+        // Rebind so the reopen document is visible before the read models
         // rebuild (the use case's last Bind ran before its Append commit).
         _store.Bind();
 
         IsClosed = false;
-        RebuildTripDisplay();
+        RebuildDayDisplay();
         RebuildCountRows();
         RefreshCloseReceipt();
         RefreshReport();
@@ -648,31 +629,31 @@ public sealed class ReconciliationViewModel : ValidatableViewModelBase, IRetaina
     }
 
     /// <summary>BG-008 Slice C: prints the close summary for the on-screen
-    /// trip through the BG-007 pipeline (the close is already committed; a
+    /// day through the BG-007 pipeline (the close is already committed; a
     /// failed print leaves the facts intact). The job snapshot is the close
     /// document, so a retry/reprint keeps the identical copy.</summary>
     private async Task PrintCloseSummaryAsync()
     {
-        if (!HasTrip)
+        if (!HasDay)
         {
-            ExportStatusText = "No close to print on this trip.";
+            ExportStatusText = "No close to print for this day.";
             return;
         }
 
-        Result<ReconciliationReport> report = _reports.Build(_peddler, _trip.Id);
+        Result<ReconciliationReport> report = _reports.Build(_day);
         if (report.IsFailure)
         {
             ExportStatusText = "Could not build the close report.";
             return;
         }
 
-        DailyClose? close = _store.Context.Closes
-            .Where(c => c.Trip == _trip.Id)
+        DayClose? close = _store.Context.DayCloses
+            .Where(c => c.Day == _day)
             .OrderBy(c => c.WhenUtc).ThenBy(c => c.Id.Value)
             .LastOrDefault();
         if (close is null)
         {
-            ExportStatusText = "No close to print on this trip.";
+            ExportStatusText = "No close to print for this day.";
             return;
         }
 
@@ -690,15 +671,15 @@ public sealed class ReconciliationViewModel : ValidatableViewModelBase, IRetaina
     /// in <see cref="ExportStatusText"/>.</summary>
     private async Task ExportCsvAsync(bool transactions)
     {
-        if (!HasTrip)
+        if (!HasDay)
         {
-            ExportStatusText = "No trip to export.";
+            ExportStatusText = "No day to export.";
             return;
         }
 
         Result<string> csv = transactions
-            ? _reports.BuildTransactionCsv(_peddler, _trip.Id)
-            : _reports.BuildReconciliationCsv(_peddler, _trip.Id);
+            ? _reports.BuildTransactionCsv(_day)
+            : _reports.BuildReconciliationCsv(_day);
         if (csv.IsFailure)
         {
             ExportStatusText = "Could not build the CSV export.";
@@ -718,35 +699,26 @@ public sealed class ReconciliationViewModel : ValidatableViewModelBase, IRetaina
         }
     }
 
-    private void RebuildTripDisplay()
+    private void RebuildDayDisplay()
     {
-        List<Trip> trips = _store.Context.Trips
-            .Where(t => t.Peddler == _peddler)
-            .OrderBy(t => t.CreatedUtc).ThenBy(t => t.Id.Value)
-            .ToList();
-        int index = trips.FindIndex(t => t.Id == _trip.Id);
-        _tripNumberText = $"TRIP-{_trip.CreatedUtc:yyyyMMdd}-{(index < 0 ? 1 : index + 1):000}";
-        _tripStatusText = _store.State.Trip(_trip.Id).Status == TripStatus.Closed
-            ? "CLOSED"
-            : "OPEN";
         OnPropertyChanged(nameof(TripNumberText));
         OnPropertyChanged(nameof(TripStatusText));
 
-        // Per-method summary over the trip's own funds (the fold is the
+        // Per-method summary over the store's funds (the fold is the
         // computation source; credit produces no fund and shows as zero).
         _methodRows = new List<MethodSummary>
         {
-            new("Cash", MoneyDisplay.Peso(_store.State.TripCash(_trip.Id, Fund.PhysicalCash))),
-            new("GCash", MoneyDisplay.Peso(_store.State.TripCash(_trip.Id, Fund.Gcash))),
-            new("Maya", MoneyDisplay.Peso(_store.State.TripCash(_trip.Id, Fund.Maya))),
-            new("Bank", MoneyDisplay.Peso(_store.State.TripCash(_trip.Id, Fund.Bank))),
+            new("Cash", MoneyDisplay.Peso(_store.State.FundsOnHand(Fund.PhysicalCash))),
+            new("GCash", MoneyDisplay.Peso(_store.State.FundsOnHand(Fund.Gcash))),
+            new("Maya", MoneyDisplay.Peso(_store.State.FundsOnHand(Fund.Maya))),
+            new("Bank", MoneyDisplay.Peso(_store.State.FundsOnHand(Fund.Bank))),
         };
 
         Money gross = Money.Zero;
         Money discounts = Money.Zero;
         foreach (Sale sale in _store.Context.Sales)
         {
-            if (sale.Trip != _trip.Id || _store.State.Sale(sale.Id).Status == SaleStatus.Voided)
+            if (sale.Day != _day || _store.State.Sale(sale.Id).Status == SaleStatus.Voided)
             {
                 continue;
             }
@@ -775,131 +747,34 @@ public sealed class ReconciliationViewModel : ValidatableViewModelBase, IRetaina
         OnPropertyChanged(nameof(IsOver));
     }
 
-    /// <summary>One row per product the trip touched: expected from the fold's
-    /// ending units, counted from the fold's latest observation (hydrating a
-    /// saved draft), signed quantity + value variance (counted minus expected,
-    /// a negative is a shortage) at the fold-derived unit price.</summary>
+    /// <summary>One row per product the day touched: expected/counted/variance
+    /// and notes come straight from the Slice A report's stock rows, so the
+    /// count table always agrees with the report below it.</summary>
     private void RebuildCountRows()
     {
-        var products = new List<(ProductId Id, string Sku, string Name)>();
-        var seen = new HashSet<ProductId>();
-        foreach (StockLoad load in _store.Context.Loads)
+        Result<ReconciliationReport> report = _reports.Build(_day);
+        if (report.IsFailure)
         {
-            if (load.Trip != _trip.Id)
-            {
-                continue;
-            }
-
-            foreach (StockLoadLine line in load.Lines)
-            {
-                if (seen.Add(line.ProductId))
-                {
-                    products.Add((line.ProductId, line.Sku, line.ProductName));
-                }
-            }
+            _countRows = Array.Empty<ReconciliationCountRow>();
+            OnPropertyChanged(nameof(CountRows));
+            return;
         }
 
-        foreach (Sale sale in _store.Context.Sales)
+        var rows = new List<ReconciliationCountRow>(report.Value.StockRows.Count);
+        foreach (StockVarianceRow row in report.Value.StockRows.OrderBy(r => r.Sku, StringComparer.Ordinal))
         {
-            if (sale.Trip != _trip.Id)
-            {
-                continue;
-            }
-
-            foreach (SaleLine line in sale.Lines)
-            {
-                if (seen.Add(line.ProductId))
-                {
-                    products.Add((line.ProductId, line.Sku, line.ProductName));
-                }
-            }
-        }
-
-        var rows = new List<ReconciliationCountRow>(products.Count);
-        foreach ((ProductId id, string sku, string name) in products.OrderBy(p => p.Sku, StringComparer.Ordinal))
-        {
-            InventoryBreakdown breakdown = _store.State.Breakdown(id, _trip.Location);
-            string? notes = LatestCountNotes(id);
             rows.Add(new ReconciliationCountRow(
-                id,
-                sku,
-                name,
-                (int)breakdown.Ending,
-                breakdown.Observed?.Units,
-                DeriveUnitPrice(id),
-                notes));
+                row.Product,
+                row.Sku,
+                row.ProductName,
+                row.ExpectedUnits,
+                row.CountedUnits,
+                row.UnitPrice,
+                row.Notes));
         }
 
         _countRows = rows;
         OnPropertyChanged(nameof(CountRows));
-    }
-
-    private string? LatestCountNotes(ProductId product)
-    {
-        CountLine? match = null;
-        foreach (PhysicalCount count in _store.Context.Counts
-                     .Where(c => c.Location == _trip.Location)
-                     .OrderBy(c => c.WhenUtc).ThenBy(c => c.Id.Value))
-        {
-            foreach (CountLine line in count.Lines)
-            {
-                if (line.ProductId == product)
-                {
-                    match = line;
-                }
-            }
-        }
-
-        return match?.Notes;
-    }
-
-    /// <summary>The fold-derived unit price (the report's derivation, display
-    /// twin): committed sale value over sold quantity, else the load unit
-    /// cost, else zero — so the screen value agrees with the report value.</summary>
-    private Money DeriveUnitPrice(ProductId product)
-    {
-        long value = 0;
-        int quantity = 0;
-        foreach (Sale sale in _store.Context.Sales)
-        {
-            if (sale.Trip != _trip.Id || _store.State.Sale(sale.Id).Status == SaleStatus.Voided)
-            {
-                continue;
-            }
-
-            foreach (SaleLine line in sale.Lines)
-            {
-                if (line.ProductId == product)
-                {
-                    value += line.LineTotal.Centavos;
-                    quantity += line.Quantity.Units;
-                }
-            }
-        }
-
-        if (quantity > 0)
-        {
-            return new Money(value / quantity);
-        }
-
-        Money? cost = null;
-        foreach (StockLoad load in _store.Context.Loads)
-        {
-            if (load.Trip != _trip.Id)
-            {
-                continue;
-            }
-
-            foreach (StockLoadLine line in load.Lines)
-            {
-                if (line.ProductId == product)
-                {
-                    cost = line.UnitCost;
-                }
-            }
-        }
-
-        return cost ?? Money.Zero;
     }
 
     /// <summary>The close receipt from the latest close document — rebuilt
@@ -907,19 +782,19 @@ public sealed class ReconciliationViewModel : ValidatableViewModelBase, IRetaina
     /// and REMAINS visible after a reopen.</summary>
     private void RefreshCloseReceipt()
     {
-        DailyClose? close = _store.Context.Closes
-            .Where(c => c.Trip == _trip.Id)
+        DayClose? close = _store.Context.DayCloses
+            .Where(c => c.Day == _day)
             .OrderBy(c => c.WhenUtc).ThenBy(c => c.Id.Value)
             .LastOrDefault();
         _closeReceipt = close is null
             ? null
             : new CloseReceiptView(
-                MoneyDisplay.Peso(close.ExpectedCash),
-                MoneyDisplay.Peso(close.CountedCash),
+                MoneyDisplay.Peso(new Money(close.ExpectedCashCentavos)),
+                MoneyDisplay.Peso(new Money(close.CountedCashCentavos)),
                 // The close document's own sign (expected minus counted, a
                 // positive is a shortage) — the label carries the direction.
-                MoneyDisplay.Peso(close.Variance),
-                LabelOf(close.Variance),
+                MoneyDisplay.Peso(new Money(close.DifferenceCentavos)),
+                LabelOf(new Money(close.DifferenceCentavos)),
                 close.Notes,
                 _accounts.FirstOrDefault(u => u.Id == close.By)?.Username ?? "user",
                 ManilaDisplay.UtcAsManila(close.WhenUtc).ToString("dd MMM yyyy HH:mm"));
@@ -931,7 +806,7 @@ public sealed class ReconciliationViewModel : ValidatableViewModelBase, IRetaina
     /// strings. Rebuilt after every count/close/reopen and on activation.</summary>
     private void RefreshReport()
     {
-        Result<ReconciliationReport> report = _reports.Build(_peddler, _trip.Id);
+        Result<ReconciliationReport> report = _reports.Build(_day);
         if (report.IsFailure)
         {
             _report = null;

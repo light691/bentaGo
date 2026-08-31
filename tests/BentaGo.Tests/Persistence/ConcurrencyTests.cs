@@ -22,7 +22,7 @@ public sealed class ConcurrencyTests : PersistenceTestBase
     public async Task TwoStores_RaceTheLastUnit_OneOk_OneStockNegative_CommittedStockZero()
     {
         string root = NewRoot();
-        Lane8Fixture.Seed(root); // one sellable unit at the route, fixed ids
+        Lane8Fixture.Seed(root); // one sellable unit at the warehouse, fixed ids
 
         var paths = new DataPathProvider(root);
         var store1 = new SqliteLedgerStore(paths, new DebugOptions());
@@ -62,7 +62,7 @@ public sealed class ConcurrencyTests : PersistenceTestBase
 
         // Committed stock is 0: a fresh store re-folds the persisted stream.
         var reopened = new SqliteLedgerStore(paths, new DebugOptions());
-        Assert.Equal(Quantity.Zero, reopened.State.StockOnHand(Lane8Fixture.Sardines, Lane8Fixture.Route));
+        Assert.Equal(Quantity.Zero, reopened.State.StockOnHand(Lane8Fixture.Sardines, Lane8Fixture.Warehouse));
 
         // MIN(quantity) over the stream >= 1 (no negative stock row can commit).
         long? minQuantity = await SqliteTest.MinAsync(DbPath(root), "Movements", "quantity");
@@ -71,7 +71,7 @@ public sealed class ConcurrencyTests : PersistenceTestBase
 
         // A rebuild replays cleanly and the projections match the fold.
         await reopened.RebuildAsync();
-        Assert.Equal(Quantity.Zero, reopened.State.StockOnHand(Lane8Fixture.Sardines, Lane8Fixture.Route));
+        Assert.Equal(Quantity.Zero, reopened.State.StockOnHand(Lane8Fixture.Sardines, Lane8Fixture.Warehouse));
         Assert.Equal("ok", await SqliteTest.QuickCheckAsync(DbPath(root)));
     }
 }

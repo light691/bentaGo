@@ -91,14 +91,14 @@ public sealed class SessionActorLifecycleTests : IDisposable
         Assert.NotNull(admin);
         contexts.Set(admin.Id);
 
-        // Two colleague accounts: one peddler to act on, one admin to later
+        // Two colleague accounts: one supervisor to act on, one admin to later
         // deactivate and impersonate (the session's own admin cannot be
         // deactivated — self-guard F6).
-        var peddler = await users.CreateUserAsync(new CreateUserCommand(
-            new UserId(Guid.NewGuid()), "victim", "pw", Role.Peddler, PeddlerLink: null, admin.Id, T0));
-        Assert.True(peddler.IsSuccess);
+        var victimUser = await users.CreateUserAsync(new CreateUserCommand(
+            new UserId(Guid.NewGuid()), "victim", "pw", Role.Supervisor, admin.Id, T0));
+        Assert.True(victimUser.IsSuccess);
         var secondAdmin = await users.CreateUserAsync(new CreateUserCommand(
-            new UserId(Guid.NewGuid()), "second-admin", "pw2", Role.Admin, PeddlerLink: null, admin.Id, T0));
+            new UserId(Guid.NewGuid()), "second-admin", "pw2", Role.Admin, admin.Id, T0));
         Assert.True(secondAdmin.IsSuccess);
 
         var deact = await users.SetUserActiveAsync(new SetUserActiveCommand(
@@ -110,7 +110,7 @@ public sealed class SessionActorLifecycleTests : IDisposable
         // Users-row read rejects the capability gate.
         contexts.Set(secondAdmin.Value.Id);
         var rejected = await users.CreateUserAsync(new CreateUserCommand(
-            new UserId(Guid.NewGuid()), "ghost", "pw3", Role.Peddler, PeddlerLink: null, secondAdmin.Value.Id, T0));
+            new UserId(Guid.NewGuid()), "ghost", "pw3", Role.Supervisor, secondAdmin.Value.Id, T0));
 
         Assert.True(rejected.IsFailure);
         Assert.Equal("AUTH_ACTOR_DEACTIVATED", rejected.Errors[0].Code);

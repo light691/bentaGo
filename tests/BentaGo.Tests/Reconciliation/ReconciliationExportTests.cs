@@ -5,7 +5,7 @@ using BentaGo.Application.Services;
 using BentaGo.Core.Common;
 using BentaGo.Core.Domain;
 using BentaGo.Core.Domain.Documents;
-using BentaGo.Core.Domain.Payments;
+using BentaGo.Tests.Persistence;
 using Xunit;
 
 namespace BentaGo.Tests.Reconciliation;
@@ -18,25 +18,21 @@ namespace BentaGo.Tests.Reconciliation;
 /// </summary>
 public sealed class ReconciliationExportTests
 {
-    private static (PeddlerId Peddler, TripId Trip, ILedgerStore Store) Seeded()
+    private static (DayKey Day, ILedgerStore Store) Seeded()
     {
         var store = new InMemoryLedgerStore();
-        TwoPeddlersScenario.Run(store);
+        SingleDayScenario.Run(store);
         store.Bind();
-        DailyClose close = store.Context.Closes
-            .OrderBy(c => c.WhenUtc).ThenBy(c => c.Id.Value)
-            .First();
-        Trip trip = store.Context.Trips.Single(t => t.Id == close.Trip);
-        return (trip.Peddler, trip.Id, store);
+        return (SingleDayScenario.Day, store);
     }
 
     [Fact]
     public void ExportReconciliationCsv_WritesFile_ContentEqualsGenerator()
     {
-        (PeddlerId peddler, TripId trip, ILedgerStore store) = Seeded();
+        (DayKey day, ILedgerStore store) = Seeded();
         var service = new ReconciliationReportService(store);
 
-        Result<string> csv = service.BuildReconciliationCsv(peddler, trip);
+        Result<string> csv = service.BuildReconciliationCsv(day);
         Assert.True(csv.IsSuccess, csv.Errors.FirstOrDefault()?.Code ?? "csv failed");
 
         string dir = Path.Combine(Path.GetTempPath(), "bentago-export-" + Guid.NewGuid().ToString("N"));
@@ -66,10 +62,10 @@ public sealed class ReconciliationExportTests
     [Fact]
     public void ExportTransactionCsv_ContentEqualsGenerator()
     {
-        (PeddlerId peddler, TripId trip, ILedgerStore store) = Seeded();
+        (DayKey day, ILedgerStore store) = Seeded();
         var service = new ReconciliationReportService(store);
 
-        Result<string> csv = service.BuildTransactionCsv(peddler, trip);
+        Result<string> csv = service.BuildTransactionCsv(day);
         Assert.True(csv.IsSuccess, csv.Errors.FirstOrDefault()?.Code ?? "csv failed");
         Assert.StartsWith("Date,Receipt,Lines,Methods,Amount,Status\n", csv.Value);
         Assert.Contains("R-000001", csv.Value);

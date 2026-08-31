@@ -9,10 +9,10 @@ using Xunit;
 namespace BentaGo.Tests.Persistence;
 
 /// <summary>
-/// U6 — MigrationTests (docs/05 lane 9): a fresh root migrates to the head
-/// schema with the full ledger shape; a code-built fixture at migration 01
-/// (prior schema WITH a seeded ledger) upgrades to head with every row and
-/// total preserved.
+/// U6 — MigrationTests (docs/05 lane 9), retargeted to the BG-P1 schema
+/// reset (P1c): a fresh root migrates through the ONE baseline migration to
+/// the full day-era ledger shape, and the code-built seeded fixture
+/// converges to head with every row and total preserved.
 /// </summary>
 public sealed class MigrationTests : IDisposable
 {
@@ -56,85 +56,114 @@ public sealed class MigrationTests : IDisposable
         await using var context = await host.GetRequiredService<IDbContextFactory<BentaGoDbContext>>()
             .CreateDbContextAsync();
         string[] applied = (await context.Database.GetAppliedMigrationsAsync()).ToArray();
-        Assert.Equal(8, applied.Length); // InitialCreate + BG003_01/02 + BG005_01 + BG005b_01 + BG005c_01 + BG006_01 + BG007_01
-        Assert.EndsWith("BG007_01_AddPrintJobs", applied[^1]);
+        Assert.Single(applied); // exactly ONE migration: the BG-P1 baseline
+        Assert.EndsWith("Baseline", applied[^1]);
 
         await using var connection = new SqliteConnection($"Data Source={DbPath(root)};Mode=ReadOnly;Pooling=False");
         await connection.OpenAsync();
 
         Assert.True(await TableExistsAsync(connection, "Movements"));
         Assert.True(await TableExistsAsync(connection, "IdempotencyKeys"));
-        Assert.True(await TableExistsAsync(connection, "Trips"));
         Assert.True(await TableExistsAsync(connection, "Sales"));
         Assert.True(await TableExistsAsync(connection, "SaleLines"));
         Assert.True(await TableExistsAsync(connection, "PaymentLines"));
-        Assert.True(await TableExistsAsync(connection, "StockLoads"));
         Assert.True(await TableExistsAsync(connection, "LedgerHead"));
         Assert.True(await TableExistsAsync(connection, "CellBalances"));
         Assert.True(await TableExistsAsync(connection, "FundBalances"));
         Assert.True(await TableExistsAsync(connection, "ObservedQuantities"));
-        Assert.True(await TableExistsAsync(connection, "TripStates"));
-        Assert.True(await TableExistsAsync(connection, "CellBreakdown"));
         Assert.True(await TableExistsAsync(connection, "AuditEvents"));
         Assert.True(await TableExistsAsync(connection, "Users"));
-        Assert.True(await TableExistsAsync(connection, "Peddlers"));
         Assert.True(await TableExistsAsync(connection, "Products")); // BG-005b catalog
         Assert.True(await TableExistsAsync(connection, "PrintJobs")); // BG-007 print jobs
+
+        // Day-era documents (BG-P1): day lifecycle + goods receipts + fund
+        // entries, plus the BIR serial counter (docs/decisions/0003).
+        Assert.True(await TableExistsAsync(connection, "DayOpens"));
+        Assert.True(await TableExistsAsync(connection, "DayCloses"));
+        Assert.True(await TableExistsAsync(connection, "DayReopens"));
+        Assert.True(await TableExistsAsync(connection, "GoodsReceipts"));
+        Assert.True(await TableExistsAsync(connection, "GoodsReceiptLines"));
+        Assert.True(await TableExistsAsync(connection, "FundEntries"));
+        Assert.True(await TableExistsAsync(connection, "ReceiptSerials"));
+
+        // The schema reset killed every route-selling table (the pivot,
+        // docs/decisions/0002): the surviving table set is exactly the
+        // day-era one — no pre-pivot registry survives.
+        Assert.False(await TableExistsAsync(connection, "Trips"));
+        Assert.False(await TableExistsAsync(connection, "StockLoads"));
+        Assert.False(await TableExistsAsync(connection, "TripStates"));
+        Assert.False(await TableExistsAsync(connection, "CellBreakdown"));
+        Assert.False(await TableExistsAsync(connection, "DailyCloses"));
+        HashSet<string> tables = await TableNamesAsync(connection);
+        HashSet<string> expected = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "AppSettings", "PrintJobs", "Products", "Users",
+            "Movements", "Sales", "SaleLines", "PaymentLines",
+            "SaleVoids", "Returns", "ReturnLines", "Adjustments",
+            "PhysicalCounts", "CountLines", "DayOpens", "DayCloses",
+            "DayReopens", "GoodsReceipts", "GoodsReceiptLines", "FundEntries",
+            "ReceiptSerials", "AuditEvents", "LedgerHead", "CellBalances",
+            "FundBalances", "ObservedQuantities", "IdempotencyKeys",
+            "__EFMigrationsHistory", "__EFMigrationsLock",
+        };
+        foreach (string table in tables)
+        {
+            Assert.True(expected.Contains(table), $"unexpected table '{table}': the schema reset left pre-pivot objects behind");
+        }
 
         // Append-only triggers on Movements.
         Assert.True(await TriggerExistsAsync(connection, "Movements_NoUpdate"));
         Assert.True(await TriggerExistsAsync(connection, "Movements_NoDelete"));
 
-        // BG006_01: caller-surface performance indexes.
+        // BIR + day-keyed indexes; caller-surface performance indexes.
+        Assert.True(await IndexExistsAsync(connection, "IX_Sales_SerialNumber"));
+        Assert.True(await IndexExistsAsync(connection, "IX_Sales_DayKey"));
+        Assert.True(await IndexExistsAsync(connection, "IX_DayOpens_DayKey"));
         Assert.True(await IndexExistsAsync(connection, "IX_Products_Name_NOCASE"));
-        Assert.True(await IndexExistsAsync(connection, "IX_Sales_TripCreated"));
         Assert.True(await IndexExistsAsync(connection, "IX_PaymentLines_Reference"));
 
         // A second migrate converges.
         await initializer.EnsureCreatedOrMigrateAsync();
-        Assert.Equal(8, (await context.Database.GetAppliedMigrationsAsync()).Count());
+        Assert.Single(await context.Database.GetAppliedMigrationsAsync());
 
         await connection.CloseAsync();
     }
 
     [Fact]
-    public async Task FixtureAtMigration01_UpgradesToHead_RowsAndTotalsPreserved()
+    public async Task FixtureAtBaseline_ConvergesToHead_RowsAndTotalsPreserved()
     {
         string root = NewRoot();
         string dbPath = await LedgerSchemaFixture.BuildAsync(root);
         Assert.EndsWith("bentago.db", dbPath);
 
-        // Pre-upgrade shape: migration history stops at BG003_01; no idempotency table yet.
+        // The fixture is already AT the one baseline: seeded mini-day present,
+        // history holds exactly the baseline row.
         await using (var before = new SqliteConnection($"Data Source={dbPath};Mode=ReadOnly;Pooling=False"))
         {
             await before.OpenAsync();
             Assert.True(await TableExistsAsync(before, "Movements"));
-            Assert.False(await TableExistsAsync(before, "IdempotencyKeys"));
-            Assert.Equal(2, await CountRowsAsync(before, "__EFMigrationsHistory"));
+            Assert.True(await TableExistsAsync(before, "IdempotencyKeys"));
+            Assert.Equal(1, await CountRowsAsync(before, "__EFMigrationsHistory"));
             await before.CloseAsync();
         }
 
         long movementsBefore = await CountRowsAsync(dbPath, "Movements");
-        long loadRowsBefore = await CountRowsAsync(dbPath, "StockLoads");
         long saleRowsBefore = await CountRowsAsync(dbPath, "Sales");
         long auditRowsBefore = await CountRowsAsync(dbPath, "AuditEvents");
         long? totalStockBefore = await SumColumnAsync(dbPath, "Movements", "quantity");
         long? totalFundsBefore = await SumColumnAsync(dbPath, "Movements", "amount_centavos");
 
-        // Upgrade to head.
+        // A migrate pass converges to head (no-op) without touching data.
         ServiceProvider host = BentaGoHost.BuildForTests(root);
         var initializer = host.GetRequiredService<DbInitializer>();
         await initializer.EnsureCreatedOrMigrateAsync();
 
-        Assert.Equal(8, await CountRowsAsync(dbPath, "__EFMigrationsHistory"));
-        Assert.True(await TableExistsAsync(dbPath, "IdempotencyKeys"));
+        Assert.Equal(1, await CountRowsAsync(dbPath, "__EFMigrationsHistory"));
         Assert.True(await TableExistsAsync(dbPath, "Users"));
-        Assert.True(await TableExistsAsync(dbPath, "Peddlers"));
         Assert.True(await TableExistsAsync(dbPath, "Products")); // BG-005b catalog
 
-        // Rows and totals survived the upgrade verbatim.
+        // Rows and totals survived verbatim.
         Assert.Equal(movementsBefore, await CountRowsAsync(dbPath, "Movements"));
-        Assert.Equal(loadRowsBefore, await CountRowsAsync(dbPath, "StockLoads"));
         Assert.Equal(saleRowsBefore, await CountRowsAsync(dbPath, "Sales"));
         Assert.Equal(auditRowsBefore, await CountRowsAsync(dbPath, "AuditEvents"));
         Assert.Equal(totalStockBefore, await SumColumnAsync(dbPath, "Movements", "quantity"));
@@ -143,8 +172,8 @@ public sealed class MigrationTests : IDisposable
         await using var context = await host.GetRequiredService<IDbContextFactory<BentaGoDbContext>>()
             .CreateDbContextAsync();
         string[] applied = (await context.Database.GetAppliedMigrationsAsync()).ToArray();
-        Assert.Equal(8, applied.Length); // head = BG007_01 after the upgrade
-        Assert.EndsWith("BG007_01_AddPrintJobs", applied[^1]);
+        Assert.Single(applied); // head = the BG-P1 baseline
+        Assert.EndsWith("Baseline", applied[^1]);
     }
 
     private static async Task<bool> TableExistsAsync(SqliteConnection connection, string name)
@@ -153,6 +182,20 @@ public sealed class MigrationTests : IDisposable
         command.CommandText = "SELECT COUNT(1) FROM sqlite_master WHERE type = 'table' AND name = $name";
         command.Parameters.AddWithValue("$name", name);
         return Convert.ToInt64(await command.ExecuteScalarAsync()) == 1;
+    }
+
+    private static async Task<HashSet<string>> TableNamesAsync(SqliteConnection connection)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'";
+        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        await using var reader = await command.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+            names.Add(reader.GetString(0));
+        }
+
+        return names;
     }
 
     private static async Task<bool> TableExistsAsync(string dbPath, string name)

@@ -37,52 +37,6 @@ public sealed class SalesPerfTests : SalesTestBase
 
     private static string SkuFor(int index) => $"SKU-{index:D6}";
 
-    /// <summary>
-    /// Proves the perf-factor assumptions: a registered trip + load opens the
-    /// trip when a transfer pair is appended (the docs must be bound first —
-    /// Bind() after RegisterTrip), and the Persistence SeedDay shape agrees.
-    /// </summary>
-    [Fact]
-    public async Task Diagnostic_TripOpensOnRegisteredLoadTransferPair()
-    {
-        string root = NewRoot();
-        ServiceProvider provider = NewHost(root);
-        await provider.GetRequiredService<DbInitializer>().EnsureCreatedOrMigrateAsync();
-        using var host = new SalesHost(provider, root);
-        (TripId trip, ProductId product, LocationId route, LocationId storeLoc, UserId user, PeddlerId peddler) = Known();
-
-        // KNOWN-GOOD: Persistence SeedDay (LoadBuilder-built load movements).
-        SeedDay(host.Store, trip, product, route, storeLoc, user, peddler);
-        host.Store.Bind();
-        Assert.Equal(TripStatus.Open, host.Store.Context.State.Trip(trip).Status);
-
-        // Hand-rolled pair over a registered empty load, with the docs bound:
-        // opens the trip the same way.
-        string root2 = NewRoot();
-        ServiceProvider provider2 = NewHost(root2);
-        await provider2.GetRequiredService<DbInitializer>().EnsureCreatedOrMigrateAsync();
-        using var host2 = new SalesHost(provider2, root2);
-        (TripId trip2, ProductId product2, LocationId route2, LocationId store2, UserId user2, PeddlerId peddler2) = Known();
-        host2.Store.RegisterTrip(new Trip(trip2, peddler2, route2, SeedWhen, user2));
-        host2.Store.Bind();
-        var loadId = new LoadId(Guid.NewGuid());
-        var load = new LoadRef(loadId);
-        Result<AppendReceipt> first = host2.Store.Append(new[]
-        {
-            Moves.OpeningStock(0, SeedWhen, user2, load, product2, store2, Quantity.Of(100)),
-        });
-        Assert.True(first.IsSuccess, first.Errors.FirstOrDefault()?.Code ?? "open failed");
-        host2.Store.RegisterLoad(new StockLoad(loadId, "P-DIAG", trip2, Array.Empty<StockLoadLine>(), user2, SeedWhen));
-        Result<AppendReceipt> second = host2.Store.Append(new Movement[]
-        {
-            Moves.TransferOut(0, SeedWhen, user2, load, product2, store2, Quantity.Of(100)),
-            Moves.TransferIn(0, SeedWhen, user2, load, product2, route2, Quantity.Of(100)),
-        });
-        Assert.True(second.IsSuccess, second.Errors.FirstOrDefault()?.Code ?? "transfer failed");
-        host2.Store.Bind();
-        Assert.Equal(TripStatus.Open, host2.Store.Context.State.Trip(trip2).Status);
-    }
-
     [Fact]
     public async Task P95_LookupAndCheckout_On50kProductsAnd100kMovements()
     {
@@ -91,19 +45,22 @@ public sealed class SalesPerfTests : SalesTestBase
         await provider.GetRequiredService<DbInitializer>().EnsureCreatedOrMigrateAsync();
         using var host = new SalesHost(provider, root);
 
-        (TripId trip, ProductId _, LocationId route, LocationId storeLoc, UserId user, PeddlerId peddler) = Known();
+        (_, UserId user) = Known();
 
         await host.Users.AddAsync(new User
         {
             Id = user,
             Username = "perf-seller",
             PasswordHash = "hash-not-checked-here",
-            Role = Role.Peddler,
-            PeddlerLink = peddler,
+            Role = Role.Supervisor,
             CreatedBy = user,
             CreatedUtc = SeedWhen,
         });
-        host.Store.RegisterTrip(new Trip(trip, peddler, route, SeedWhen, user));
+        host.Store.RegisterDayOpen(new DayOpen(new DayId(Guid.NewGuid()), SeedDayKey, 0, user, SeedWhen));
+        // The DI checkout factory derives its day from the real clock, so the
+        // session checkouts run on TODAY's day — open it alongside the seed.
+        host.Store.RegisterDayOpen(new DayOpen(
+            new DayId(Guid.NewGuid()), DayKey.FromUtc(DateTimeOffset.UtcNow), 0, user, DateTimeOffset.UtcNow));
         host.Store.Bind();
         host.Actors.Set(user);
 
@@ -114,12 +71,10 @@ public sealed class SalesPerfTests : SalesTestBase
         await BulkCatalogAsync(provider, pids);
         seedSink.Add(("seed catalog", seedWatch.ElapsedMilliseconds));
         seedWatch.Restart();
-        SeedMovements(host, trip, route, storeLoc, user, pids);
+        SeedMovements(host, user, pids);
         seedSink.Add(("seed movements", seedWatch.ElapsedMilliseconds));
         host.Store.Bind();
-        Assert.True(host.Store.Context.State.Trip(trip).Status == TripStatus.Open,
-            $"trip did not open; status = {host.Store.Context.State.Trip(trip).Status} (movements appended: {host.Store.Context.State.LastSequence})");
-        Assert.True(host.Store.Context.State.StockOnHand(new ProductId(Array.Empty<byte>().Length == 0 ? Guid.Empty : Guid.Empty), route).Units == 0);
+        Assert.Equal(DayLifecycleState.Open, host.Store.Context.State.Day(SeedDayKey));
 
         // --- Baselines first (docs/05: record the BG-005 / BG-003 surfaces
         // --- before the BG-006 probe) -----------------------------------------
@@ -130,7 +85,7 @@ public sealed class SalesPerfTests : SalesTestBase
         for (int i = 0; i < CheckoutRuns; i++)
         {
             // One warm-up, excluded from the sample.
-            RunDirectCheckout(checkout, trip, user, pids, i, baselineCheckouts, warmUp: i == 0);
+            RunDirectCheckout(checkout, user, pids, i, baselineCheckouts, warmUp: i == 0);
         }
 
         var probeLookups = new List<long>(LookupRuns);
@@ -202,26 +157,20 @@ public sealed class SalesPerfTests : SalesTestBase
         }
     }
 
-    private static void SeedMovements(SalesHost host, TripId trip, LocationId route, LocationId store, UserId user,
-        IReadOnlyList<ProductId> pids)
+    private static void SeedMovements(SalesHost host, UserId user, IReadOnlyList<ProductId> pids)
     {
         // Exactly 100,000 movements, all legal under the fold guards:
-        //  - product 0 opens at the STORE (100) and one load pair moves its
-        //    100 units onto the route — the first trip-attributed activity
-        //    (opens the trip; see Diagnostic_TripOpensOnRegisteredLoadTransferPair)
-        //  - products 1..N-1 open at the ROUTE (100 units each)
+        //  - every product receives 100 units at the warehouse (goods receipt)
         //  - balance-neutral counts make the total exactly 100,000
-        // Every sellable product has 100 units on the route (no STOCK_NEGATIVE).
+        // Every sellable product has 100 units on hand (no STOCK_NEGATIVE).
+        var goodsRef = new GoodsRef(new GoodsId(Guid.NewGuid()));
         var countRef = new CountRef(new CountId(Guid.NewGuid()));
 
-        // Opening batches: product 0 at the store, 1..N-1 at the route.
         var openings = new List<Movement>(ProductCount);
-        openings.Add(Moves.OpeningStock(0, SeedWhen, user, new LoadRef(new LoadId(Guid.NewGuid())),
-            pids[0], store, Quantity.Of(100)));
-        for (int i = 1; i < ProductCount; i++)
+        for (int i = 0; i < ProductCount; i++)
         {
-            openings.Add(Moves.OpeningStock(0, SeedWhen, user, new LoadRef(new LoadId(Guid.NewGuid())),
-                pids[i], route, Quantity.Of(100)));
+            openings.Add(Moves.GoodsReceived(0, SeedWhen, user, goodsRef,
+                pids[i], StoreLocations.Warehouse, Quantity.Of(100)));
         }
 
         for (int start = 0; start < openings.Count; start += 1_000)
@@ -229,28 +178,16 @@ public sealed class SalesPerfTests : SalesTestBase
             Result<AppendReceipt> appended = host.Store.Append(
                 openings.GetRange(start, Math.Min(1_000, openings.Count - start)));
             Assert.True(appended.IsSuccess,
-                $"opening batch at {start}: {appended.Errors.FirstOrDefault()?.Code ?? "append failed"}");
+                $"goods batch at {start}: {appended.Errors.FirstOrDefault()?.Code ?? "append failed"}");
         }
 
-        // The one load pair (registered right before the append, so the batch
-        // binds it; the append clears staged docs after commit).
-        var loadId = new LoadId(Guid.NewGuid());
-        var load = new LoadRef(loadId);
-        host.Store.RegisterLoad(new StockLoad(loadId, "P-PERF", trip, Array.Empty<StockLoadLine>(), user, SeedWhen));
-        Result<AppendReceipt> pair = host.Store.Append(new Movement[]
-        {
-            Moves.TransferOut(0, SeedWhen, user, load, pids[0], store, Quantity.Of(100)),
-            Moves.TransferIn(0, SeedWhen, user, load, pids[0], route, Quantity.Of(100)),
-        });
-        Assert.True(pair.IsSuccess, pair.Errors.FirstOrDefault()?.Code ?? "load pair failed");
-
-        // Balance-neutral counts: 49,998 rows.
-        for (int start = 0; start < ProductCount - 2; start += 1_000)
+        // Balance-neutral counts: 50,000 rows.
+        for (int start = 0; start < ProductCount; start += 1_000)
         {
             var batch = new List<Movement>(1_000);
-            for (int i = start; i < start + 1_000 && i < ProductCount - 2; i++)
+            for (int i = start; i < start + 1_000 && i < ProductCount; i++)
             {
-                batch.Add(Moves.CountObserved(0, SeedWhen, user, countRef, pids[i], route, Quantity.Of(100)));
+                batch.Add(Moves.CountObserved(0, SeedWhen, user, countRef, pids[i], StoreLocations.Warehouse, Quantity.Of(100)));
             }
 
             Result<AppendReceipt> appended = host.Store.Append(batch);
@@ -259,14 +196,14 @@ public sealed class SalesPerfTests : SalesTestBase
         }
     }
 
-    private void RunDirectCheckout(ICheckoutService checkout, TripId trip, UserId user, IReadOnlyList<ProductId> pids,
+    private void RunDirectCheckout(ICheckoutService checkout, UserId user, IReadOnlyList<ProductId> pids,
         int i, List<long> sample, bool warmUp)
     {
         ProductId product = pids[i];
         var lineId = new SaleLineId(Guid.NewGuid());
         var paymentId = new PaymentLineId(Guid.NewGuid());
         var cmd = new NewSaleCommand(
-            new SaleId(Guid.NewGuid()), trip, $"R-PERF-C-{i:D4}", user, SeedWhen.AddHours(2),
+            new SaleId(Guid.NewGuid()), SeedDayKey, $"R-PERF-C-{i:D4}", user, SeedWhen.AddHours(2),
             new[]
             {
                 new NewSaleLine(lineId, product, SkuFor(i), $"Product {i}",

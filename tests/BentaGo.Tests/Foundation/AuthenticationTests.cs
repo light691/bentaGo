@@ -192,17 +192,17 @@ public sealed class AuthenticationTests : IDisposable
         var contexts = host.GetRequiredService<IActorContext>();
         contexts.Set(admin!.Id);
 
-        // A deactivated account must exist to try: create a peddler, then
+        // A deactivated account must exist to try: create a supervisor, then
         // deactivate them (the admin cannot deactivate their own account, F6).
         var created = await users.CreateUserAsync(new CreateUserCommand(
-            new UserId(Guid.NewGuid()), "peddie", "pw", Role.Peddler, PeddlerLink: null, admin.Id, T0));
+            new UserId(Guid.NewGuid()), "supvie", "pw", Role.Supervisor, admin.Id, T0));
         Assert.True(created.IsSuccess);
 
         var deact = await users.SetUserActiveAsync(new SetUserActiveCommand(
             created.Value.Id, Active: false, admin.Id, T0));
         Assert.True(deact.IsSuccess);
 
-        AuthResult result = await auth.AuthenticateAsync("peddie", "pw");
+        AuthResult result = await auth.AuthenticateAsync("supvie", "pw");
 
         // Generic InvalidCredentials — never a distinct "deactivated" reason,
         // so the failure text cannot reveal account state.

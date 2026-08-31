@@ -9,50 +9,40 @@ using BentaGo.Core.Domain.Reconciliation;
 namespace BentaGo.Application.Services;
 
 /// <summary>
-/// BG-008 Slice A: the per-trip reconciliation projection plus the CSV export
-/// (legacy, store-agnostic — the <see cref="TripReadService"/> /
-/// <see cref="SaleQueryService"/> pattern). It is pure over the ledger read
-/// surface (Bind + Context/State/Movements + the registered close/count
-/// documents), with no database access, so the report is byte-identical
-/// across an in-memory store, SQLite, a reopen, and a rebuild.
+/// BG-008 Slice A: the per-day reconciliation projection plus the CSV export
+/// (store-agnostic — the <see cref="SaleQueryService"/> pattern). It is pure
+/// over the ledger read surface (Bind + Context/State/Movements + the
+/// registered close/count documents), with no database access, so the report
+/// is byte-identical across an in-memory store, SQLite, a reopen, and a
+/// rebuild.
 ///
 /// Semantics for this slice:
-///  - Expected cash is the trip's folded <see cref="Fund.PhysicalCash"/>
-///    (CloseBuilder's authority); the operator's count is the latest
-///    DailyClose for the trip. Variance is expected minus counted.
-///  - Expected stock is the fold's <c>InventoryBreakdown.Ending</c>; the
-///    observed count is the latest CountObserved for the cell. Quantity
-///    variance is counted minus expected (a negative is a shortage).
+///  - Expected cash is the ADR-0004 day fold (docs/decisions/0004 §1):
+///    opening float + cash sales − cash refunds/revokes − approved cash
+///    expenses (FundOut) + cash pay-downs received (FundIn); the operator's
+///    count is the latest DayClose for the day. Variance is expected minus
+///    counted.
+///  - Expected stock is the fold's StockOnHand at the warehouse; the observed
+///    count is the latest CountObserved for the cell. Quantity variance is
+///    counted minus expected (a negative is a shortage).
 ///  - The valuation unit price is fold-derived (sold value over sold
-///    quantity across the trip's committed sales, falling back to the load
-///    unit cost), so value variance is reproducible from the ledger alone.
+///    quantity across the day's committed sales), so value variance is
+///    reproducible from the ledger alone.
 /// </summary>
 public sealed class ReconciliationReportService(ILedgerStore store) : IReconciliationReportService
 {
-    public Result<ReconciliationReport> Build(PeddlerId peddler, TripId trip)
+    public Result<ReconciliationReport> Build(DayKey day)
     {
         store.Bind();
 
-        Trip? tripDoc = store.Context.FindTrip(trip);
-        if (tripDoc is null)
-        {
-            return Result<ReconciliationReport>.Fail(new DomainError("TRIP_UNKNOWN", $"no trip {trip}"));
-        }
+        LocationId location = StoreLocations.Warehouse;
 
-        if (tripDoc.Peddler != peddler)
-        {
-            return Result<ReconciliationReport>.Fail(new DomainError(
-                "TRIP_PEDDLER_MISMATCH", $"trip {trip} belongs to peddler {tripDoc.Peddler}, not {peddler}"));
-        }
-
-        LocationId location = tripDoc.Location;
-
-        Money expectedCash = store.State.TripCash(trip, Fund.PhysicalCash);
-        DailyClose? latestClose = store.Context.Closes
-            .Where(c => c.Trip == trip)
+        Money expectedCash = new Money(store.State.ExpectedCash(day));
+        DayClose? latestClose = store.Context.DayCloses
+            .Where(c => c.Day == day)
             .OrderBy(c => c.WhenUtc).ThenBy(c => c.Id.Value)
             .LastOrDefault();
-        Money countedCash = latestClose?.CountedCash ?? Money.Zero;
+        Money countedCash = latestClose is null ? Money.Zero : new Money(latestClose.CountedCashCentavos);
         Money cashVariance = expectedCash.Minus(countedCash);
 
         var cashRows = new List<CashVarianceRow>
@@ -60,32 +50,26 @@ public sealed class ReconciliationReportService(ILedgerStore store) : IReconcili
             new(Fund.PhysicalCash, expectedCash, countedCash, cashVariance, LabelOf(cashVariance)),
         };
 
-        var stockRows = BuildStockRows(trip, location);
+        var stockRows = BuildStockRows(day, location);
 
-        ReportTotals totals = BuildTotals(trip, location, expectedCash, countedCash, cashVariance);
+        ReportTotals totals = BuildTotals(day, location, expectedCash, countedCash, cashVariance);
 
         return Result<ReconciliationReport>.Ok(new ReconciliationReport(
-            trip, peddler, location, latestClose?.Notes, cashRows, stockRows, totals));
+            day, location, latestClose?.Notes, cashRows, stockRows, totals));
     }
 
-    public Result<string> BuildTransactionCsv(PeddlerId peddler, TripId trip)
+    public Result<string> BuildTransactionCsv(DayKey day)
     {
         store.Bind();
-        Result<Trip> tripResult = ValidateTrip(peddler, trip);
-        if (tripResult.IsFailure)
-        {
-            return Result<string>.Fail(tripResult.Errors);
-        }
-
         var sales = store.Context.Sales
-            .Where(s => s.Trip == trip)
+            .Where(s => s.Day == day)
             .ToList();
         return Result<string>.Ok(ReconciliationCsv.Transaction(sales, s => store.State.Sale(s.Id).Status));
     }
 
-    public Result<string> BuildReconciliationCsv(PeddlerId peddler, TripId trip)
+    public Result<string> BuildReconciliationCsv(DayKey day)
     {
-        Result<ReconciliationReport> report = Build(peddler, trip);
+        Result<ReconciliationReport> report = Build(day);
         if (report.IsFailure)
         {
             return Result<string>.Fail(report.Errors);
@@ -94,67 +78,58 @@ public sealed class ReconciliationReportService(ILedgerStore store) : IReconcili
         return Result<string>.Ok(ReconciliationCsv.Reconciliation(report.Value));
     }
 
-    private Result<Trip> ValidateTrip(PeddlerId peddler, TripId trip)
-    {
-        Trip? tripDoc = store.Context.FindTrip(trip);
-        if (tripDoc is null)
-        {
-            return Result<Trip>.Fail(new DomainError("TRIP_UNKNOWN", $"no trip {trip}"));
-        }
-
-        if (tripDoc.Peddler != peddler)
-        {
-            return Result<Trip>.Fail(new DomainError(
-                "TRIP_PEDDLER_MISMATCH", $"trip {trip} belongs to peddler {tripDoc.Peddler}, not {peddler}"));
-        }
-
-        return Result<Trip>.Ok(tripDoc);
-    }
-
-    private List<StockVarianceRow> BuildStockRows(TripId trip, LocationId location)
+    private List<StockVarianceRow> BuildStockRows(DayKey day, LocationId location)
     {
         var products = new HashSet<ProductId>();
         var skus = new Dictionary<ProductId, string>();
         var names = new Dictionary<ProductId, string>();
+        var costs = new Dictionary<ProductId, Money>();
 
-        foreach (StockLoad load in store.Context.Loads)
+        // Received side first (docs/decisions/0004 §5): a goods receipt on the
+        // day introduces its lines (sku, name, cost) even when nothing was
+        // sold — the operator counts what arrived, not just what moved.
+        foreach (GoodsReceipt receipt in store.Context.GoodsReceipts)
         {
-            if (load.Trip != trip)
+            if (receipt.Day != day)
             {
                 continue;
             }
 
-            foreach (StockLoadLine line in load.Lines)
+            foreach (GoodsReceiptLine line in receipt.Lines)
             {
-                products.Add(line.ProductId);
-                skus.TryAdd(line.ProductId, line.Sku);
-                names.TryAdd(line.ProductId, line.ProductName);
+                if (products.Add(line.ProductId))
+                {
+                    skus[line.ProductId] = line.Sku;
+                    names[line.ProductId] = line.ProductName;
+                    costs[line.ProductId] = line.UnitCost;
+                }
             }
         }
 
         foreach (Sale sale in store.Context.Sales)
         {
-            if (sale.Trip != trip)
+            if (sale.Day != day)
             {
                 continue;
             }
 
             foreach (SaleLine line in sale.Lines)
             {
-                products.Add(line.ProductId);
-                skus.TryAdd(line.ProductId, line.Sku);
-                names.TryAdd(line.ProductId, line.ProductName);
+                if (products.Add(line.ProductId))
+                {
+                    skus.TryAdd(line.ProductId, line.Sku);
+                    names.TryAdd(line.ProductId, line.ProductName);
+                }
             }
         }
 
         var rows = new List<StockVarianceRow>(products.Count);
         foreach (ProductId product in products.OrderBy(p => p.Value))
         {
-            InventoryBreakdown breakdown = store.State.Breakdown(product, location);
-            int expected = (int)breakdown.Ending;
-            int? counted = breakdown.Observed?.Units;
+            int expected = store.State.StockOnHand(product, location).Units;
+            int? counted = WasCounted(location, product) ? store.State.ObservedUnits(product, location).Units : null;
             int? quantityVariance = counted is { } c ? c - expected : null;
-            Money unitPrice = DeriveUnitPrice(trip, product);
+            Money unitPrice = DeriveUnitPrice(day, product, costs.GetValueOrDefault(product));
             Money? valueVariance = quantityVariance is { } qv ? unitPrice.Times(qv) : null;
 
             rows.Add(new StockVarianceRow(
@@ -173,14 +148,14 @@ public sealed class ReconciliationReportService(ILedgerStore store) : IReconcili
         return rows;
     }
 
-    private ReportTotals BuildTotals(TripId trip, LocationId location, Money expectedCash, Money countedCash, Money cashVariance)
+    private ReportTotals BuildTotals(DayKey day, LocationId location, Money expectedCash, Money countedCash, Money cashVariance)
     {
         int sales = 0;
         int voided = 0;
         Money salesTotal = Money.Zero;
         foreach (Sale sale in store.Context.Sales)
         {
-            if (sale.Trip != trip)
+            if (sale.Day != day)
             {
                 continue;
             }
@@ -199,13 +174,13 @@ public sealed class ReconciliationReportService(ILedgerStore store) : IReconcili
         foreach (Return @return in store.Context.Returns)
         {
             Sale? original = store.Context.FindSale(@return.OriginalSale);
-            if (original is not null && original.Trip == trip)
+            if (original is not null && original.Day == day)
             {
                 returns++;
             }
         }
 
-        Money refundTotal = RefundTotal(trip);
+        Money refundTotal = RefundTotal(day);
 
         int adjustments = 0;
         foreach (Movement movement in store.Movements)
@@ -230,26 +205,26 @@ public sealed class ReconciliationReportService(ILedgerStore store) : IReconcili
             expectedCash, countedCash, cashVariance, LabelOf(cashVariance));
     }
 
-    private Money RefundTotal(TripId trip)
+    private Money RefundTotal(DayKey day)
     {
-        var tripPaymentLineIds = new HashSet<PaymentLineId>();
+        var dayPaymentLineIds = new HashSet<PaymentLineId>();
         foreach (Sale sale in store.Context.Sales)
         {
-            if (sale.Trip != trip)
+            if (sale.Day != day)
             {
                 continue;
             }
 
             foreach (PaymentLine payment in sale.Payments)
             {
-                tripPaymentLineIds.Add(payment.Id);
+                dayPaymentLineIds.Add(payment.Id);
             }
         }
 
         long total = 0;
         foreach (Movement movement in store.Movements)
         {
-            if (movement is ReceiptRefund refund && tripPaymentLineIds.Contains(refund.PaymentLineId))
+            if (movement is ReceiptRefund refund && dayPaymentLineIds.Contains(refund.PaymentLineId))
             {
                 total += refund.Amount.Centavos;
             }
@@ -259,17 +234,18 @@ public sealed class ReconciliationReportService(ILedgerStore store) : IReconcili
     }
 
     /// <summary>
-    /// Fold-derived unit price: the trip's committed sale value over its sold
-    /// quantity for the product (deterministic, integer centavos); when nothing
-    /// was sold, the last load unit cost; otherwise zero.
+    /// Fold-derived unit price: the day's committed sale value over its sold
+    /// quantity for the product (deterministic, integer centavos); the goods
+    /// receipt's unit cost when nothing was sold; zero when the product never
+    /// appeared on the day.
     /// </summary>
-    private Money DeriveUnitPrice(TripId trip, ProductId product)
+    private Money DeriveUnitPrice(DayKey day, ProductId product, Money? goodsCost)
     {
         long value = 0;
         int quantity = 0;
         foreach (Sale sale in store.Context.Sales)
         {
-            if (sale.Trip != trip || store.State.Sale(sale.Id).Status == SaleStatus.Voided)
+            if (sale.Day != day || store.State.Sale(sale.Id).Status == SaleStatus.Voided)
             {
                 continue;
             }
@@ -291,24 +267,28 @@ public sealed class ReconciliationReportService(ILedgerStore store) : IReconcili
             return new Money(value / quantity);
         }
 
-        Money? cost = null;
-        foreach (StockLoad load in store.Context.Loads)
+        return goodsCost ?? Money.Zero;
+    }
+
+    private bool WasCounted(LocationId location, ProductId product)
+    {
+        foreach (PhysicalCount count in store.Context.Counts)
         {
-            if (load.Trip != trip)
+            if (count.Location != location)
             {
                 continue;
             }
 
-            foreach (StockLoadLine line in load.Lines)
+            foreach (CountLine line in count.Lines)
             {
                 if (line.ProductId == product)
                 {
-                    cost = line.UnitCost;
+                    return true;
                 }
             }
         }
 
-        return cost ?? Money.Zero;
+        return false;
     }
 
     private static string? LatestNotes(IReadOnlyList<PhysicalCount> counts, LocationId location, ProductId product)

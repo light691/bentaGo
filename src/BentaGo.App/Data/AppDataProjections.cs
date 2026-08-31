@@ -2,47 +2,23 @@ using BentaGo.Core.Domain;
 
 namespace BentaGo.App.Data;
 
-/// <summary>Session header: greeting, peddler, trip, connectivity, clock, urgent banner.</summary>
+/// <summary>Session header: greeting, trading-day identity, day status, clock.</summary>
 public sealed record SessionHeader(
     string Greeting,
-    string PeddlerName,
-    string TripNumber,
-    bool IsOnline,
-    string NowText,
-    bool PreviousDateTripOpen);
+    string DayText,
+    string DayStatus,
+    string NowText);
 
-/// <summary>Dashboard cards on the peddler home screen (preformatted display strings).</summary>
-public sealed record DashboardSummary(
-    string TodaySalesText,
-    string TransactionsText,
-    string CashSalesText,
-    string RemainingItemsText);
-
-/// <summary>One "My Stock" row for the peddler's route location.</summary>
+/// <summary>One stock row for the single store warehouse: on-hand per product.</summary>
 public sealed record StockRow(
     string Sku,
     string Product,
-    string Loaded,
-    string Sold,
-    string DamagedLost,
-    string Returned,
     string OnHand,
     string LastMovementText,
     bool IsLow);
 
 /// <summary>One per-method reconciliation summary line.</summary>
 public sealed record MethodSummary(string Method, string Amount);
-
-/// <summary>
-/// Trip-close summary. Money values (not display strings) so the variance
-/// banner can do subtraction; the view model formats for display.
-/// </summary>
-public sealed record ReconciliationSummary(
-    IReadOnlyList<MethodSummary> ByMethod,
-    Money GrossSales,
-    Money Discounts,
-    Money NetSales,
-    Money ExpectedCash);
 
 /// <summary>One sellable offer in the POS catalog.</summary>
 public sealed record ProductOffer(string Sku, string Name, Money UnitPrice, int OnHand)
@@ -59,10 +35,8 @@ public sealed record ProductOffer(string Sku, string Name, Money UnitPrice, int 
 /// </summary>
 public sealed record AppSnapshot(
     SessionHeader Session,
-    DashboardSummary Dashboard,
     IReadOnlyList<StockRow> Stock,
-    IReadOnlyList<ProductOffer> Catalog,
-    ReconciliationSummary Summary);
+    IReadOnlyList<ProductOffer> Catalog);
 
 /// <summary>
 /// Pure display formatting for peso amounts (docs/03 §1). Presentation

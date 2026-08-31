@@ -33,7 +33,7 @@
                 </Grid.ColumnDefinitions>
                 <StackPanel VerticalAlignment="Center">
                     <TextBlock Text="Printer profile" Style="{StaticResource TitleTextStyle}" />
-                    <TextBlock Text="Selects the printer adapter for the next print. The simulated printer captures receipts without hardware."
+                    <TextBlock Text="Selects the printer adapter for the next print. The preview printer captures receipts without hardware."
                                Style="{StaticResource StatusTextStyle}"
                                Margin="{StaticResource Thickness.XS}" />
                     <ComboBox ItemsSource="{Binding Profiles}"

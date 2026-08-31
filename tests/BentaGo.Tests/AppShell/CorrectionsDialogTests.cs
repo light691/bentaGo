@@ -27,18 +27,17 @@ namespace BentaGo.Tests.AppShell;
 /// <summary>
 /// BG-007c2 corrections-panel tests (docs/05 BG-007 lanes 6-10, app slice):
 /// the F8 panel over the REAL 007b services on a migrated SQLite root —
-/// peddler approval gate, supervisor self-approval with the audited
-/// approver, partial returns to peddler stock vs main store, damage/loss/
-/// increase/decrease movement kinds, STOCK_INSUFFICIENT on over-decrease,
-/// and TRIP_CLOSED_CORRECTION on a closed trip. Follows the SalesSeed +
-/// AppShellTestHost pattern (headless; the VMs are WPF-free).
+/// supervisor self-approval with the audited approver, partial returns at the
+/// sale location, damage/loss/increase/decrease movement kinds,
+/// STOCK_INSUFFICIENT on over-decrease, and DAY_CLOSED_CORRECTION on a closed
+/// day. Follows the SalesSeed + AppShellTestHost pattern (headless; the VMs
+/// are WPF-free).
 /// </summary>
 public sealed class CorrectionsDialogTests : IDisposable
 {
-    // The fixed "now" the panel's day filter and every command carry. Same
-    // Manila day as the SalesSeed movements (2026-01-15), so the seeded
-    // committed sale is "today's trip sale".
-    private static readonly DateTimeOffset Now = new(2026, 1, 15, 8, 30, 0, TimeSpan.Zero);
+    // The "now" the panel's day filter and every command carry. Same Manila
+    // day as the SalesSeed day open (the host clock's today).
+    private static readonly DateTimeOffset Now = DateTimeOffset.UtcNow;
 
     private readonly AppShellTestHost _host;
     private readonly SeedIds _ids;
@@ -64,36 +63,6 @@ public sealed class CorrectionsDialogTests : IDisposable
 
     private void SignIn(UserId userId) =>
         _host.Services.GetRequiredService<IActorContext>().Set(userId);
-
-    // ------- (a) peddler cannot void without an approver -------
-
-    [Fact]
-    public async Task PeddlerVoidWithoutApproverShowsMessageAndMovesNothing()
-    {
-        SignIn(_ids.Seller);
-        var dialog = NewDialog();
-        await dialog.LoadAsync();
-
-        Assert.False(dialog.HasFatalState);
-        Assert.False(dialog.IsSelfApproval);
-        Assert.True(dialog.NeedsApproverPicker);
-        Assert.DoesNotContain(dialog.Approvers, a => a.Id == _ids.Seller); // peddlers never approve
-
-        dialog.SelectMode(CorrectionsDialogViewModel.ModeVoid);
-        dialog.SelectedSale = dialog.Sales.Single(s => s.Id == _ids.Sale);
-        dialog.Reason = "wrong item scanned";
-
-        long auditsBefore = Store().Audits.Count;
-        int movementsBefore = Store().Movements.Count;
-
-        dialog.SubmitCommand.Execute(null);
-
-        Assert.True(dialog.HasErrorBanner);
-        Assert.Equal("A void needs an approver. Choose a supervisor or admin above.", dialog.ErrorBanner);
-        Assert.Empty(Store().Context.Voids);
-        Assert.Equal(movementsBefore, Store().Movements.Count);
-        Assert.Equal(auditsBefore, Store().Audits.Count);
-    }
 
     // ------- (b) supervisor self-approves; the audit names the approver -------
 
@@ -126,13 +95,13 @@ public sealed class CorrectionsDialogTests : IDisposable
         Assert.Equal("customer cancelled", audit.Reason);
     }
 
-    // ------- (c1) partial return to peddler stock -------
+    // ------- (c1) partial return restores at the sale location -------
 
     [Fact]
-    public async Task ReturnPartialToPeddlerStockRestoresAtSaleLocation()
+    public async Task ReturnPartialRestoresAtSaleLocation()
     {
         SignIn(_ids.Seller);
-        Quantity onHandBefore = Store().State.StockOnHand(_ids.Product, _ids.Route);
+        Quantity onHandBefore = Store().State.StockOnHand(_ids.Product, StoreLocations.Warehouse);
 
         var dialog = NewDialog();
         await dialog.LoadAsync();
@@ -154,39 +123,10 @@ public sealed class CorrectionsDialogTests : IDisposable
 
         ReturnToStock movement = Assert.Single(
             Store().Movements.OfType<ReturnToStock>());
-        Assert.Equal(_ids.Route, movement.LocationId);
+        Assert.Equal(StoreLocations.Warehouse, movement.LocationId);
         Assert.Equal(1, movement.Quantity.Units);
-        Assert.Equal(onHandBefore.Units + 1, Store().State.StockOnHand(_ids.Product, _ids.Route).Units);
+        Assert.Equal(onHandBefore.Units + 1, Store().State.StockOnHand(_ids.Product, StoreLocations.Warehouse).Units);
         Assert.Equal(SaleStatus.PartiallyReturned, Store().State.Sale(_ids.Sale).Status);
-    }
-
-    // ------- (c2) partial return to the main store -------
-
-    [Fact]
-    public async Task ReturnPartialToMainStoreLandsAtTheLoadSource()
-    {
-        SignIn(_ids.Seller);
-        int storeBefore = Store().State.StockOnHand(_ids.Product, _ids.Store).Units;
-
-        var dialog = NewDialog();
-        await dialog.LoadAsync();
-        dialog.SelectMode(CorrectionsDialogViewModel.ModeReturn);
-        dialog.SelectedSale = dialog.Sales.Single(s => s.Id == _ids.Sale);
-        dialog.SelectedLine = Assert.Single(dialog.SaleLines);
-        dialog.QuantityText = "2";
-        DestinationOption destination =
-            Assert.Single(dialog.Destinations, d => d.Location is not null);
-        dialog.SelectedDestination = destination;
-        dialog.Reason = "wrong flavor";
-
-        dialog.SubmitCommand.Execute(null);
-
-        Assert.False(dialog.HasErrorBanner);
-        ReturnToStock movement = Assert.Single(
-            Store().Movements.OfType<ReturnToStock>());
-        Assert.Equal(_ids.Store, movement.LocationId);
-        Assert.Equal(2, movement.Quantity.Units);
-        Assert.Equal(storeBefore + 2, Store().State.StockOnHand(_ids.Product, _ids.Store).Units);
     }
 
     // ------- (d) damage / loss / increase / decrease land with the right kinds -------
@@ -212,7 +152,7 @@ public sealed class CorrectionsDialogTests : IDisposable
 
         Damage damage = Assert.Single(Store().Movements.OfType<Damage>());
         Assert.Equal(_ids.Product, damage.ProductId);
-        Assert.Equal(_ids.Route, damage.LocationId);
+        Assert.Equal(StoreLocations.Warehouse, damage.LocationId);
         Assert.Equal(2, damage.Quantity.Units);
         Assert.Equal("cracked bottles", damage.Reason);
 
@@ -274,21 +214,21 @@ public sealed class CorrectionsDialogTests : IDisposable
         Assert.Equal(auditsBefore, Store().Audits.Count);
     }
 
-    // ------- (f) closed trip → TRIP_CLOSED_CORRECTION -------
+    // ------- (f) closed day → DAY_CLOSED_CORRECTION -------
 
     [Fact]
-    public async Task CorrectionOnClosedTripShowsTripClosedCorrection()
+    public async Task CorrectionOnClosedDayShowsDayClosedCorrection()
     {
         SignIn(_ids.Supervisor);
 
-        // Close the trip with the counted cash equal to its own receipts.
-        Money expectedCash = Store().State.TripCash(_ids.Trip, Fund.PhysicalCash);
+        // Close the day with the counted cash equal to its own receipts.
+        Money expectedCash = Store().State.FundsOnHand(Fund.PhysicalCash);
         Result<CloseOutcome> closed = _host.Services.GetRequiredService<ICloseService>().Close(
-            new CloseCommand(
-                new CloseId(Guid.NewGuid()), _ids.Trip, expectedCash, null,
+            new DayCloseCommand(
+                new CloseId(Guid.NewGuid()), _ids.Day, expectedCash.Centavos, null,
                 _ids.Supervisor, Now));
         Assert.True(closed.IsSuccess, closed.Errors.FirstOrDefault()?.Code ?? "close failed");
-        Assert.Equal(TripStatus.Closed, Store().State.Trip(_ids.Trip).Status);
+        Assert.Equal(DayLifecycleState.Closed, Store().State.Day(_ids.Day));
 
         var dialog = NewDialog();
         await dialog.LoadAsync();
@@ -300,7 +240,7 @@ public sealed class CorrectionsDialogTests : IDisposable
 
         Assert.True(dialog.HasErrorBanner);
         Assert.Equal(
-            "This trip is closed - corrections need an authorized reopen.",
+            "This day is closed - corrections need an authorized reopen.",
             dialog.ErrorBanner);
         Assert.Empty(Store().Context.Voids);
     }
@@ -322,7 +262,7 @@ public sealed class CorrectionsDialogTests : IDisposable
     [Theory]
     [InlineData("VOID_APPROVAL_REQUIRED", "A void needs an approver. Choose a supervisor or admin.")]
     [InlineData("ADJUSTMENT_APPROVAL_REQUIRED", "An adjustment needs an approver. Choose a supervisor or admin.")]
-    [InlineData("TRIP_CLOSED_CORRECTION", "This trip is closed - corrections need an authorized reopen.")]
+    [InlineData("DAY_CLOSED_CORRECTION", "This day is closed - corrections need an authorized reopen.")]
     [InlineData("STOCK_INSUFFICIENT", "Not enough stock on hand for that quantity.")]
     public void FriendlyErrorSurfacesCorrectionCodes(string code, string expected) =>
         Assert.Equal(expected, SalesViewModel.FriendlyError(code));
@@ -333,22 +273,15 @@ public sealed class CorrectionsDialogTests : IDisposable
 
     private sealed record SeedIds(
         UserId Seller, UserId Supervisor, UserId Admin,
-        PeddlerId Peddler, TripId Trip, ProductId Product,
-        LocationId Route, LocationId Store, SaleId Sale);
+        DayKey Day, ProductId Product, SaleId Sale);
 
     /// <summary>Extends <see cref="SalesSeed"/> with the approver accounts and
-    /// one committed cash sale (3 × sardines at ₱45) on the seeded trip.</summary>
+    /// one committed cash sale (3 × sardines at ₱45) on the seeded day.</summary>
     private async Task<SeedIds> SeedAsync()
     {
         var ids = new ScenarioIdSource("appshell-corrections-v1");
         SqliteLedgerStore store = Store();
-
-        Trip trip = store.Context.Trips.Single();
-        PeddlerId peddler = trip.Peddler;
-        LocationId route = trip.Location;
-
-        // The main store is where the seed's load left from.
-        LocationId storeLocation = store.Movements.OfType<TransferOut>().First().LocationId;
+        DayKey day = DayKey.FromUtc(Now);
 
         Product product = (await _host.Services.GetRequiredService<IProductStore>()
             .FindBySkuAsync(SalesSeed.SardinesSku))!;
@@ -365,12 +298,6 @@ public sealed class CorrectionsDialogTests : IDisposable
             Username = "maysupervisor",
             PasswordHash = hasher.Hash("approver"),
             Role = Role.Supervisor,
-
-            // The panel derives its trip context from the actor's peddler link
-            // (the CheckoutSessionFactory chain): a supervisor working the POS
-            // is linked to the peddler whose trip they correct. An unlinked
-            // supervisor gets the NO_PEDDLER_LINK fatal state instead.
-            PeddlerLink = peddler,
             CreatedBy = seller.Id,
             CreatedUtc = Now,
         });
@@ -392,7 +319,7 @@ public sealed class CorrectionsDialogTests : IDisposable
 
         store.Bind();
         Result<SaleDraft> draft = SaleBuilder.Build(store.Context, new NewSaleCommand(
-            saleId, trip.Id, "R-TEST-001", seller.Id, Now,
+            saleId, day, "R-TEST-001", seller.Id, Now,
             new[]
             {
                 new NewSaleLine(
@@ -411,7 +338,6 @@ public sealed class CorrectionsDialogTests : IDisposable
         Assert.True(appended.IsSuccess, appended.Errors.FirstOrDefault()?.Code ?? "sale append failed");
 
         return new SeedIds(
-            seller.Id, supervisorId, adminId, peddler, trip.Id, product.Id,
-            route, storeLocation, saleId);
+            seller.Id, supervisorId, adminId, day, product.Id, saleId);
     }
 }

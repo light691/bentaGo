@@ -11,11 +11,12 @@ using Xunit;
 namespace BentaGo.Tests.Foundation;
 
 /// <summary>
-/// BG-005a seeding: a fresh data root boot seeds the admin Users row and the
-/// admin can authenticate ('admin'/'admin'); the upgrade path — a data root
-/// seeded by the BG-001/BG-003 world (AppSettings seed rows present, no Users
-/// table) — migrates to head, keeps the AppSettings rows and every ledger
-/// row, and still authenticates the admin with the real user row.
+/// BG-005a seeding, retargeted to the BG-P1 schema reset (P1c): a fresh data
+/// root boot seeds the admin Users row and the admin can authenticate
+/// ('admin'/'admin'); a data root built by the seeded baseline fixture
+/// (AppSettings seed rows + ledger rows, no Users yet) migrates to head
+/// (a no-op over the ONE baseline), keeps the AppSettings rows and every
+/// ledger row, and still authenticates the admin with the real user row.
 /// </summary>
 public sealed class IdentitySeedTests : IDisposable
 {
@@ -48,12 +49,12 @@ public sealed class IdentitySeedTests : IDisposable
     [Fact]
     public async Task UpgradedBG001World_AdminAuthenticates_AppSettingsRowsAndLedgerRowsPreserved()
     {
-        // 1. The BG-003 world: a real database at migration 01 with a seeded
-        // mini-day (movements, documents, one audit row).
+        // 1. The baseline world: a real database at the ONE BG-P1 baseline
+        // with a seeded mini-day (movements, documents, one audit row).
         string dbPath = await LedgerSchemaFixture.BuildAsync(_tempRoot);
         long movementsBefore = CountRows(dbPath, "Movements");
         long salesBefore = CountRows(dbPath, "Sales");
-        long loadsBefore = CountRows(dbPath, "StockLoads");
+        long goodsBefore = CountRows(dbPath, "GoodsReceipts");
 
         // 2. The BG-001 world's seed: AppSettings rows, NO Users table yet.
         var factory = new BentaGoDbContextFactory($"Data Source={dbPath};Pooling=False");
@@ -64,7 +65,8 @@ public sealed class IdentitySeedTests : IDisposable
             await seedContext.SaveChangesAsync();
         }
 
-        // 3. Upgrade to head and seed: additive, nothing lost.
+        // 3. Migrate to head (a no-op over the single baseline) and seed:
+        // additive, nothing lost.
         ServiceProvider host = BentaGoHost.BuildForTests(_tempRoot);
         await host.GetRequiredService<DbInitializer>().EnsureCreatedOrMigrateAsync();
         await host.GetRequiredService<IAdminSeeder>().SeedAsync();
@@ -81,10 +83,10 @@ public sealed class IdentitySeedTests : IDisposable
         Assert.Equal("admin", await context.AppSettings
             .Where(s => s.Key == "seed.admin.username").Select(s => s.Value).SingleAsync());
 
-        // No data loss in the ledger: every row survived the upgrade verbatim.
+        // No data loss in the ledger: every row survived verbatim.
         Assert.Equal(movementsBefore, CountRows(dbPath, "Movements"));
         Assert.Equal(salesBefore, CountRows(dbPath, "Sales"));
-        Assert.Equal(loadsBefore, CountRows(dbPath, "StockLoads"));
+        Assert.Equal(goodsBefore, CountRows(dbPath, "GoodsReceipts"));
     }
 
     private static long CountRows(string dbPath, string table)

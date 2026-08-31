@@ -7,7 +7,7 @@ using Xunit;
 namespace BentaGo.Tests.Persistence;
 
 /// <summary>
-/// C14 golden contract for the persisted world: the SQLite two-peddler day
+/// C14 golden contract for the persisted world: the SQLite single-store day
 /// renders byte-for-byte identical to the in-memory golden both after the run
 /// and after a reopen (the fold replays the persisted stream).
 /// </summary>
@@ -21,10 +21,10 @@ public sealed class PersistedGoldenTests : PersistenceTestBase
         await host.GetRequiredService<DbInitializer>().EnsureCreatedOrMigrateAsync();
 
         var store = host.GetRequiredService<SqliteLedgerStore>();
-        string persisted = TwoPeddlersScenario.Run(store).Text;
+        string persisted = SingleDayScenario.Run(store).Text;
 
         var memory = new InMemoryLedgerStore();
-        string inMemory = TwoPeddlersScenario.Run(memory).Text;
+        string inMemory = SingleDayScenario.Run(memory).Text;
 
         Assert.Equal(inMemory, persisted);
         Assert.NotEmpty(persisted);
@@ -33,10 +33,10 @@ public sealed class PersistedGoldenTests : PersistenceTestBase
         var reopened = new SqliteLedgerStore(
             host.GetRequiredService<BentaGo.Infrastructure.Configuration.IDataPathProvider>(),
             host.GetRequiredService<DebugOptions>());
-        Assert.Equal(persisted, TwoPeddlersScenario.Render(reopened).Text);
+        Assert.Equal(persisted, SingleDayScenario.Render(reopened).Text);
 
         // And after a rebuild the render is still byte-identical.
         await reopened.RebuildAsync();
-        Assert.Equal(persisted, TwoPeddlersScenario.Render(reopened).Text);
+        Assert.Equal(persisted, SingleDayScenario.Render(reopened).Text);
     }
 }

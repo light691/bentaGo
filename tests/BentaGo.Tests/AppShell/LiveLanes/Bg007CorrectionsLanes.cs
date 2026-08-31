@@ -32,8 +32,8 @@ namespace BentaGo.Tests.AppShell.LiveLanes;
 /// BG-007 live lanes L6-L10 (docs/05 "Verify, live"): the in-process STA
 /// driver opens the REAL corrections panel through the F8 path
 /// (<see cref="SalesViewModel.OpenCorrectionsCommand"/>) and proves the 007b
-/// rules against the working ledger — the peddler approval gate, supervisor
-/// self-approval, the partial return to peddler stock, the damage/loss
+/// rules against the working ledger — the cashier approval gate, supervisor
+/// self-approval, the partial return to store stock, the damage/loss
 /// adjustment kind, and the TRIP_CLOSED_CORRECTION gate. Each lane seeds the
 /// same SalesSeed root and drives the checkout through the canned payment
 /// result, then asserts the store movements/audits. Env-gated
@@ -43,8 +43,7 @@ namespace BentaGo.Tests.AppShell.LiveLanes;
 [Collection("AppShellSta")]
 public sealed class Bg007CorrectionsLanes
 {
-    private const string ErrorApprover = "A void needs an approver. Choose a supervisor or admin above.";
-    private const string ErrorClosedTrip = "This trip is closed - corrections need an authorized reopen.";
+    private const string ErrorClosedDay = "This day is closed - corrections need an authorized reopen.";
 
     private readonly AppShellStaFixture _sta;
 
@@ -52,75 +51,6 @@ public sealed class Bg007CorrectionsLanes
 
     private static bool LiveLanesEnabled => Environment.GetEnvironmentVariable("BENTAGO_LIVE_LANES") == "1";
 
-    // ------- L6: peddler cannot void without an approver -------
-
-    [Fact]
-    public async Task L6_PeddlerVoidNeedsApproval_NoMovementUntilApprover()
-    {
-        if (!LiveLanesEnabled)
-            return;
-        await _sta.RunAsync(async () =>
-        {
-            using var session = await CorrectionsLaneSession.OpenAsync();
-            await session.OpenSalesAsync();
-
-            await DoCashSaleAsync(session);
-            SaleId saleId = session.QuerySales().Value.Single().Id;
-
-            bool errorShown = false;
-            bool noMovementOnReject = false;
-            bool voidApproved = false;
-            bool approverAudited = false;
-            bool stockRestored = false;
-            bool cashRestored = false;
-
-            DriveCorrections(session, corrections =>
-            {
-                corrections.SelectMode(CorrectionsDialogViewModel.ModeVoid);
-                corrections.SelectedSale = corrections.Sales.Single(s => s.Id == saleId);
-                corrections.Reason = "wrong item scanned";
-
-                int movementsBefore = session.Store.Movements.Count;
-                long auditsBefore = session.Store.Audits.Count;
-                corrections.SubmitCommand.Execute(null);
-
-                errorShown = corrections.HasErrorBanner
-                    && corrections.ErrorBanner == ErrorApprover;
-                noMovementOnReject = session.Store.Movements.Count == movementsBefore
-                    && session.Store.Audits.Count == auditsBefore
-                    && session.Store.Context.Voids.Count == 0;
-                session.ShotOfDialog("bg-007-void-approval.png");
-
-                corrections.SelectedApprover =
-                    corrections.Approvers.Single(a => a.Id == session.Supervisor);
-                corrections.SubmitCommand.Execute(null);
-                session.CorrectionsOpDone = true;
-            });
-
-            await session.WaitCorrectionsClosedAsync();
-
-            var @void = session.Store.Context.Voids.SingleOrDefault();
-            voidApproved = @void is not null && @void.OriginalSaleId == saleId;
-            if (@void is not null)
-            {
-                AuditEvent audit = session.Store.Audits.Single(a => a.Category == "VOID");
-                approverAudited = audit.Message.Contains("approved by", StringComparison.Ordinal)
-                    && audit.Message.Contains(session.Supervisor.Value.ToString(), StringComparison.Ordinal);
-            }
-
-            stockRestored = session.Store.State.StockOnHand(session.Product, session.Route).Units == 50;
-            cashRestored = session.Store.State.FundsOnHand(Fund.PhysicalCash).Centavos == 0;
-
-            bool pass = errorShown && noMovementOnReject && voidApproved && approverAudited
-                && stockRestored && cashRestored;
-            await Bg007LaneEvidence.WriteVerdictAsync(
-                "bg-007-l6", "L6 peddler void needs approval",
-                pass ? Bg007LaneEvidence.VerdictPass : Bg007LaneEvidence.VerdictFail,
-                $"errorShown={errorShown} noMovement={noMovementOnReject} voided={voidApproved} " +
-                $"approverAudited={approverAudited} stock={stockRestored} cash={cashRestored}",
-                "bg-007-void-approval.png");
-        });
-    }
 
     // ------- L7: supervisor self-approves -------
 
@@ -138,7 +68,7 @@ public sealed class Bg007CorrectionsLanes
             SaleId saleId = session.QuerySales().Value.Single().Id;
 
             // The correction panel resolves its actor from IActorContext: sign
-            // the supervisor in, who is peddler-linked to this trip.
+            // the supervisor in (the day's actor).
             session.Actors.Set(session.Supervisor);
 
             bool selfApproval = false;
@@ -180,10 +110,10 @@ public sealed class Bg007CorrectionsLanes
         });
     }
 
-    // ------- L8: return one to peddler stock -------
+    // ------- L8: return one to on-hand stock -------
 
     [Fact]
-    public async Task L8_ReturnOneToPeddlerStockRestoresOnHand()
+    public async Task L8_ReturnOneRestoresOnHand()
     {
         if (!LiveLanesEnabled)
             return;
@@ -194,10 +124,10 @@ public sealed class Bg007CorrectionsLanes
 
             await DoCashSaleAsync(session);
             SaleId saleId = session.QuerySales().Value.Single().Id;
-            int afterSale = session.Store.State.StockOnHand(session.Product, session.Route).Units;
+            int afterSale = session.Store.State.StockOnHand(session.Product, StoreLocations.Warehouse).Units;
 
-            bool returnAtRoute = false;
-            bool onHand50 = false;
+            bool returnedToWarehouse = false;
+            bool onHand100 = false;
             bool fullyReturned = false;
 
             DriveCorrections(session, corrections =>
@@ -218,17 +148,17 @@ public sealed class Bg007CorrectionsLanes
             await session.WaitCorrectionsClosedAsync();
 
             ReturnToStock? move = session.Store.Movements.OfType<ReturnToStock>().SingleOrDefault();
-            returnAtRoute = move is not null
-                && move.LocationId == session.Route
+            returnedToWarehouse = move is not null
+                && move.LocationId == StoreLocations.Warehouse
                 && move.Quantity.Units == 1;
-            onHand50 = session.Store.State.StockOnHand(session.Product, session.Route).Units == 50;
+            onHand100 = session.Store.State.StockOnHand(session.Product, StoreLocations.Warehouse).Units == 100;
             fullyReturned = session.Store.State.Sale(saleId).Status == SaleStatus.FullyReturned;
 
-            bool pass = returnAtRoute && onHand50 && fullyReturned;
+            bool pass = returnedToWarehouse && onHand100 && fullyReturned;
             await Bg007LaneEvidence.WriteVerdictAsync(
-                "bg-007-l8", "L8 return to peddler stock",
+                "bg-007-l8", "L8 return to stock",
                 pass ? Bg007LaneEvidence.VerdictPass : Bg007LaneEvidence.VerdictFail,
-                $"afterSale={afterSale} returnAtRoute={returnAtRoute} onHand50={onHand50} fullyReturned={fullyReturned}",
+                $"afterSale={afterSale} returnedToWarehouse={returnedToWarehouse} onHand100={onHand100} fullyReturned={fullyReturned}",
                 "bg-007-return-stock.png");
         });
     }
@@ -248,7 +178,7 @@ public sealed class Bg007CorrectionsLanes
             await DoCashSaleAsync(session);
 
             bool damageKind = false;
-            bool onHand48 = false;
+            bool onHand98 = false;
             bool auditAdjustment = false;
 
             DriveCorrections(session, corrections =>
@@ -269,29 +199,29 @@ public sealed class Bg007CorrectionsLanes
 
             Damage? damage = session.Store.Movements.OfType<Damage>().SingleOrDefault();
             damageKind = damage is not null
-                && damage.LocationId == session.Route
+                && damage.LocationId == StoreLocations.Warehouse
                 && damage.Quantity.Units == 1
                 && damage.Reason == "crushed can";
-            onHand48 = session.Store.State.StockOnHand(session.Product, session.Route).Units == 48;
+            onHand98 = session.Store.State.StockOnHand(session.Product, StoreLocations.Warehouse).Units == 98;
             AuditEvent? adjustment = session.Store.Audits
                 .Where(a => a.Category == "ADJUSTMENT")
                 .FirstOrDefault();
             auditAdjustment = adjustment is not null
                 && adjustment.Message.Contains("approved by", StringComparison.Ordinal);
 
-            bool pass = damageKind && onHand48 && auditAdjustment;
+            bool pass = damageKind && onHand98 && auditAdjustment;
             await Bg007LaneEvidence.WriteVerdictAsync(
                 "bg-007-l9", "L9 damage adjustment",
                 pass ? Bg007LaneEvidence.VerdictPass : Bg007LaneEvidence.VerdictFail,
-                $"damageKind={damageKind} onHand48={onHand48} auditAdjustment={auditAdjustment}",
+                $"damageKind={damageKind} onHand98={onHand98} auditAdjustment={auditAdjustment}",
                 "bg-007-damage.png");
         });
     }
 
-    // ------- L10: closed-trip correction gate -------
+    // ------- L10: closed-day correction gate -------
 
     [Fact]
-    public async Task L10_ClosedTripRejectsVoidWithNoMovement()
+    public async Task L10_ClosedDayRejectsVoidWithNoMovement()
     {
         if (!LiveLanesEnabled)
             return;
@@ -303,15 +233,15 @@ public sealed class Bg007CorrectionsLanes
             await DoCashSaleAsync(session);
             SaleId saleId = session.QuerySales().Value.Single().Id;
 
-            // Close the trip with the counted cash equal to its own receipts.
+            // Close the day with the counted cash equal to its own receipts.
             session.Actors.Set(session.Supervisor);
-            Money expectedCash = session.Store.State.TripCash(session.Trip, Fund.PhysicalCash);
+            Money expectedCash = session.Store.State.FundsOnHand(Fund.PhysicalCash);
             Result<CloseOutcome> closed = session.Services.GetRequiredService<ICloseService>().Close(
-                new CloseCommand(
-                    new CloseId(Guid.NewGuid()), session.Trip, expectedCash, null,
+                new DayCloseCommand(
+                    new CloseId(Guid.NewGuid()), session.Day, expectedCash.Centavos, null,
                     session.Supervisor, CorrectionsLaneSession.Now));
             Assert.True(closed.IsSuccess, closed.Errors.FirstOrDefault()?.Code ?? "close failed");
-            Assert.Equal(TripStatus.Closed, session.Store.State.Trip(session.Trip).Status);
+            Assert.Equal(DayLifecycleState.Closed, session.Store.State.Day(session.Day));
 
             int movementsBefore = session.Store.Movements.Count;
             long auditsBefore = session.Store.Audits.Count;
@@ -326,7 +256,7 @@ public sealed class Bg007CorrectionsLanes
                 corrections.Reason = "late correction";
                 corrections.SubmitCommand.Execute(null);
                 gateShown = corrections.HasErrorBanner
-                    && corrections.ErrorBanner == ErrorClosedTrip;
+                    && corrections.ErrorBanner == ErrorClosedDay;
                 session.ShotOfDialog("bg-007-closed-trip.png");
                 noMovement = session.Store.Movements.Count == movementsBefore
                     && session.Store.Audits.Count == auditsBefore
@@ -338,12 +268,12 @@ public sealed class Bg007CorrectionsLanes
             await session.WaitCorrectionsClosedAsync();
 
             bool pass = gateShown && noMovement
-                && session.Store.State.Trip(session.Trip).Status == TripStatus.Closed;
+                && session.Store.State.Day(session.Day) == DayLifecycleState.Closed;
             await Bg007LaneEvidence.WriteVerdictAsync(
-                "bg-007-l10", "L10 closed-trip correction gate",
+                "bg-007-l10", "L10 closed-day correction gate",
                 pass ? Bg007LaneEvidence.VerdictPass : Bg007LaneEvidence.VerdictFail,
                 $"gateShown={gateShown} noMovement={noMovement} " +
-                $"tripClosed={session.Store.State.Trip(session.Trip).Status == TripStatus.Closed}",
+                $"dayClosed={session.Store.State.Day(session.Day) == DayLifecycleState.Closed}",
                 "bg-007-closed-trip.png");
         });
     }
@@ -419,13 +349,13 @@ public sealed class Bg007CorrectionsLanes
     {
         private readonly string? _rootToDelete;
 
-        /// <summary>Fixed "now" of the setup day (matches the SalesSeed trip).</summary>
-        internal static readonly DateTimeOffset Now = new(2026, 1, 15, 8, 30, 0, TimeSpan.Zero);
+        /// <summary>Fixed "now" of the setup day (matches the SalesSeed day).</summary>
+        internal static readonly DateTimeOffset Now = DateTimeOffset.UtcNow;
 
         public CorrectionsLaneSession(string root, string? rootToDelete, ServiceProvider services,
             MainWindow window, MainViewModel viewModel, CorrectionLaneDialogService dialogs,
             INavigationService navigation, SqliteLedgerStore store, UserId supervisor,
-            UserId admin, ProductId product, LocationId route, LocationId storeLoc, PeddlerId peddler)
+            UserId admin, ProductId product)
         {
             Root = root;
             _rootToDelete = rootToDelete;
@@ -438,10 +368,7 @@ public sealed class Bg007CorrectionsLanes
             Supervisor = supervisor;
             Admin = admin;
             Product = product;
-            Route = route;
-            StoreLoc = storeLoc;
-            Peddler = peddler;
-            Trip = store.Context.Trips.Single().Id;
+            Day = DayKey.FromUtc(Now);
         }
 
         public string Root { get; }
@@ -453,13 +380,10 @@ public sealed class Bg007CorrectionsLanes
         public SqliteLedgerStore Store { get; }
 
         public SalesViewModel Sales => (SalesViewModel)ViewModel.Current!;
-        public TripId Trip { get; }
-        public PeddlerId Peddler { get; }
+        public DayKey Day { get; }
         public UserId Supervisor { get; }
         public UserId Admin { get; }
         public ProductId Product { get; }
-        public LocationId Route { get; }
-        public LocationId StoreLoc { get; }
 
         /// <summary>Set by the corrections op the instant it finishes driving
         /// the panel; combined with !Dialogs.IsOpen in the close wait.</summary>
@@ -493,10 +417,8 @@ public sealed class Bg007CorrectionsLanes
             var (supervisor, admin) = await AddApproversAsync(services);
 
             var store = services.GetRequiredService<SqliteLedgerStore>();
-            Trip trip = store.Context.Trips.Single();
             var productId = (await services.GetRequiredService<IProductStore>()
                 .FindBySkuAsync(SalesSeed.SardinesSku))!.Id;
-            LocationId storeLoc = store.Movements.OfType<TransferOut>().First().LocationId;
 
             var viewModel = services.GetRequiredService<MainViewModel>();
             var window = new MainWindow(viewModel)
@@ -519,15 +441,12 @@ public sealed class Bg007CorrectionsLanes
             var dialogs = (CorrectionLaneDialogService)services.GetRequiredService<IDialogService>();
             var nav = services.GetRequiredService<INavigationService>();
             return new CorrectionsLaneSession(temp, deleteRoot, services, window, viewModel,
-                dialogs, nav, store, supervisor, admin, productId,
-                trip.Location, storeLoc, trip.Peddler);
+                dialogs, nav, store, supervisor, admin, productId);
         }
 
         private static async Task<(UserId Supervisor, UserId Admin)> AddApproversAsync(ServiceProvider services)
         {
             var ids = new ScenarioIdSource("appshell-corrections-lanes-v1");
-            var store = services.GetRequiredService<SqliteLedgerStore>();
-            PeddlerId peddler = store.Context.Trips.Single().Peddler;
 
             IPasswordHasher hasher = services.GetRequiredService<IPasswordHasher>();
             IUserAccountStore accounts = services.GetRequiredService<IUserAccountStore>();
@@ -541,7 +460,6 @@ public sealed class Bg007CorrectionsLanes
                 Username = "maysupervisor",
                 PasswordHash = hasher.Hash("approver"),
                 Role = Role.Supervisor,
-                PeddlerLink = peddler,
                 CreatedBy = seller.Id,
                 CreatedUtc = Now,
             });
@@ -570,7 +488,7 @@ public sealed class Bg007CorrectionsLanes
                 throw new TimeoutException(
                     $"key={Navigation.CurrentKey} ready={Sales.IsSessionReady} " +
                     $"state='{Sales.SessionStateMessage}' error='{Sales.ActionError}' " +
-                    $"trips={Store.Context.Trips.Count}");
+                    $"day={Day}");
             }
         }
 
@@ -580,7 +498,7 @@ public sealed class Bg007CorrectionsLanes
         }
 
         public Result<IReadOnlyList<SaleHistoryRow>> QuerySales() =>
-            Services.GetRequiredService<ISaleQueryService>().Query(Peddler);
+            Services.GetRequiredService<ISaleQueryService>().Query();
 
         public void ShotOfCurrent(string fileName) =>
             Bg007LaneEvidence.SaveReviewPng(fileName, 1366, 768, Window);

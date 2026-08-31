@@ -7,7 +7,6 @@ using BentaGo.Core.Domain.Documents;
 using BentaGo.Core.Domain.Identity;
 using BentaGo.Core.Domain.Payments;
 using BentaGo.Core.Domain.Receipts;
-using BentaGo.Core.Domain.Trips;
 using BentaGo.Infrastructure.Hosting;
 using BentaGo.Infrastructure.Persistence;
 using BentaGo.Infrastructure.Printing;
@@ -35,7 +34,7 @@ public static class PrintPerfRunner
                 Money.FromPesos(45m), Quantity.Of(1 + (i % 3)), Money.Zero))
             .ToList();
         return new ReceiptDocument(
-            new ReceiptMeta("R-20260830-100", when, new PeddlerId(Guid.NewGuid()), new TripId(Guid.NewGuid())),
+            new ReceiptMeta("R-20260830-100", when, DayKey.FromUtc(when)),
             lines,
             Money.FromPesos(4500m), Money.Zero, Money.FromPesos(4500m), Money.Zero,
             IsReprint: false, ReferenceNote: null);
@@ -132,8 +131,7 @@ public static class PrintPerfRunner
     {
         var when = new DateTimeOffset(2026, 1, 15, 8, 0, 0, TimeSpan.Zero);
         return Sale.Create(
-            new SaleId(Guid.NewGuid()), new TripId(Guid.NewGuid()), new PeddlerId(Guid.NewGuid()),
-            new LocationId(Guid.NewGuid()), receipt, when, new UserId(Guid.NewGuid()),
+            new SaleId(Guid.NewGuid()), DayKey.FromUtc(when), StoreLocations.Warehouse, receipt, when, new UserId(Guid.NewGuid()),
             new[] { new SaleLine(new SaleLineId(Guid.NewGuid()), new ProductId(Guid.NewGuid()), "SKU", "Item",
                 Money.FromPesos(45m), Quantity.Of(1), Money.Zero) },
             new[] { new PaymentLine(new PaymentLineId(Guid.NewGuid()), PaymentMethod.Cash, "",

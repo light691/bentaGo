@@ -9,8 +9,8 @@ namespace BentaGo.App.Features.Stock;
 
 /// <summary>
 /// My Stock (bg-004-synthesis §3, screen 5): searchable table with SKU,
-/// loaded, sold, damaged/lost, returned, on hand, last movement + a compact
-/// low-stock filter. Read-only scenario data; retained across navigation.
+/// product, on hand and last movement + a compact low-stock filter.
+/// Read-only store data (the live SQLite fold); retained across navigation.
 /// </summary>
 public sealed class StockViewModel : ViewModelBase, IRetainableScreen
 {

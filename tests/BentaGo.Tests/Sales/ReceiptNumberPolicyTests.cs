@@ -14,11 +14,11 @@ public class ReceiptNumberPolicyTests : SalesTestBase
     [Fact]
     public async Task Committed_Counts_Day_Prefix_Only()
     {
-        var (host, trip, _, user, productId, _) = await SeededAsync();
+        var (host, _, user, productId, _) = await SeededAsync();
         var numbers = new CommittedSaleNumberSource(host.Store);
 
         // Seed a 15th-of-January sale directly through the use case.
-        NewSaleCommand sale = OneUnitSale(trip, productId, "R-20260115-001", user);
+        NewSaleCommand sale = OneUnitSale(SeedDayKey, productId, "R-20260115-001", user);
         Result<CheckoutOutcome> outcome = host.Checkout.Checkout(new CheckoutKey(Guid.NewGuid()), sale);
         Assert.True(outcome.IsSuccess, outcome.Errors.FirstOrDefault()?.Code ?? "seed sale failed");
 
@@ -28,10 +28,10 @@ public class ReceiptNumberPolicyTests : SalesTestBase
     [Fact]
     public async Task Other_Day_Prefixes_Do_Not_Count()
     {
-        var (host, trip, _, user, productId, _) = await SeededAsync();
+        var (host, _, user, productId, _) = await SeededAsync();
         var numbers = new CommittedSaleNumberSource(host.Store);
 
-        NewSaleCommand sale = OneUnitSale(trip, productId, "R-20260114-001", user);
+        NewSaleCommand sale = OneUnitSale(SeedDayKey, productId, "R-20260114-001", user);
         Result<CheckoutOutcome> outcome = host.Checkout.Checkout(new CheckoutKey(Guid.NewGuid()), sale);
         Assert.True(outcome.IsSuccess);
 

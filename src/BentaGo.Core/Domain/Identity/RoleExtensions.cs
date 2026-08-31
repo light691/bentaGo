@@ -2,10 +2,8 @@ namespace BentaGo.Core.Domain.Identity;
 
 /// <summary>
 /// Capability predicates (BG-005a decision, docs/01:26-34): Admin = all;
-/// Supervisor = no user management, configuration, or high-risk adjustments;
-/// Peddler = operational data only. Pure functions, so use cases gate on the
-/// actor's role directly. Peddler-scoped navigation is a later slice — the
-/// checks exist now so no use case can ship without them.
+/// Supervisor = no user management, configuration, or high-risk adjustments.
+/// Pure functions, so use cases gate on the actor's role directly.
 /// </summary>
 public static class RoleExtensions
 {

@@ -131,7 +131,7 @@ public sealed class NavigationFocusRealInputTests
             var reconciliation = session.ViewModel.Current as ReconciliationViewModel
                 ?? session.Services.GetRequiredService<ReconciliationViewModel>();
             WaitFor(() => reconciliation.CountRows.Count > 0); // activation rehydrated the real rows
-            Assert.True(reconciliation.HasTrip, reconciliation.FatalMessage ?? "no trip");
+            Assert.True(reconciliation.HasDay, reconciliation.FatalMessage ?? "no day");
             var countGrid = reconciliation.CountRows.First(r => r.Sku == SalesSeed.SardinesSku);
             countGrid.CountedText = "50"; // balanced count of the full load
 

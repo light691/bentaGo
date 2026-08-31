@@ -14,30 +14,31 @@ using Xunit;
 namespace BentaGo.Tests.Reconciliation;
 
 /// <summary>
-/// BG-008 Slice A projection rules (docs/05 449-470): expected cash from the
-/// trip's own physical-cash receipts, counted cash from the submitted close,
-/// the signed variance + label, per-product expected vs observed stock with a
-/// fold-derived value variance, and the corrections/refund rollup.
+/// BG-008 Slice A projection rules (docs/05 449-470), retargeted to the
+/// ADR-0004 fold (docs/decisions/0004 §1): expected cash = the harness's
+/// P100 opening float + the day's cash sales − cash refunds/revokes − cash
+/// expenses + pay-downs; counted cash from the submitted close; the signed
+/// variance + label; per-product expected vs observed stock with a
+/// fold-derived value variance; and the corrections/refund rollup.
 /// </summary>
 public sealed class ReconciliationReportTests
 {
     private static ReconciliationReport Build(LedgerHarness h) =>
-        new ReconciliationReportService(h.Store).Build(h.Peddler, h.Trip).Value;
+        new ReconciliationReportService(h.Store).Build(h.Day).Value;
 
     private static void CloseCash(LedgerHarness h, Money counted, string? notes = null)
     {
-        Result<CloseDraft> draft = CloseBuilder.Build(h.Store.Context, new CloseCommand(
-            new CloseId(Guid.NewGuid()), h.Trip, counted, notes, h.User, h.Now.AddHours(5)));
+        Result<DayCloseDraft> draft = DayBuilder.Close(h.Store.Context, new DayCloseCommand(
+            new CloseId(Guid.NewGuid()), h.Day, counted.Centavos, notes, h.User, h.Now.AddHours(5)));
         Assert.True(draft.IsSuccess, string.Join("; ", draft.Errors.Select(e => e.Code)));
-        h.Store.RegisterClose(draft.Value.Document);
+        h.Store.RegisterDayClose(draft.Value.Document);
         h.Store.Bind();
-        h.Store.Append(draft.Value.Movements);
     }
 
     private static void CountAt(LedgerHarness h, ProductId product, Quantity observed, string? notes = null)
     {
         Result<CountDraft> draft = CountBuilder.Build(h.Store.Context, new CountCommand(
-            new CountId(Guid.NewGuid()), h.RouteLoc,
+            new CountId(Guid.NewGuid()), StoreLocations.Warehouse,
             new[] { new CountLineCommand(product, observed, notes) }, h.User, h.Now.AddHours(2)));
         Assert.True(draft.IsSuccess, string.Join("; ", draft.Errors.Select(e => e.Code)));
         h.Store.RegisterCount(draft.Value.Document);
@@ -49,14 +50,14 @@ public sealed class ReconciliationReportTests
     public void Cash_Balanced_WhenCountedEqualsExpected()
     {
         var h = new LedgerHarness();
-        Sale sale = h.CommitSale(2, Money.FromPesos(45m), PaymentMethod.Cash); // 90.00 physical
-        CloseCash(h, Money.FromPesos(90m));
+        Sale sale = h.CommitSale(2, Money.FromPesos(45m), PaymentMethod.Cash); // float 100 + 90.00 = 190.00
+        CloseCash(h, Money.FromPesos(190m));
 
         ReconciliationReport report = Build(h);
 
         CashVarianceRow row = report.CashRows.Single();
-        Assert.Equal(Money.FromPesos(90m), row.Expected);
-        Assert.Equal(Money.FromPesos(90m), row.Counted);
+        Assert.Equal(Money.FromPesos(190m), row.Expected);
+        Assert.Equal(Money.FromPesos(190m), row.Counted);
         Assert.Equal(Money.FromPesos(0m), row.Variance);
         Assert.Equal(VarianceLabel.Balanced, row.Label);
         Assert.Equal(VarianceLabel.Balanced, report.Totals.CashLabel);
@@ -66,23 +67,23 @@ public sealed class ReconciliationReportTests
     public void Cash_Shortage_IsSignedLabelAndAmount()
     {
         var h = new LedgerHarness();
-        _ = h.CommitSale(2, Money.FromPesos(45m), PaymentMethod.Cash); // 90.00 expected
+        _ = h.CommitSale(2, Money.FromPesos(45m), PaymentMethod.Cash); // float 100 + 90.00 = 190.00 expected
         CloseCash(h, Money.FromPesos(80m));
 
         ReconciliationReport report = Build(h);
         CashVarianceRow row = report.CashRows.Single();
 
-        Assert.Equal(Money.FromPesos(10m), row.Variance);
+        Assert.Equal(Money.FromPesos(110m), row.Variance);
         Assert.Equal(VarianceLabel.Shortage, row.Label);
-        Assert.Equal("10.00", report.Totals.CashVariance.ToPesos().ToString("0.00"));
+        Assert.Equal("110.00", report.Totals.CashVariance.ToPesos().ToString("0.00"));
     }
 
     [Fact]
     public void Cash_Overage_IsSignedLabelAndAmount()
     {
         var h = new LedgerHarness();
-        _ = h.CommitSale(2, Money.FromPesos(45m), PaymentMethod.Cash); // 90.00 expected
-        CloseCash(h, Money.FromPesos(100m));
+        _ = h.CommitSale(2, Money.FromPesos(45m), PaymentMethod.Cash); // float 100 + 90.00 = 190.00 expected
+        CloseCash(h, Money.FromPesos(200m));
 
         ReconciliationReport report = Build(h);
         CashVarianceRow row = report.CashRows.Single();
@@ -97,10 +98,10 @@ public sealed class ReconciliationReportTests
         var h = new LedgerHarness();
         _ = h.CommitSale(3, Money.FromPesos(15m), PaymentMethod.Credit, "Aling Nena"); // utang: no fund
         _ = h.CommitSale(2, Money.FromPesos(20m), PaymentMethod.Gcash);               // GCash: not physical
-        CloseCash(h, Money.Zero);
+        CloseCash(h, Money.FromPesos(100m)); // the drawer holds exactly the float
 
         ReconciliationReport report = Build(h);
-        Assert.Equal(Money.Zero, report.Totals.ExpectedCash);
+        Assert.Equal(Money.FromPesos(100m), report.Totals.ExpectedCash); // utang + GCash never enter the fold
         Assert.Equal(VarianceLabel.Balanced, report.Totals.CashLabel);
     }
 
@@ -119,10 +120,10 @@ public sealed class ReconciliationReportTests
         h.Store.Bind();
         h.Store.Append(returnDraft.Value.Movements);
 
-        CloseCash(h, Money.FromPesos(45m)); // 90 - 45 refund = 45 expected
+        CloseCash(h, Money.FromPesos(145m)); // float 100 + 90 - 45 refund = 145 expected
         ReconciliationReport report = Build(h);
 
-        Assert.Equal(Money.FromPesos(45m), report.Totals.ExpectedCash);
+        Assert.Equal(Money.FromPesos(145m), report.Totals.ExpectedCash);
         Assert.Equal(Money.FromPesos(45m), report.Totals.RefundTotal);
         Assert.Equal(VarianceLabel.Balanced, report.Totals.CashLabel);
     }
@@ -130,26 +131,26 @@ public sealed class ReconciliationReportTests
     [Fact]
     public void Stock_QuantityAndValueVariance_Signed()
     {
-        var h = new LedgerHarness(); // 20 sardines on the route
-        _ = h.CommitSale(5, Money.FromPesos(45m), PaymentMethod.Cash); // -> 15 on the route
-        CountAt(h, h.Sardines, Quantity.Of(3)); // observed 3 -> shortage of 12
+        var h = new LedgerHarness(); // 40 sardines on hand
+        _ = h.CommitSale(5, Money.FromPesos(45m), PaymentMethod.Cash); // -> 35 on hand
+        CountAt(h, h.Sardines, Quantity.Of(3)); // observed 3 -> shortage of 32
 
         ReconciliationReport report = Build(h);
         StockVarianceRow row = report.StockRows.Single(r => r.Product == h.Sardines);
 
-        Assert.Equal(15, row.ExpectedUnits);
+        Assert.Equal(35, row.ExpectedUnits);
         Assert.Equal(3, row.CountedUnits);
-        Assert.Equal(-12, row.QuantityVariance);
+        Assert.Equal(-32, row.QuantityVariance);
         Assert.Equal(Money.FromPesos(45m), row.UnitPrice);
-        Assert.Equal(Money.FromPesos(-540m), row.ValueVariance); // -12 × 45.00
+        Assert.Equal(Money.FromPesos(-1440m), row.ValueVariance); // -32 × 45.00
     }
 
     [Fact]
     public void Stock_Overage_IsPositiveVariance()
     {
-        var h = new LedgerHarness(); // 20 on the route
-        _ = h.CommitSale(5, Money.FromPesos(45m), PaymentMethod.Cash); // -> 15
-        CountAt(h, h.Sardines, Quantity.Of(20)); // observed 20 -> overage of 5
+        var h = new LedgerHarness(); // 40 on hand
+        _ = h.CommitSale(5, Money.FromPesos(45m), PaymentMethod.Cash); // -> 35
+        CountAt(h, h.Sardines, Quantity.Of(40)); // observed 40 -> overage of 5
 
         ReconciliationReport report = Build(h);
         StockVarianceRow row = report.StockRows.Single(r => r.Product == h.Sardines);
@@ -162,12 +163,12 @@ public sealed class ReconciliationReportTests
     public void Stock_Uncounted_LeavesVarianceAndValueBlank()
     {
         var h = new LedgerHarness();
-        _ = h.CommitSale(5, Money.FromPesos(45m), PaymentMethod.Cash); // 15 on the route, never counted
+        _ = h.CommitSale(5, Money.FromPesos(45m), PaymentMethod.Cash); // 35 on hand, never counted
 
         ReconciliationReport report = Build(h);
         StockVarianceRow row = report.StockRows.Single(r => r.Product == h.Sardines);
 
-        Assert.Equal(15, row.ExpectedUnits);
+        Assert.Equal(35, row.ExpectedUnits);
         Assert.Null(row.CountedUnits);
         Assert.Null(row.QuantityVariance);
         Assert.Null(row.ValueVariance);
@@ -204,8 +205,8 @@ public sealed class ReconciliationReportTests
         h.Store.Append(voidDraft.Value.Movements);
 
         var query = new SaleQueryService(h.Store);
-        IReadOnlyList<SaleHistoryRow> rows = query.Query(h.Peddler).Value
-            .Where(r => r.Trip == h.Trip)
+        IReadOnlyList<SaleHistoryRow> rows = query.Query(new SaleHistoryFilter(null, h.Day, null, null, null, null)).Value
+            .Where(r => r.Day == h.Day)
             .ToList();
         int committed = rows.Count(r => r.Status != SaleStatus.Voided);
         Money committedTotal = rows
@@ -217,18 +218,6 @@ public sealed class ReconciliationReportTests
         Assert.Equal(committed, report.Totals.Sales);
         Assert.Equal(committedTotal, report.Totals.SalesTotal);
         Assert.Equal(1, report.Totals.Voided);
-        Assert.Equal(h.Store.State.TripCash(h.Trip, Fund.PhysicalCash), report.Totals.ExpectedCash);
-    }
-
-    [Fact]
-    public void Report_RejectsCrossPeddlerAccess()
-    {
-        var h = new LedgerHarness();
-        var otherPeddler = new PeddlerId(Guid.NewGuid());
-
-        Result<ReconciliationReport> report = new ReconciliationReportService(h.Store).Build(otherPeddler, h.Trip);
-
-        Assert.True(report.IsFailure);
-        Assert.Contains(report.Errors, e => e.Code == "TRIP_PEDDLER_MISMATCH");
+        Assert.Equal(new Money(h.Store.State.ExpectedCash(h.Day)), report.Totals.ExpectedCash);
     }
 }

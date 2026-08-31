@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore;
 namespace BentaGo.Infrastructure.Persistence;
 
 /// <summary>
-/// EF-backed user account store (BG-005a): the Users/Peddlers schema through
+/// EF-backed user account store (BG-005a): the Users schema through
 /// <see cref="BentaGoDbContext"/>. Read by the authentication service and the
 /// user use cases; writes (auth-state updates, creation) go through
 /// SaveChanges in the caller's small unit of work.

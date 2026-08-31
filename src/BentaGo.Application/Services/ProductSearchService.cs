@@ -12,13 +12,11 @@ namespace BentaGo.Application.Services;
 /// lowercase) → exact barcode (verbatim, leading zeros significant — TEXT
 /// equality) → name infix (NOCASE, wildcard-escaped, capped). The keyboard-HID
 /// scanner CR suffix is trimmed at this boundary. On-hand comes from the
-/// movement fold for the session actor's peddler.
+/// movement fold at the single warehouse location.
 /// </summary>
 public sealed class ProductSearchService(
-    IProductStore products,
-    IActorContext actors,
-    IUserAccountStore users,
-    ITripReadService trips)
+    ILedgerStore ledger,
+    IProductStore products)
     : IProductSearchService
 {
     public async Task<Result<IReadOnlyList<ProductHit>>> SearchAsync(
@@ -28,19 +26,6 @@ public sealed class ProductSearchService(
         if (trimmed.Length == 0)
         {
             return Result<IReadOnlyList<ProductHit>>.Ok(Array.Empty<ProductHit>());
-        }
-
-        Result<User> actor = await ActorGuard.ResolveAsync(actors, users, ct);
-        if (actor.IsFailure)
-        {
-            return Result<IReadOnlyList<ProductHit>>.Fail(actor.Errors);
-        }
-
-        PeddlerId? peddler = actor.Value.PeddlerLink;
-        if (peddler is null)
-        {
-            return Result<IReadOnlyList<ProductHit>>.Fail(new DomainError(
-                "NO_PEDDLER_LINK", "this account is not linked to a peddler"));
         }
 
         // SKU exact (then the derived-SKU case mirror), then barcode exact.
@@ -57,7 +42,7 @@ public sealed class ProductSearchService(
 
         if (product is not null)
         {
-            Quantity onHand = OnHandOf(peddler.Value, product.Id);
+            Quantity onHand = OnHandOf(product.Id);
             return Result<IReadOnlyList<ProductHit>>.Ok(new[]
             {
                 new ProductHit(product, onHand),
@@ -68,16 +53,16 @@ public sealed class ProductSearchService(
         var hits = new List<ProductHit>(byName.Count);
         foreach (Product named in byName)
         {
-            hits.Add(new ProductHit(named, OnHandOf(peddler.Value, named.Id)));
+            hits.Add(new ProductHit(named, OnHandOf(named.Id)));
         }
 
         return Result<IReadOnlyList<ProductHit>>.Ok(hits);
     }
 
-    private Quantity OnHandOf(PeddlerId peddler, ProductId product)
+    private Quantity OnHandOf(ProductId product)
     {
-        Result<Quantity> onHand = trips.OnHand(peddler, product);
-        return onHand.IsSuccess ? onHand.Value : Quantity.Zero;
+        ledger.Bind();
+        return ledger.State.StockOnHand(product, StoreLocations.Warehouse);
     }
 
     private static bool IsAllUppercase(string text) =>

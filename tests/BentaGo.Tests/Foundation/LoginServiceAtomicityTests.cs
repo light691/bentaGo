@@ -48,14 +48,15 @@ public sealed class LoginServiceAtomicityTests
         public IReadOnlyList<Movement> Movements => inner.Movements;
         public IReadOnlyList<AuditEvent> Audits => inner.Audits;
 
-        public void RegisterTrip(Trip trip) => inner.RegisterTrip(trip);
+        public void RegisterDayOpen(DayOpen day) => inner.RegisterDayOpen(day);
+        public void RegisterDayClose(DayClose close) => inner.RegisterDayClose(close);
+        public void RegisterDayReopen(DayReopen reopen) => inner.RegisterDayReopen(reopen);
         public void RegisterSale(Sale sale) => inner.RegisterSale(sale);
         public void RegisterReturn(Return @return) => inner.RegisterReturn(@return);
-        public void RegisterLoad(StockLoad load) => inner.RegisterLoad(load);
         public void RegisterVoid(SaleVoid @void) => inner.RegisterVoid(@void);
         public void RegisterAdjustment(Adjustment adjustment) => inner.RegisterAdjustment(adjustment);
         public void RegisterCount(PhysicalCount count) => inner.RegisterCount(count);
-        public void RegisterClose(DailyClose @close) => inner.RegisterClose(@close);
+        public void RegisterGoodsReceipt(GoodsReceipt receipt) => inner.RegisterGoodsReceipt(receipt);
         public void Bind() => inner.Bind();
 
         public Result<AppendOutcome> Append(AppendBatch batch) => inner.Append(batch);

@@ -23,8 +23,8 @@ public sealed class BackupTests : PersistenceTestBase
         await host.GetRequiredService<DbInitializer>().EnsureCreatedOrMigrateAsync();
 
         var store = host.GetRequiredService<SqliteLedgerStore>();
-        TwoPeddlersScenario.Run(store); // store stays live (WAL) during backup
-        string liveRender = TwoPeddlersScenario.Render(store).Text;
+        SingleDayScenario.Run(store); // store stays live (WAL) during backup
+        string liveRender = SingleDayScenario.Render(store).Text;
 
         var backupService = host.GetRequiredService<IBackupService>();
         BackupReceipt receipt = await backupService.CreateAsync();
@@ -32,7 +32,7 @@ public sealed class BackupTests : PersistenceTestBase
         Assert.True(File.Exists(receipt.BackupPath));
         Assert.Equal("ok", await SqliteTest.QuickCheckAsync(receipt.BackupPath));
         Assert.Equal(receipt.Sha256, await Task.Run(() => ReceiptSha256(receipt.BackupPath)));
-        Assert.EndsWith("BG007_01_AddPrintJobs", receipt.DatabaseVersion);
+        Assert.EndsWith("Baseline", receipt.DatabaseVersion);
 
         // The backup is a full consistency point: a store over the backup
         // file renders the exact same day.
@@ -41,7 +41,7 @@ public sealed class BackupTests : PersistenceTestBase
         File.Copy(receipt.BackupPath, DbPath(scratch), overwrite: true);
         await BackupService.VerifyQuickCheckAsync(DbPath(scratch), CancellationToken.None);
         var backupStore = new SqliteLedgerStore(new DataPathProvider(scratch), new DebugOptions());
-        Assert.Equal(liveRender, TwoPeddlersScenario.Render(backupStore).Text);
+        Assert.Equal(liveRender, SingleDayScenario.Render(backupStore).Text);
     }
 
     private static string ReceiptSha256(string filePath)

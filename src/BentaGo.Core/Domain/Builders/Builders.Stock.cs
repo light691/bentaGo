@@ -3,155 +3,112 @@ using BentaGo.Core.Domain.Commands;
 using BentaGo.Core.Domain.Documents;
 using BentaGo.Core.Domain.Ledger;
 using BentaGo.Core.Domain.Payments;
-using BentaGo.Core.Domain.Trips;
 
 namespace BentaGo.Core.Domain.Builders;
 
-public sealed record LoadDraft(StockLoad Document, IReadOnlyList<Movement> Movements);
+public sealed record GoodsReceiptDraft(GoodsReceipt Document, IReadOnlyList<Movement> Movements);
 
-public sealed record TransferDraft(TransferId Id, IReadOnlyList<Movement> Movements);
+public sealed record FundEntryDraft(FundEntry Document, IReadOnlyList<Movement> Movements);
 
 public sealed record AdjustmentDraft(Adjustment Document, IReadOnlyList<Movement> Movements);
 
 public sealed record CountDraft(PhysicalCount Document, IReadOnlyList<Movement> Movements);
 
-public sealed record CloseDraft(DailyClose Document, IReadOnlyList<Movement> Movements);
+public sealed record DayOpenDraft(DayOpen Document);
 
-public sealed record ReopenDraft(ReopenRef Document, IReadOnlyList<Movement> Movements);
+public sealed record DayCloseDraft(DayClose Document);
 
-public sealed record CancelDraft(CancelRef Document, IReadOnlyList<Movement> Movements);
+public sealed record DayReopenDraft(DayReopen Document);
 
-public sealed record TripDraft(Trip Document, IReadOnlyList<Movement> Movements);
-
-public static class TripBuilder
+/// <summary>
+/// Receives stock into the single store warehouse: every line becomes a
+/// <see cref="MovementKind.GoodsReceived"/> movement
+/// (docs/decisions/0004 §5). Receiving is legal on an open day.
+/// </summary>
+public static class GoodsReceiptBuilder
 {
-    public static Result<TripDraft> Build(LedgerContext ctx, NewTripCommand cmd)
+    public static Result<GoodsReceiptDraft> Build(LedgerContext ctx, GoodsReceiptCommand cmd)
     {
-        if (ctx.FindTrip(cmd.Id) is not null)
+        if (cmd.Lines.Count == 0)
         {
-            return Result<TripDraft>.Fail(new DomainError("DUP_TRIP", $"trip {cmd.Id} already exists"));
+            return Result<GoodsReceiptDraft>.Fail(new DomainError("RECEIPT_EMPTY", "a goods receipt needs at least one line"));
         }
 
-        // One active trip per peddler (docs/00:47, docs/01:75). A peddler
-        // occupies the single slot from Draft until a terminal state — letting
-        // a second Draft exist would let loads create two active trips
-        // retroactively, so the check covers every non-terminal status. The
-        // service runs this inside the store's registered-document set; the
-        // SQLite store commits the trip in its own one-row transaction.
-        foreach (Trip existingTrip in ctx.Trips)
+        if (ctx.State.Day(cmd.Day) != DayLifecycleState.Open)
         {
-            if (existingTrip.Peddler != cmd.Peddler)
-            {
-                continue;
-            }
-
-            TripStatus existing = ctx.State.Trip(existingTrip.Id).Status;
-            if (existing is not (TripStatus.Closed or TripStatus.Cancelled))
-            {
-                return Result<TripDraft>.Fail(new DomainError(
-                    "TRIP_ALREADY_ACTIVE",
-                    $"peddler {cmd.Peddler} already has an active trip {existingTrip.Id} ({existing}); one active trip per peddler"));
-            }
-        }
-
-        var trip = new Trip(cmd.Id, cmd.Peddler, cmd.Location, cmd.NowUtc, cmd.By);
-        return Result<TripDraft>.Ok(new TripDraft(trip, Array.Empty<Movement>()));
-    }
-}
-
-public static class LoadBuilder
-{
-    public static Result<LoadDraft> Build(LedgerContext ctx, LoadCommand cmd)
-    {
-        if (string.IsNullOrWhiteSpace(cmd.LoadNumber))
-        {
-            return Result<LoadDraft>.Fail(new DomainError("LOAD_NUMBER_REQUIRED", "a load needs a load number"));
-        }
-
-        foreach (StockLoad existing in ctx.Loads)
-        {
-            if (existing.LoadNumber == cmd.LoadNumber)
-            {
-                return Result<LoadDraft>.Fail(new DomainError("DUP_LOAD", $"load number {cmd.LoadNumber} already used"));
-            }
-        }
-
-        Trip? trip = ctx.FindTrip(cmd.Trip);
-        if (trip is null)
-        {
-            return Result<LoadDraft>.Fail(new DomainError("TRIP_UNKNOWN", $"no trip {cmd.Trip}"));
-        }
-
-        // Loads are legal in Draft/Loading/Active ("initial and additional
-        // loads on the same day" — docs/01:88); a terminal trip never takes
-        // stock. The fold re-checks every transfer; this is the explicit
-        // phase gate so the caller sees the lifecycle vocabulary.
-        TripStatus loadStatus = ctx.State.Trip(cmd.Trip).Status;
-        if (loadStatus == TripStatus.Closed)
-        {
-            return Result<LoadDraft>.Fail(new DomainError("TRIP_CLOSED", $"trip {cmd.Trip} is closed and cannot be loaded"));
-        }
-
-        if (loadStatus == TripStatus.Cancelled)
-        {
-            return Result<LoadDraft>.Fail(new DomainError("TRIP_CANCELLED", $"trip {cmd.Trip} is cancelled and cannot be loaded"));
+            return Result<GoodsReceiptDraft>.Fail(new DomainError(
+                "DAY_NOT_OPEN", $"day {cmd.Day} is {ctx.State.Day(cmd.Day)}; receiving needs an open day"));
         }
 
         var errors = new List<DomainError>();
-        var movements = new List<Movement>(cmd.Lines.Count * 2);
-        var lines = new List<StockLoadLine>(cmd.Lines.Count);
+        var movements = new List<Movement>(cmd.Lines.Count);
+        var lines = new List<GoodsReceiptLine>(cmd.Lines.Count);
 
-        foreach (LoadLine line in cmd.Lines)
+        foreach (GoodsReceiptLineCommand line in cmd.Lines)
         {
             if (line.Quantity.IsZero)
             {
-                errors.Add(new DomainError("LINE_ZERO", "a load line needs a positive quantity", line.Sku));
+                errors.Add(new DomainError("LINE_ZERO", "a goods receipt line needs a positive quantity", line.Sku));
                 continue;
             }
 
-            lines.Add(new StockLoadLine(line.ProductId, line.Sku, line.ProductName, line.Quantity, line.UnitCost));
-            movements.Add(Moves.TransferOut(
-                0, cmd.NowUtc, cmd.By, new LoadRef(cmd.Id), line.ProductId, cmd.From, line.Quantity));
-            movements.Add(Moves.TransferIn(
-                0, cmd.NowUtc, cmd.By, new LoadRef(cmd.Id), line.ProductId, trip.Location, line.Quantity));
+            lines.Add(new GoodsReceiptLine(line.ProductId, line.Sku, line.ProductName, line.Quantity, line.UnitCost));
+            movements.Add(Moves.GoodsReceived(
+                0, cmd.NowUtc, cmd.By, new GoodsRef(cmd.Id), line.ProductId, StoreLocations.Warehouse, line.Quantity));
         }
 
         if (errors.Count > 0)
         {
-            return Result<LoadDraft>.Fail(errors);
+            return Result<GoodsReceiptDraft>.Fail(errors);
         }
 
-        var load = new StockLoad(cmd.Id, cmd.LoadNumber, cmd.Trip, lines, cmd.By, cmd.NowUtc);
-        return Result<LoadDraft>.Ok(new LoadDraft(load, movements));
+        var receipt = new GoodsReceipt(cmd.Id, cmd.Day, lines, cmd.By, cmd.NowUtc);
+        return Result<GoodsReceiptDraft>.Ok(new GoodsReceiptDraft(receipt, movements));
     }
 }
 
-public static class TransferBuilder
+/// <summary>
+/// Fund entries outside a sale: <see cref="MovementKind.FundIn"/> (a cash
+/// pay-down received on a receivable) and <see cref="MovementKind.FundOut"/>
+/// (an approved cash expense) — first-class documents with a reason
+/// (docs/decisions/0004 §3-4). Both are legal only on an open day.
+/// </summary>
+public static class FundEntryBuilder
 {
-    public static Result<TransferDraft> Build(LedgerContext ctx, TransferCommand cmd)
+    public static Result<FundEntryDraft> Build(LedgerContext ctx, FundEntryCommand cmd)
     {
-        if (cmd.From == cmd.To)
+        if (cmd.Direction is not (MovementKind.FundIn or MovementKind.FundOut))
         {
-            return Result<TransferDraft>.Fail(new DomainError("SAME_LOCATION", "transfer source and destination are the same"));
+            return Result<FundEntryDraft>.Fail(new DomainError(
+                "FUND_DIRECTION", $"a fund entry must be {MovementKind.FundIn} or {MovementKind.FundOut}"));
         }
 
-        if (cmd.Quantity.IsZero)
+        if (string.IsNullOrWhiteSpace(cmd.Reason))
         {
-            return Result<TransferDraft>.Fail(new DomainError("LINE_ZERO", "a transfer needs a positive quantity"));
+            return Result<FundEntryDraft>.Fail(new DomainError("REASON_REQUIRED", "a fund entry needs a reason"));
         }
 
-        if (ctx.State.StockOnHand(cmd.ProductId, cmd.From).Units < cmd.Quantity.Units)
+        if (ctx.State.Day(cmd.Day) != DayLifecycleState.Open)
         {
-            return Result<TransferDraft>.Fail(new DomainError("STOCK_INSUFFICIENT", "not enough stock at the source"));
+            return Result<FundEntryDraft>.Fail(new DomainError(
+                "DAY_NOT_OPEN", $"day {cmd.Day} is {ctx.State.Day(cmd.Day)}; a fund entry needs an open day"));
         }
 
-        var movements = new List<Movement>
+        // A cash expense moves funds out of the drawer without a sale, so it
+        // records who approved (BG-007 approval policy).
+        if (cmd.Direction == MovementKind.FundOut && cmd.ApprovedBy is null)
         {
-            Moves.TransferOut(0, cmd.NowUtc, cmd.By, new TransferRef(cmd.Id), cmd.ProductId, cmd.From, cmd.Quantity),
-            Moves.TransferIn(0, cmd.NowUtc, cmd.By, new TransferRef(cmd.Id), cmd.ProductId, cmd.To, cmd.Quantity),
-        };
+            return Result<FundEntryDraft>.Fail(new DomainError(
+                "FUND_OUT_APPROVAL_REQUIRED", "a fund out needs an operator approval"));
+        }
 
-        return Result<TransferDraft>.Ok(new TransferDraft(cmd.Id, movements));
+        Movement movement = cmd.Direction == MovementKind.FundIn
+            ? Moves.FundIn(0, cmd.NowUtc, cmd.By, new FundRef(cmd.Id), cmd.Method, cmd.Amount, cmd.Reason)
+            : Moves.FundOut(0, cmd.NowUtc, cmd.By, new FundRef(cmd.Id), cmd.Method, cmd.Amount, cmd.Reason);
+
+        var document = new FundEntry(
+            cmd.Id, cmd.Day, cmd.Direction, cmd.Method, cmd.Amount, cmd.Reason, cmd.By, cmd.NowUtc, cmd.ApprovedBy);
+        return Result<FundEntryDraft>.Ok(new FundEntryDraft(document, new[] { movement }));
     }
 }
 
@@ -178,10 +135,10 @@ public static class AdjustmentBuilder
                 "ADJUSTMENT_APPROVAL_REQUIRED", "an adjustment needs an operator approval"));
         }
 
-        Result<bool> tripGate = VoidBuilder.TripGate(ctx, cmd.Trip);
-        if (tripGate.IsFailure)
+        Result<bool> dayGate = VoidBuilder.DayGate(ctx, cmd.Day);
+        if (dayGate.IsFailure)
         {
-            return Result<AdjustmentDraft>.Fail(tripGate.Errors);
+            return Result<AdjustmentDraft>.Fail(dayGate.Errors);
         }
 
         bool decreases = cmd.Kind is AdjustmentKind.Decrease or AdjustmentKind.Damage or AdjustmentKind.Loss;
@@ -204,7 +161,7 @@ public static class AdjustmentBuilder
         };
 
         var document = new Adjustment(
-            cmd.Id, cmd.Trip, cmd.ProductId, cmd.Location, cmd.Kind, cmd.Reason, cmd.By, cmd.NowUtc, cmd.ApprovedBy);
+            cmd.Id, cmd.Day, cmd.ProductId, cmd.Location, cmd.Kind, cmd.Reason, cmd.By, cmd.NowUtc, cmd.ApprovedBy);
         return Result<AdjustmentDraft>.Ok(new AdjustmentDraft(document, new[] { movement }));
     }
 }
@@ -234,165 +191,76 @@ public static class CountBuilder
     }
 }
 
-public static class CloseBuilder
-{
-    public static Result<CloseDraft> Build(LedgerContext ctx, CloseCommand cmd)
-    {
-        Trip? trip = ctx.FindTrip(cmd.Trip);
-        if (trip is null)
-        {
-            return Result<CloseDraft>.Fail(new DomainError("TRIP_UNKNOWN", $"no trip {cmd.Trip}"));
-        }
-
-        TripStatus status = ctx.State.Trip(cmd.Trip).Status;
-        if (status == TripStatus.Closed)
-        {
-            return Result<CloseDraft>.Fail(new DomainError("TRIP_CLOSED", $"trip {cmd.Trip} is already closed"));
-        }
-
-        if (status == TripStatus.Cancelled)
-        {
-            return Result<CloseDraft>.Fail(new DomainError("TRIP_CANCELLED", $"trip {cmd.Trip} is cancelled and cannot be closed"));
-        }
-
-        if (status == TripStatus.Planned)
-        {
-            return Result<CloseDraft>.Fail(new DomainError("TRIP_NOT_OPEN", $"trip {cmd.Trip} is not open"));
-        }
-
-        // Expected cash is the physical cash this trip's own sales produced —
-        // never the global till or another fund (a GCash sale is not "counted
-        // cash"), or closing one peddler would read another's or a digital fund.
-        Money expectedCash = ctx.State.TripCash(cmd.Trip, Fund.PhysicalCash);
-        Money variance = expectedCash.Minus(cmd.CountedCash);
-
-        var close = new DailyClose(cmd.Id, cmd.Trip, expectedCash, cmd.CountedCash, variance, cmd.Notes, cmd.By, cmd.NowUtc);
-        var movements = new List<Movement>
-        {
-            Moves.TripClose(0, cmd.NowUtc, cmd.By, new CloseRef(cmd.Id), cmd.Trip),
-        };
-
-        return Result<CloseDraft>.Ok(new CloseDraft(close, movements));
-    }
-}
-
-public static class ReopenBuilder
-{
-    public static Result<ReopenDraft> Build(LedgerContext ctx, ReopenCommand cmd)
-    {
-        if (ctx.FindTrip(cmd.Trip) is null)
-        {
-            return Result<ReopenDraft>.Fail(new DomainError("TRIP_UNKNOWN", $"no trip {cmd.Trip}"));
-        }
-
-        TripStatus status = ctx.State.Trip(cmd.Trip).Status;
-        if (status != TripStatus.Closed)
-        {
-            return Result<ReopenDraft>.Fail(new DomainError("TRIP_NOT_CLOSED", $"trip {cmd.Trip} is {status}, only a closed trip can reopen"));
-        }
-
-        if (string.IsNullOrWhiteSpace(cmd.Reason))
-        {
-            return Result<ReopenDraft>.Fail(new DomainError("REASON_REQUIRED", "a reopen needs an authorized reason"));
-        }
-
-        var movements = new List<Movement>
-        {
-            Moves.TripReopen(0, cmd.NowUtc, cmd.By, new ReopenRef(cmd.Trip), cmd.Trip, cmd.Reason),
-        };
-
-        return Result<ReopenDraft>.Ok(new ReopenDraft(new ReopenRef(cmd.Trip), movements));
-    }
-}
-
 /// <summary>
-/// Cancellation of a trip before any sale (docs/01:45), with an authorized
-/// reason. The state machine (Draft/Loading only) is the phase gate; the
-/// revert of each issued load line is a TransferOut(from the trip location)
-/// + TransferIn(to the load's original source, derived from the movement
-/// stream) pair carrying the SAME LoadRef — one atomic batch with the
-/// TripCancel marker (BG-005c). "Cancelled trips don't create stock deltas"
-/// (brief): the marker itself has no balance effect; the revert is what puts
-/// stock back.
+/// The day lifecycle builders (docs/decisions/0004 §2, §6): open records the
+/// float, close records expected/counted/difference/label, reopen requires a
+/// reason and an approver and never erases the prior close. The lifecycle
+/// documents carry no movements — the day gate is document-driven; the fold
+/// derives the lifecycle state in the P1b slice.
 /// </summary>
-public static class CancelBuilder
+public static class DayBuilder
 {
-    public static Result<CancelDraft> Build(LedgerContext ctx, IReadOnlyList<Movement> movements, CancelTripCommand cmd)
+    public static Result<DayOpenDraft> Open(LedgerContext ctx, DayOpenCommand cmd)
     {
-        Trip? trip = ctx.FindTrip(cmd.Trip);
-        if (trip is null)
+        DayLifecycleState state = ctx.State.Day(cmd.Day);
+        if (state != DayLifecycleState.New)
         {
-            return Result<CancelDraft>.Fail(new DomainError("TRIP_UNKNOWN", $"no trip {cmd.Trip}"));
+            return Result<DayOpenDraft>.Fail(new DomainError(
+                "DAY_NOT_NEW", $"day {cmd.Day} is {state}; only a new day can be opened"));
+        }
+
+        if (cmd.OpeningFloatCentavos < 0)
+        {
+            return Result<DayOpenDraft>.Fail(new DomainError("FLOAT_NEGATIVE", "the opening float cannot be negative"));
+        }
+
+        return Result<DayOpenDraft>.Ok(new DayOpenDraft(
+            new DayOpen(cmd.Id, cmd.Day, cmd.OpeningFloatCentavos, cmd.By, cmd.NowUtc)));
+    }
+
+    public static Result<DayCloseDraft> Close(LedgerContext ctx, DayCloseCommand cmd)
+    {
+        if (ctx.State.Day(cmd.Day) != DayLifecycleState.Open)
+        {
+            return Result<DayCloseDraft>.Fail(new DomainError(
+                "DAY_NOT_OPEN", $"day {cmd.Day} is {ctx.State.Day(cmd.Day)}; only an open day can be closed"));
+        }
+
+        if (cmd.CountedCashCentavos < 0)
+        {
+            return Result<DayCloseDraft>.Fail(new DomainError("COUNT_NEGATIVE", "the counted cash cannot be negative"));
+        }
+
+        // Expected cash per docs/decisions/0004 §1, derived by the day-keyed
+        // fold: opening float + cash sales − cash refunds/revokes − approved
+        // cash expenses (FundOut) + cash pay-downs received (FundIn). The
+        // fold is the single source of truth; the close document records it.
+        long expectedCash = ctx.State.ExpectedCash(cmd.Day);
+        long difference = expectedCash - cmd.CountedCashCentavos;
+        DayBalanceLabel label = difference == 0
+            ? DayBalanceLabel.Balanced
+            : difference > 0
+                ? DayBalanceLabel.Shortage
+                : DayBalanceLabel.Overage;
+
+        return Result<DayCloseDraft>.Ok(new DayCloseDraft(
+            new DayClose(cmd.Id, cmd.Day, expectedCash, cmd.CountedCashCentavos, difference, label, cmd.Notes, cmd.By, cmd.NowUtc)));
+    }
+
+    public static Result<DayReopenDraft> Reopen(LedgerContext ctx, DayReopenCommand cmd)
+    {
+        if (ctx.State.Day(cmd.Day) != DayLifecycleState.Closed)
+        {
+            return Result<DayReopenDraft>.Fail(new DomainError(
+                "DAY_NOT_CLOSED", $"day {cmd.Day} is {ctx.State.Day(cmd.Day)}; only a closed day can reopen"));
         }
 
         if (string.IsNullOrWhiteSpace(cmd.Reason))
         {
-            return Result<CancelDraft>.Fail(new DomainError("REASON_REQUIRED", "a cancel needs an authorized reason"));
+            return Result<DayReopenDraft>.Fail(new DomainError("REASON_REQUIRED", "a reopen needs an authorized reason"));
         }
 
-        bool hasSales = false;
-        foreach (Sale sale in ctx.Sales)
-        {
-            if (sale.Trip == cmd.Trip)
-            {
-                hasSales = true;
-                break;
-            }
-        }
-
-        // The docs' phase gate through the pure machine: cancellation is
-        // legal only from Draft/Loading (never after a sale — docs/01:45).
-        TripPhase phase = TripLifecycle.PhaseOf(ctx.State.Trip(cmd.Trip), hasSales);
-        Result<TripPhase> gate = TripLifecycle.Transition(phase, TripAction.Cancel);
-        if (gate.IsFailure)
-        {
-            return Result<CancelDraft>.Fail(gate.Errors);
-        }
-
-        var reverted = new List<Movement>();
-        foreach (StockLoad load in ctx.Loads)
-        {
-            if (load.Trip != cmd.Trip)
-            {
-                continue;
-            }
-
-            foreach (StockLoadLine line in load.Lines)
-            {
-                LocationId? source = SourceOf(movements, load.Id, line.ProductId);
-                if (source is null)
-                {
-                    return Result<CancelDraft>.Fail(new DomainError(
-                        "TRIP_CANCEL_SOURCE_UNKNOWN",
-                        $"cannot revert load {load.Id}: no TransferOut movement found for product {line.ProductId}"));
-                }
-
-                reverted.Add(Moves.TransferOut(
-                    0, cmd.NowUtc, cmd.By, new LoadRef(load.Id), line.ProductId, trip.Location, line.Quantity));
-                reverted.Add(Moves.TransferIn(
-                    0, cmd.NowUtc, cmd.By, new LoadRef(load.Id), line.ProductId, source.Value, line.Quantity));
-            }
-        }
-
-        reverted.Add(Moves.TripCancel(
-            0, cmd.NowUtc, cmd.By, new CancelRef(cmd.Trip), cmd.Trip, cmd.Reason));
-        return Result<CancelDraft>.Ok(new CancelDraft(new CancelRef(cmd.Trip), reverted));
-    }
-
-    /// <summary>The location a load line left from: the stream's TransferOut carrying that LoadRef.</summary>
-    private static LocationId? SourceOf(IReadOnlyList<Movement> movements, LoadId loadId, ProductId product)
-    {
-        foreach (Movement movement in movements)
-        {
-            if (movement is TransferOut transferOut
-                && transferOut.Document is LoadRef loadRef
-                && loadRef.Id == loadId
-                && transferOut.ProductId == product)
-            {
-                return transferOut.LocationId;
-            }
-        }
-
-        return null;
+        return Result<DayReopenDraft>.Ok(new DayReopenDraft(
+            new DayReopen(cmd.Id, cmd.Day, cmd.Reason, cmd.ApprovedBy, cmd.By, cmd.NowUtc)));
     }
 }

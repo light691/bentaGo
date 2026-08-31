@@ -66,10 +66,5 @@
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
         </ScrollViewer>
-
-        <TextBlock Grid.Row="3"
-                   Text="Simulated data - BG-002 scenario"
-                   Style="{StaticResource CaptionTextStyle}"
-                   Margin="{StaticResource Thickness.M}" />
     </Grid>
 </UserControl>

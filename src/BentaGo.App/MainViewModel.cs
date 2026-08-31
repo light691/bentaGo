@@ -51,7 +51,6 @@ public sealed class MainViewModel : ViewModelBase
         HelpOverlay = services.GetRequiredService<HelpOverlayViewModel>();
 
         VersionText = "v" + (Assembly.GetEntryAssembly()?.GetName().Version?.ToString(3) ?? "1.0.0");
-        SimulatedLabel = "Simulated data - BG-002 scenario";
 
         Login.Authenticated += (_, _) => OnAuthenticated();
         _navigation.Navigated += OnNavigated;
@@ -127,8 +126,6 @@ public sealed class MainViewModel : ViewModelBase
     public HelpOverlayViewModel HelpOverlay { get; }
 
     public string VersionText { get; }
-
-    public string SimulatedLabel { get; }
 
     public ViewModelBase? Current
     {
@@ -259,7 +256,10 @@ public sealed class MainViewModel : ViewModelBase
             ["nav-reconcile"] = (NavigateCommand, ScreenKeys.Reconciliation),
             ["nav-admin-users"] = (AdminNavigateCommand, ScreenKeys.AdminUsers),
             ["nav-admin-import"] = (AdminNavigateCommand, ScreenKeys.AdminImport),
-            ["nav-admin-overview"] = (AdminNavigateCommand, ScreenKeys.AdminOverview),
+            // Placeholder route: the AdminOverview screen was removed with the
+            // route-selling domain (BG-P1a); until the P5 shell redesign lands,
+            // Alt+8 lands on the day-close/reconciliation overview.
+            ["nav-admin-overview"] = (NavigateCommand, ScreenKeys.Reconciliation),
             ["hardware-test"] = (AdminNavigateCommand, ScreenKeys.AdminDevices),
         };
         return map;
@@ -356,7 +356,6 @@ public sealed class MainViewModel : ViewModelBase
         {
             items.Add(new RailItemViewModel(ScreenKeys.AdminUsers, "Users", "Alt+6", AutomationIds.RailAdminUsers, isAdminSection: true));
             items.Add(new RailItemViewModel(ScreenKeys.AdminImport, "Catalog Import", "Alt+7", AutomationIds.RailAdminImport));
-            items.Add(new RailItemViewModel(ScreenKeys.AdminOverview, "Admin Overview", "Alt+8", AutomationIds.RailAdminOverview));
             // BG-007: printer/scanner diagnostics (Ctrl+Alt+T hardware-test chord).
             items.Add(new RailItemViewModel(ScreenKeys.AdminDevices, "Devices", "Ctrl+Alt+T", AutomationIds.RailAdminDevices));
         }

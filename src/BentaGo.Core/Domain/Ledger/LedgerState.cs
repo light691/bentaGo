@@ -6,22 +6,9 @@ namespace BentaGo.Core.Domain.Ledger;
 
 /// <summary>
 /// Thrown when a movement stream violates a ledger invariant (negative stock,
-/// payment-total drift, closed-trip mutation, impossible reversal, ...).
+/// payment-total drift, closed-day mutation, impossible reversal, ...).
 /// </summary>
 public sealed class LedgerIntegrityException(string message) : Exception(message);
-
-public enum TripStatus
-{
-    Planned,
-    Open,
-    Closed,
-    Cancelled,
-}
-
-public sealed record TripState(TripStatus Status, DateTimeOffset? OpenedUtc, DateTimeOffset? ClosedUtc)
-{
-    public static TripState Planned => new(TripStatus.Planned, null, null);
-}
 
 public enum SaleStatus
 {
@@ -36,34 +23,6 @@ public sealed record SaleState(SaleStatus Status, Money Total, Money Received);
 public sealed record InventoryBalance(ProductId Product, LocationId Location, Quantity Units);
 
 /// <summary>
-/// Per-cell stock story: what came in, what left, and the count variance.
-/// "Loaded" counts transfer-ins documented by a load (stock ladled out to a
-/// peddler); "Starting" counts opening stock and direct transfers. The
-/// per-cell columns are SIGNED net deltas (the fold's own arithmetic can
-/// legitimately produce a negative Starting or Adjusted — a load-in followed
-/// by a transfer-out, or a net decrease adjustment), so they are plain longs
-/// and never assert non-negativity (BG-003 projection: CellBreakdown is an
-/// INTEGER table).
-/// </summary>
-public sealed record InventoryBreakdown(
-    ProductId Product,
-    LocationId Location,
-    long Starting,
-    long Loaded,
-    long Sold,
-    long Returned,
-    long Damaged,
-    long Lost,
-    long Adjusted,
-    long Ending,
-    Quantity? Observed,
-    int? Variance)
-{
-    public static InventoryBreakdown None(ProductId product, LocationId location, long ending) =>
-        new(product, location, 0, 0, 0, 0, 0, 0, 0, ending, null, null);
-}
-
-/// <summary>
 /// The rebuildable projection of the movement stream. Every balance here is a
 /// pure fold of the append-only ledger: the store advances it incrementally,
 /// and any corruption of the stream is caught by <see cref="Fold"/> on replay
@@ -75,7 +34,9 @@ public sealed class LedgerState
     private readonly Dictionary<(ProductId, LocationId), long> _stock = new();
     private readonly Dictionary<Fund, long> _funds = new();
     private readonly Dictionary<(ProductId, LocationId), long> _observed = new();
-    private readonly Dictionary<TripId, TripState> _trips = new();
+    private readonly Dictionary<DayKey, DayLifecycleState> _days = new();
+    private readonly Dictionary<DayKey, long> _openingFloat = new();
+    private readonly Dictionary<DayKey, long> _dayCash = new();
     private readonly Dictionary<SaleId, long> _receivedBySale = new();
     private readonly Dictionary<SaleId, long> _returnedBySale = new();
     private readonly HashSet<SaleId> _voidedSales = new();
@@ -85,12 +46,9 @@ public sealed class LedgerState
     private readonly Dictionary<long, long> _refundedByReceipt = new();
     private readonly Dictionary<long, long> _revokedByIssue = new();
     private readonly Dictionary<long, long> _revokedByReceipt = new();
-    private readonly Dictionary<(ProductId, LocationId), CellStats> _cellStats = new();
 
-    private IReadOnlyDictionary<TripId, Trip> _tripsById = new Dictionary<TripId, Trip>();
     private IReadOnlyDictionary<SaleId, Sale> _salesById = new Dictionary<SaleId, Sale>();
     private IReadOnlyDictionary<ReturnId, Return> _returnsById = new Dictionary<ReturnId, Return>();
-    private IReadOnlyDictionary<LoadId, StockLoad> _loadsById = new Dictionary<LoadId, StockLoad>();
     private IReadOnlyDictionary<VoidId, SaleVoid> _voidsById = new Dictionary<VoidId, SaleVoid>();
 
     public long LastSequence { get; private set; }
@@ -98,36 +56,18 @@ public sealed class LedgerState
     internal sealed record SaleIssueInfo(SaleLineId LineId, SaleId Sale, ProductId Product, LocationId Location, long Quantity);
     internal sealed record ReceiptInfo(PaymentMethod Method, SaleId Sale, long Amount, PaymentLineId PaymentLineId);
 
-    private sealed class CellStats
-    {
-        public long Starting;
-        public long Loaded;
-        public long Sold;
-        public long Returned;
-        public long Damaged;
-        public long Lost;
-        public long Adjusted;
-    }
-
     /// <summary>
     /// Replays a committed stream from scratch. Throws <see cref="LedgerIntegrityException"/>
     /// on the first violation.
     /// </summary>
     public static LedgerState Fold(
         IEnumerable<Movement> movements,
-        IReadOnlyList<Trip> trips,
         IReadOnlyList<Sale> sales,
         IReadOnlyList<Return> returns,
-        IReadOnlyList<StockLoad> loads,
         IReadOnlyList<SaleVoid> voids)
     {
         var state = new LedgerState();
-        state.BindDocuments(trips, sales, returns, loads, voids);
-
-        foreach (Trip trip in trips)
-        {
-            state._trips.TryAdd(trip.Id, TripState.Planned);
-        }
+        state.BindDocuments(sales, returns, voids);
 
         foreach (Movement movement in movements)
         {
@@ -145,21 +85,36 @@ public sealed class LedgerState
     }
 
     public void BindDocuments(
-        IReadOnlyList<Trip> trips,
         IReadOnlyList<Sale> sales,
         IReadOnlyList<Return> returns,
-        IReadOnlyList<StockLoad> loads,
         IReadOnlyList<SaleVoid> voids)
     {
-        _tripsById = trips.ToDictionary(t => t.Id);
         _salesById = sales.ToDictionary(s => s.Id);
         _returnsById = returns.ToDictionary(r => r.Id);
-        _loadsById = loads.ToDictionary(l => l.Id);
         _voidsById = voids.ToDictionary(v => v.Id);
+    }
 
-        foreach (Trip trip in trips)
+    /// <summary>
+    /// Registers the day lifecycle documents (opens/closes/reopens) so the
+    /// state can answer the day gate. The lifecycle derivation from the
+    /// documents is a fold concern and lands with the P1b fold slice.
+    /// </summary>
+    public void BindDays(IReadOnlyList<DayOpen> opens, IReadOnlyList<DayClose> closes, IReadOnlyList<DayReopen> reopens)
+    {
+        foreach (DayOpen open in opens)
         {
-            _trips.TryAdd(trip.Id, TripState.Planned);
+            _days[open.Day] = DayLifecycleState.Open;
+            _openingFloat[open.Day] = open.OpeningFloatCentavos;
+        }
+
+        foreach (DayClose close in closes)
+        {
+            _days[close.Day] = DayLifecycleState.Closed;
+        }
+
+        foreach (DayReopen reopen in reopens)
+        {
+            _days[reopen.Day] = DayLifecycleState.Open;
         }
     }
 
@@ -172,8 +127,23 @@ public sealed class LedgerState
     public Quantity ObservedUnits(ProductId product, LocationId location) =>
         Quantity.Of((int)(_observed.TryGetValue((product, location), out long units) ? units : 0));
 
-    public TripState Trip(TripId id) =>
-        _trips.TryGetValue(id, out TripState? state) ? state : TripState.Planned;
+    /// <summary>The lifecycle state of a trading day; a day with no documents is New.</summary>
+    public DayLifecycleState Day(DayKey day) =>
+        _days.TryGetValue(day, out DayLifecycleState state) ? state : DayLifecycleState.New;
+
+    /// <summary>The opening float bound from the day's <see cref="DayOpen"/> document; zero when the day never opened.</summary>
+    public long OpeningFloat(DayKey day) =>
+        _openingFloat.TryGetValue(day, out long centavos) ? centavos : 0;
+
+    /// <summary>
+    /// The expected drawer cash for a trading day (docs/decisions/0004 §1):
+    /// opening float + cash sales − cash refunds/revoked cash − approved cash
+    /// expenses (FundOut) + cash pay-downs received (FundIn). Every term is a
+    /// pure fold of the append-only stream, each cash flow day-keyed by its
+    /// own movement timestamp (corrections attach to the day they happen on).
+    /// </summary>
+    public long ExpectedCash(DayKey day) =>
+        OpeningFloat(day) + (_dayCash.TryGetValue(day, out long centavos) ? centavos : 0);
 
     public SaleState Sale(SaleId id)
     {
@@ -216,30 +186,6 @@ public sealed class LedgerState
         return null;
     }
 
-    public InventoryBreakdown Breakdown(ProductId product, LocationId location)
-    {
-        long ending = _stock.TryGetValue((product, location), out long units) ? units : 0;
-        if (!_cellStats.TryGetValue((product, location), out CellStats? stats))
-        {
-            return InventoryBreakdown.None(product, location, ending);
-        }
-
-        long observed = _observed.TryGetValue((product, location), out long seen) ? seen : -1;
-        return new InventoryBreakdown(
-            product,
-            location,
-            stats.Starting,
-            stats.Loaded,
-            stats.Sold,
-            stats.Returned,
-            stats.Damaged,
-            stats.Lost,
-            stats.Adjusted,
-            ending,
-            observed >= 0 ? Quantity.Of((int)observed) : null,
-            observed >= 0 ? (int)(observed - ending) : null);
-    }
-
     /// <summary>
     /// Validates and applies one committed movement to this state
     /// (incremental path used by the in-memory store). Bind the documents
@@ -276,48 +222,9 @@ public sealed class LedgerState
             return documentError;
         }
 
-        TripId? tripId = TripOf(movement);
-        if (tripId is { } trip)
-        {
-            TripStatus status = _trips.TryGetValue(trip, out TripState? state) ? state.Status : TripStatus.Planned;
-            if (movement is TripReopen)
-            {
-                if (status != TripStatus.Closed)
-                {
-                    return new DomainError("TRIP_NOT_CLOSED", $"trip {trip} is {status}; only a closed trip may be reopened");
-                }
-            }
-            else if (movement is TripCancel)
-            {
-                // Cancellation is permitted only before sales, with an
-                // authorized reason (docs/01:45). The service/builder checks
-                // the phase first; this fold guard is the durable backstop.
-                if (status is TripStatus.Closed or TripStatus.Cancelled)
-                {
-                    return new DomainError(status == TripStatus.Closed ? "TRIP_CLOSED" : "TRIP_CANCELLED",
-                        $"trip {trip} is {status}; it cannot be cancelled");
-                }
-
-                foreach (Sale sale in _salesById.Values)
-                {
-                    if (sale.Trip == trip)
-                    {
-                        return new DomainError("TRIP_HAS_SALES", $"trip {trip} has sales and cannot be cancelled");
-                    }
-                }
-            }
-            else if (status is TripStatus.Closed or TripStatus.Cancelled)
-            {
-                return new DomainError(status == TripStatus.Closed ? "TRIP_CLOSED" : "TRIP_CANCELLED",
-                    $"trip {trip} is {status}; mutate it only after an authorized reopen");
-            }
-        }
-
         return movement switch
         {
-            OpeningStock m => CheckCell(m.ProductId, m.LocationId, +m.Quantity.Units),
-            TransferOut m => CheckCell(m.ProductId, m.LocationId, -m.Quantity.Units),
-            TransferIn => null,
+            GoodsReceived => null,
             SaleIssue m => CheckCell(m.ProductId, m.LocationId, -m.Quantity.Units),
             SaleIssueRevoke m => CheckSaleRevocation(m),
             ReturnToStock m => CheckReturn(m),
@@ -328,12 +235,9 @@ public sealed class LedgerState
             Receipt m => CheckReceipt(m),
             ReceiptRefund m => CheckRefund(m),
             ReceiptRevoke m => CheckRevokeReceipt(m),
+            FundIn => null,
+            FundOut m => CheckFundNonNegative(m.Method.FundOf()!.Value, m.Amount.Centavos),
             CountObserved => null,
-            TripClose m => _trips.TryGetValue(m.TripId, out TripState? ts) && ts.Status == TripStatus.Open
-                ? null
-                : new DomainError("TRIP_NOT_OPEN", $"trip {m.TripId} is not open and cannot be closed"),
-            TripReopen => null,
-            TripCancel => null, // legality (before sales, not closed/cancelled) is checked in the trip guard above
             _ => new DomainError("UNKNOWN_KIND", $"unhandled movement kind {movement.GetType().Name}"),
         };
     }
@@ -349,22 +253,19 @@ public sealed class LedgerState
     /// <summary>
     /// Each movement kind pins exactly the document kinds that can cause it,
     /// so a forged movement carrying the wrong document kind never reaches
-    /// the casts in <see cref="TripOf"/>/<see cref="Apply"/>.
+    /// the casts in <see cref="Apply"/>.
     /// </summary>
     private DomainError? CheckDocument(Movement movement)
     {
         bool legal = movement switch
         {
-            OpeningStock => movement.Document is LoadRef,
-            TransferOut or TransferIn => movement.Document is LoadRef or TransferRef,
+            GoodsReceived => movement.Document is GoodsRef,
             SaleIssue or Receipt => movement.Document is SaleRef,
             SaleIssueRevoke or ReceiptRevoke => movement.Document is VoidRef,
             ReturnToStock or ReceiptRefund => movement.Document is ReturnRef,
             Damage or Loss or AdjustmentIncrease or AdjustmentDecrease => movement.Document is AdjustmentRef,
+            FundIn or FundOut => movement.Document is FundRef,
             CountObserved => movement.Document is CountRef,
-            TripClose => movement.Document is CloseRef,
-            TripReopen => movement.Document is ReopenRef,
-            TripCancel => movement.Document is CancelRef,
             _ => true,
         };
 
@@ -420,9 +321,9 @@ public sealed class LedgerState
         }
 
         // BG-007 L8: a return may land at a DIFFERENT destination than the
-        // selling location (return to main store) — the reversal pins the
-        // product and line, while the location is where the item physically
-        // went. The returned-quantity limit stays per line.
+        // selling location — the reversal pins the product and line, while
+        // the location is where the item physically went. The
+        // returned-quantity limit stays per line.
         if (issue.Product != m.ProductId || issue.LineId != m.SaleLineId)
         {
             return new DomainError("REVERSES_MISMATCH", "return does not match the original sale issue");
@@ -502,39 +403,19 @@ public sealed class LedgerState
     private void Apply(Movement movement)
     {
         LastSequence = movement.Sequence;
-        OpenTripOnFirstActivity(movement);
 
         switch (movement)
         {
-            case OpeningStock m:
+            case GoodsReceived m:
                 Cell(m.ProductId, m.LocationId, +m.Quantity.Units);
-                Stats(m.ProductId, m.LocationId).Starting += m.Quantity.Units;
-                break;
-            case TransferOut m:
-                Cell(m.ProductId, m.LocationId, -m.Quantity.Units);
-                Stats(m.ProductId, m.LocationId).Starting -= m.Quantity.Units;
-                break;
-            case TransferIn m:
-                Cell(m.ProductId, m.LocationId, +m.Quantity.Units);
-                if (m.Document is LoadRef)
-                {
-                    Stats(m.ProductId, m.LocationId).Loaded += m.Quantity.Units;
-                }
-                else
-                {
-                    Stats(m.ProductId, m.LocationId).Starting += m.Quantity.Units;
-                }
-
                 break;
             case SaleIssue m:
                 Cell(m.ProductId, m.LocationId, -m.Quantity.Units);
-                Stats(m.ProductId, m.LocationId).Sold += m.Quantity.Units;
                 _saleIssues[movement.Sequence] = new SaleIssueInfo(
                     m.SaleLineId, ((SaleRef)m.Document).Id, m.ProductId, m.LocationId, m.Quantity.Units);
                 break;
             case SaleIssueRevoke m:
                 Cell(m.ProductId, m.LocationId, +m.Quantity.Units);
-                Stats(m.ProductId, m.LocationId).Sold -= m.Quantity.Units;
                 _revokedByIssue[m.Reverses] = m.Quantity.Units;
                 if (_saleIssues.TryGetValue(m.Reverses, out SaleIssueInfo? issue))
                 {
@@ -544,7 +425,6 @@ public sealed class LedgerState
                 break;
             case ReturnToStock m:
                 Cell(m.ProductId, m.LocationId, +m.Quantity.Units);
-                Stats(m.ProductId, m.LocationId).Returned += m.Quantity.Units;
                 long returned = _returnedPerLine.TryGetValue(m.SaleLineId, out long r) ? r : 0;
                 _returnedPerLine[m.SaleLineId] = returned + m.Quantity.Units;
                 if (_saleIssues.TryGetValue(m.Reverses, out SaleIssueInfo? issue2))
@@ -556,28 +436,34 @@ public sealed class LedgerState
                 break;
             case Damage m:
                 Cell(m.ProductId, m.LocationId, -m.Quantity.Units);
-                Stats(m.ProductId, m.LocationId).Damaged += m.Quantity.Units;
                 break;
             case Loss m:
                 Cell(m.ProductId, m.LocationId, -m.Quantity.Units);
-                Stats(m.ProductId, m.LocationId).Lost += m.Quantity.Units;
                 break;
             case AdjustmentIncrease m:
                 Cell(m.ProductId, m.LocationId, +m.Quantity.Units);
-                Stats(m.ProductId, m.LocationId).Adjusted += m.Quantity.Units;
                 break;
             case AdjustmentDecrease m:
                 Cell(m.ProductId, m.LocationId, -m.Quantity.Units);
-                Stats(m.ProductId, m.LocationId).Adjusted -= m.Quantity.Units;
                 break;
             case Receipt m:
                 Fund(m.Method.FundOf()!.Value, +m.Amount.Centavos);
+                if (m.Method == PaymentMethod.Cash)
+                {
+                    DayCash(DayKey.FromUtc(m.WhenUtc), +m.Amount.Centavos);
+                }
+
                 _receipts[movement.Sequence] = new ReceiptInfo(m.Method, ((SaleRef)m.Document).Id, m.Amount.Centavos, m.PaymentLineId);
                 _receivedBySale[((SaleRef)m.Document).Id] =
                     (_receivedBySale.TryGetValue(((SaleRef)m.Document).Id, out long recv) ? recv : 0) + m.Amount.Centavos;
                 break;
             case ReceiptRefund m:
                 Fund(m.Method.FundOf()!.Value, -m.Amount.Centavos);
+                if (m.Method == PaymentMethod.Cash)
+                {
+                    DayCash(DayKey.FromUtc(m.WhenUtc), -m.Amount.Centavos);
+                }
+
                 long refunded = _refundedByReceipt.TryGetValue(m.Reverses, out long rf) ? rf : 0;
                 _refundedByReceipt[m.Reverses] = refunded + m.Amount.Centavos;
                 if (_receipts.TryGetValue(m.Reverses, out ReceiptInfo? refundedReceipt))
@@ -589,6 +475,11 @@ public sealed class LedgerState
                 break;
             case ReceiptRevoke m:
                 Fund(m.Method.FundOf()!.Value, -m.Amount.Centavos);
+                if (m.Method == PaymentMethod.Cash)
+                {
+                    DayCash(DayKey.FromUtc(m.WhenUtc), -m.Amount.Centavos);
+                }
+
                 _revokedByReceipt[m.Reverses] = m.Amount.Centavos;
                 if (_receipts.TryGetValue(m.Reverses, out ReceiptInfo? revokedReceipt))
                 {
@@ -597,40 +488,25 @@ public sealed class LedgerState
                 }
 
                 break;
+            case FundIn m:
+                Fund(m.Method.FundOf()!.Value, +m.Amount.Centavos);
+                if (m.Method == PaymentMethod.Cash)
+                {
+                    DayCash(DayKey.FromUtc(m.WhenUtc), +m.Amount.Centavos);
+                }
+
+                break;
+            case FundOut m:
+                Fund(m.Method.FundOf()!.Value, -m.Amount.Centavos);
+                if (m.Method == PaymentMethod.Cash)
+                {
+                    DayCash(DayKey.FromUtc(m.WhenUtc), -m.Amount.Centavos);
+                }
+
+                break;
             case CountObserved m:
                 _observed[(m.ProductId, m.LocationId)] = m.ObservedQuantity.Units;
                 break;
-            case TripClose m:
-                MarkTrip(m.TripId, TripStatus.Closed, closedUtc: m.WhenUtc);
-                break;
-            case TripReopen m:
-                MarkTrip(m.TripId, TripStatus.Open, openedUtc: m.WhenUtc);
-                break;
-            case TripCancel m:
-                // Terminal without sales: the trip's loads (if any) were
-                // reverted by preceding movements in the same batch; the
-                // closed_utc column doubles as the terminal timestamp.
-                MarkTrip(m.TripId, TripStatus.Cancelled, closedUtc: m.WhenUtc);
-                break;
-        }
-    }
-
-    private void OpenTripOnFirstActivity(Movement movement)
-    {
-        if (movement is TripClose or TripReopen or TripCancel)
-        {
-            return;
-        }
-
-        TripId? tripId = TripOf(movement);
-        if (tripId is not { } trip)
-        {
-            return;
-        }
-
-        if (_trips.TryGetValue(trip, out TripState? state) && state.Status == TripStatus.Planned)
-        {
-            _trips[trip] = new TripState(TripStatus.Open, movement.WhenUtc, null);
         }
     }
 
@@ -659,142 +535,6 @@ public sealed class LedgerState
         }
 
         return new SaleState(status, sale.Total, new Money(received));
-    }
-
-    private TripId? TripOf(Movement movement)
-    {
-        switch (movement)
-        {
-            case TripClose m:
-                return m.TripId;
-            case TripReopen m:
-                return m.TripId;
-            case TripCancel m:
-                return m.TripId;
-            case SaleIssue m:
-                return SaleTrip(((SaleRef)m.Document).Id);
-            case Receipt m:
-                return SaleTrip(((SaleRef)m.Document).Id);
-            case SaleIssueRevoke m:
-                if (_saleIssues.TryGetValue(m.Reverses, out SaleIssueInfo? issue))
-                {
-                    return _salesById.TryGetValue(issue.Sale, out Sale? sale) ? sale.Trip : null;
-                }
-
-                return null;
-            case ReturnToStock m:
-                return SaleTripOfIssue(m.Reverses);
-            case ReceiptRefund m:
-                return _receipts.TryGetValue(m.Reverses, out ReceiptInfo? receipt)
-                    ? SaleTrip(receipt.Sale)
-                    : null;
-            case ReceiptRevoke m:
-                return _receipts.TryGetValue(m.Reverses, out ReceiptInfo? revokedReceipt)
-                    ? SaleTrip(revokedReceipt.Sale)
-                    : null;
-            case TransferOut m when m.Document is LoadRef loadRef:
-                return LoadTrip(loadRef.Id);
-            case TransferIn m when m.Document is LoadRef loadRef:
-                return LoadTrip(loadRef.Id);
-            default:
-                return null;
-        }
-
-        TripId? SaleTrip(SaleId saleId) =>
-            _salesById.TryGetValue(saleId, out Sale? sale) ? sale.Trip : null;
-
-        TripId? LoadTrip(LoadId loadId) =>
-            _loadsById.TryGetValue(loadId, out StockLoad? load) ? load.Trip : null;
-
-        TripId? SaleTripOfIssue(long issueSeq) =>
-            _saleIssues.TryGetValue(issueSeq, out SaleIssueInfo? issue) ? SaleTrip(issue.Sale) : null;
-    }
-
-    /// <summary>
-    /// Copies this state so a batch can be validated-and-applied off to the
-    /// side: on any failure the clone is discarded and the live state is
-    /// untouched, so an append is truly atomic.
-    /// </summary>
-    public LedgerState Clone()
-    {
-        var copy = new LedgerState { LastSequence = LastSequence };
-
-        foreach ((var key, long value) in _stock)
-            copy._stock[key] = value;
-        foreach ((var key, long value) in _funds)
-            copy._funds[key] = value;
-        foreach ((var key, long value) in _observed)
-            copy._observed[key] = value;
-        foreach ((var key, TripState value) in _trips)
-            copy._trips[key] = value;
-        foreach ((var key, long value) in _receivedBySale)
-            copy._receivedBySale[key] = value;
-        foreach ((var key, long value) in _returnedBySale)
-            copy._returnedBySale[key] = value;
-        foreach (SaleId key in _voidedSales)
-            copy._voidedSales.Add(key);
-        foreach ((var key, long value) in _returnedPerLine)
-            copy._returnedPerLine[key] = value;
-        foreach ((var key, SaleIssueInfo value) in _saleIssues)
-            copy._saleIssues[key] = value;
-        foreach ((var key, ReceiptInfo value) in _receipts)
-            copy._receipts[key] = value;
-        foreach ((var key, long value) in _refundedByReceipt)
-            copy._refundedByReceipt[key] = value;
-        foreach ((var key, long value) in _revokedByIssue)
-            copy._revokedByIssue[key] = value;
-        foreach ((var key, long value) in _revokedByReceipt)
-            copy._revokedByReceipt[key] = value;
-        foreach ((var key, CellStats source) in _cellStats)
-        {
-            copy._cellStats[key] = new CellStats
-            {
-                Starting = source.Starting,
-                Loaded = source.Loaded,
-                Sold = source.Sold,
-                Returned = source.Returned,
-                Damaged = source.Damaged,
-                Lost = source.Lost,
-                Adjusted = source.Adjusted,
-            };
-        }
-
-        copy._tripsById = _tripsById;
-        copy._salesById = _salesById;
-        copy._returnsById = _returnsById;
-        copy._loadsById = _loadsById;
-        copy._voidsById = _voidsById;
-        return copy;
-    }
-
-    /// <summary>
-    /// The cash a trip's own activities produced into one fund: live receipts
-    /// across the trip's sales, minus refunds (revoked receipts drop out
-    /// entirely). Per-trip and per-fund, so closing a peddler's cash count
-    /// never reads another peddler's cash or another fund.
-    /// </summary>
-    public Money TripCash(TripId trip, Fund fund)
-    {
-        long total = 0;
-        foreach ((long seq, ReceiptInfo info) in _receipts)
-        {
-            if (!_salesById.TryGetValue(info.Sale, out Sale? sale) || sale.Trip != trip)
-            {
-                continue;
-            }
-
-            Fund? receiptFund = info.Method.FundOf();
-            if (receiptFund is null || receiptFund.Value != fund)
-            {
-                continue;
-            }
-
-            long revoked = _revokedByReceipt.TryGetValue(seq, out long rv) ? rv : 0;
-            long refunded = _refundedByReceipt.TryGetValue(seq, out long rf) ? rf : 0;
-            total += info.Amount - revoked - refunded;
-        }
-
-        return new Money(total);
     }
 
     /// <summary>
@@ -919,20 +659,56 @@ public sealed class LedgerState
         _funds[fund] = current + delta;
     }
 
-    private void MarkTrip(TripId trip, TripStatus status, DateTimeOffset? closedUtc = null, DateTimeOffset? openedUtc = null)
+    /// <summary>The day-scoped cash term of the expected-cash fold (docs/decisions/0004 §1).</summary>
+    private void DayCash(DayKey day, long delta)
     {
-        TripState current = _trips.TryGetValue(trip, out TripState? s) ? s : TripState.Planned;
-        _trips[trip] = new TripState(status, openedUtc ?? current.OpenedUtc, closedUtc ?? current.ClosedUtc);
+        long current = _dayCash.TryGetValue(day, out long c) ? c : 0;
+        _dayCash[day] = current + delta;
     }
 
-    private CellStats Stats(ProductId product, LocationId location)
+    /// <summary>
+    /// Copies this state so a batch can be validated-and-applied off to the
+    /// side: on any failure the clone is discarded and the live state is
+    /// untouched, so an append is truly atomic.
+    /// </summary>
+    public LedgerState Clone()
     {
-        if (!_cellStats.TryGetValue((product, location), out CellStats? stats))
-        {
-            stats = new CellStats();
-            _cellStats[(product, location)] = stats;
-        }
+        var copy = new LedgerState { LastSequence = LastSequence };
 
-        return stats;
+        foreach ((var key, long value) in _stock)
+            copy._stock[key] = value;
+        foreach ((var key, long value) in _funds)
+            copy._funds[key] = value;
+        foreach ((var key, long value) in _observed)
+            copy._observed[key] = value;
+        foreach ((var key, DayLifecycleState value) in _days)
+            copy._days[key] = value;
+        foreach ((var key, long value) in _openingFloat)
+            copy._openingFloat[key] = value;
+        foreach ((var key, long value) in _dayCash)
+            copy._dayCash[key] = value;
+        foreach ((var key, long value) in _receivedBySale)
+            copy._receivedBySale[key] = value;
+        foreach ((var key, long value) in _returnedBySale)
+            copy._returnedBySale[key] = value;
+        foreach (SaleId key in _voidedSales)
+            copy._voidedSales.Add(key);
+        foreach ((var key, long value) in _returnedPerLine)
+            copy._returnedPerLine[key] = value;
+        foreach ((var key, SaleIssueInfo value) in _saleIssues)
+            copy._saleIssues[key] = value;
+        foreach ((var key, ReceiptInfo value) in _receipts)
+            copy._receipts[key] = value;
+        foreach ((var key, long value) in _refundedByReceipt)
+            copy._refundedByReceipt[key] = value;
+        foreach ((var key, long value) in _revokedByIssue)
+            copy._revokedByIssue[key] = value;
+        foreach ((var key, long value) in _revokedByReceipt)
+            copy._revokedByReceipt[key] = value;
+
+        copy._salesById = _salesById;
+        copy._returnsById = _returnsById;
+        copy._voidsById = _voidsById;
+        return copy;
     }
 }

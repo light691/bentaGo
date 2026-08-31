@@ -65,8 +65,7 @@ public interface ICheckoutSession
 {
     CheckoutKey Key { get; }
     CheckoutSessionState State { get; }
-    TripId Trip { get; }
-    PeddlerId Peddler { get; }
+    DayKey Day { get; }
     IReadOnlyList<SessionLine> Lines { get; }
     Money Total { get; }
     Money DiscountTotal { get; }
@@ -103,10 +102,10 @@ public interface ICheckoutSession
 }
 
 /// <summary>
-/// Session constructor: derives peddler/trip/location FROM the session actor
-/// (F8/BG-005d) — AUTH_ACTOR_NOT_SIGNED_IN / AUTH_ACTOR_UNKNOWN /
-/// AUTH_ACTOR_DEACTIVATED / NO_PEDDLER_LINK / NO_OPEN_TRIP — and mints the
-/// CheckoutKey once.
+/// Session constructor: resolves the session actor (F8/BG-005d) —
+/// AUTH_ACTOR_NOT_SIGNED_IN / AUTH_ACTOR_UNKNOWN / AUTH_ACTOR_DEACTIVATED —
+/// and mints the CheckoutKey once. The trading day is derived from the clock
+/// (Asia/Manila); all stock lives at the single warehouse location.
 /// </summary>
 public interface ICheckoutSessionFactory
 {
@@ -124,12 +123,12 @@ public interface ISaleNumberSource
 }
 
 public sealed record SaleHistoryFilter(
-    DateOnly? Day, TripId? Trip, PaymentMethod? Method, SaleStatus? Status,
+    DateOnly? Day, DayKey? DayKey, PaymentMethod? Method, SaleStatus? Status,
     string? Receipt, string? Reference);
 
 public sealed record SaleHistoryRow(
     SaleId Id, string ReceiptNumber, DateTimeOffset CreatedUtc,
-    PeddlerId Peddler, TripId Trip, LocationId Location,
+    DayKey Day, LocationId Location,
     Money Total, SaleStatus Status,
     IReadOnlyList<SavedPaymentLine> Payments, PrintStatus PrintStatus);
 
@@ -138,29 +137,27 @@ public sealed record SaleLineDetail(
     Money UnitPrice, Quantity Quantity, Money Discount, Money LineTotal);
 
 public sealed record SaleDetail(
-    SaleId Id, string ReceiptNumber, TripId Trip, PeddlerId Peddler, LocationId Location,
+    SaleId Id, string ReceiptNumber, DayKey Day, LocationId Location,
     DateTimeOffset CreatedUtc, UserId CreatedBy, Money Total, SaleStatus Status,
     IReadOnlyList<SaleLineDetail> Lines, IReadOnlyList<SavedPaymentLine> Payments,
     PrintStatus PrintStatus);
 
 /// <summary>
 /// Read-only transaction history (lane 10, docs/03 page 8). Pure folds over
-/// store.Bind() + Context/State/Audits — the TripReadService pattern; no
-/// ILedgerStore extension, no in-memory-mirror churn, restart/rebuild
-/// identical for free (D9).
+/// store.Bind() + Context/State/Audits — no ILedgerStore extension, no
+/// in-memory-mirror churn, restart/rebuild identical for free (D9).
 /// </summary>
 public interface ISaleQueryService
 {
-    Result<IReadOnlyList<SaleHistoryRow>> Query(PeddlerId peddler, SaleHistoryFilter? filter = null);
+    Result<IReadOnlyList<SaleHistoryRow>> Query(SaleHistoryFilter? filter = null);
 
-    Result<SaleDetail> GetByReceiptNumber(PeddlerId peddler, string receiptNumber);
+    Result<SaleDetail> GetByReceiptNumber(string receiptNumber);
 
     /// <summary>Lane 5: bank-reference search — any payment line whose
     /// reference matches (contains, OrdinalIgnoreCase).</summary>
-    Result<SaleDetail> GetByPaymentReference(PeddlerId peddler, string reference);
+    Result<SaleDetail> GetByPaymentReference(string reference);
 
-    /// <summary>Cross-peddler access → TRIP_PEDDLER_MISMATCH.</summary>
-    Result<SaleDetail> GetById(PeddlerId peddler, SaleId saleId);
+    Result<SaleDetail> GetById(SaleId saleId);
 }
 
 public sealed record ProductHit(Product Product, Quantity OnHand);
@@ -170,7 +167,7 @@ public sealed record ProductHit(Product Product, Quantity OnHand);
 /// exact SKU → exact barcode (verbatim, leading zeros significant) → name
 /// infix (NOCASE, wildcard-escaped, capped). The keyboard-HID scanner CR
 /// suffix is trimmed at this boundary. On-hand comes from the movement fold
-/// for the session actor's peddler (never a stored stock column).
+/// at the single warehouse (never a stored stock column).
 /// </summary>
 public interface IProductSearchService
 {

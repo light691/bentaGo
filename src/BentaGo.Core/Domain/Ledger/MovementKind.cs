@@ -21,10 +21,8 @@ public enum AdjustmentKind
 /// </summary>
 public enum MovementKind
 {
-    OpeningStock,        // +q at a location; document: LoadRef
-    TransferOut,         // -q at source; document: LoadRef (loads-to-peddler) or TransferRef
-    TransferIn,          // +q at destination; document: same LoadRef or TransferRef
-    SaleIssue,           // -q at selling location; document: SaleRef
+    GoodsReceived,       // +q at the warehouse; document: GoodsRef
+    SaleIssue,           // -q at the warehouse; document: SaleRef
     SaleIssueRevoke,     // +q restore; Reverses = the SaleIssue sequence; document: VoidRef
     ReturnToStock,       // +q back; Reverses = the SaleIssue sequence; document: ReturnRef
     Damage,              // -q; document: AdjustmentRef
@@ -34,10 +32,9 @@ public enum MovementKind
     Receipt,             // fund in; document: SaleRef
     ReceiptRefund,       // fund out (cash-back on return); Reverses = the Receipt sequence; document: ReturnRef
     ReceiptRevoke,       // fund out (void); Reverses = the Receipt sequence; document: VoidRef
+    FundIn,              // fund in outside a sale (pay-down received); document: FundRef
+    FundOut,             // approved cash expense; document: FundRef
     CountObserved,       // physical observation, no balance effect; document: CountRef
-    TripClose,           // lifecycle, no balance effect; document: CloseRef
-    TripReopen,          // lifecycle, no balance effect; document: ReopenRef
-    TripCancel,          // lifecycle, no balance effect; document: CancelRef (BG-005c)
 }
 
 /// <summary>

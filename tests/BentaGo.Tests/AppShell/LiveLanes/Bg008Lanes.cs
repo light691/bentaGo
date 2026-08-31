@@ -21,6 +21,7 @@ using BentaGo.Infrastructure.Persistence;
 using BentaGo.Infrastructure.Printing;
 using BentaGo.Infrastructure.Security;
 using BentaGo.Tests.AppShell;
+using BentaGo.Tests.Persistence;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
@@ -101,11 +102,12 @@ public sealed class Bg008Lanes
             await WaitUntilAsync(() => session.Navigation.CurrentKey == ScreenKeys.Reconciliation);
             var vm = (ReconciliationViewModel)session.ViewModel.Current!;
 
-            // The operator counts 180.00: the banner must show SHORT 104.00.
+            // The operator counts 180.00: the banner must show SHORT 190.00
+            // (the ADR-0004 fold: float 100.00 + cash 270.00 = 370.00).
             vm.ActualCashText = "180";
             _sta.PumpIdle();
             bool bannerShort = vm.IsShort && vm.BannerText.Contains("SHORT", StringComparison.Ordinal) &&
-                vm.BannerText.Contains("104", StringComparison.Ordinal);
+                vm.BannerText.Contains("190", StringComparison.Ordinal);
 
             vm.ExportReconciliationCsvCommand.Execute(null);
             vm.ExportTransactionsCsvCommand.Execute(null);
@@ -116,12 +118,12 @@ public sealed class Bg008Lanes
             bool filesExist = File.Exists(reconPath) && File.Exists(txnPath);
 
             // Report + ledger assertions.
-            Result<ReconciliationReport> report = session.Reports.Build(session.Alice, session.AliceTrip);
+            Result<ReconciliationReport> report = session.Reports.Build(session.Day);
             bool reportOk = report.IsSuccess;
             var totals = report.Value.Totals;
-            bool ledgerCash = session.Store.State.TripCash(session.AliceTrip, Fund.PhysicalCash) == totals.ExpectedCash;
+            bool ledgerCash = session.Store.State.ExpectedCash(session.Day) == totals.ExpectedCash.Centavos;
 
-            // Reconciliation CSV: the Physical Cash row carries 284 / 180 / 104.
+            // Reconciliation CSV: the Physical Cash row carries 370 / 180 / 190.
             string reconCsv = filesExist ? File.ReadAllText(reconPath) : "";
             string[] reconLines = reconCsv.TrimEnd('\n').Split('\n');
             int cashRow = -1;
@@ -214,11 +216,11 @@ public sealed class Bg008Lanes
         });
     }
 
-    // ------- Lane 10: the complete two-peddler scenario explains every
+    // ------- Lane 10: the seeded day explains every
     // difference from the screen (report rows + notes + exports) -------
 
     [Fact]
-    public async Task L10_TwoPeddlersReconcile_ExplainsEveryDifferenceFromScreen()
+    public async Task L10_SingleDayReconcile_ExplainsEveryDifferenceFromScreen()
     {
         if (!LiveLanesEnabled)
             return;
@@ -228,25 +230,25 @@ public sealed class Bg008Lanes
             session.Navigation.Navigate(ScreenKeys.Reconciliation);
             await WaitUntilAsync(() => session.Navigation.CurrentKey == ScreenKeys.Reconciliation);
             var vm = (ReconciliationViewModel)session.ViewModel.Current!;
-
-            // The full two-peddler day is folded: Alice's trip is closed (+reopened)
-            // with counted cash 180.00 vs expected 284.00, so it SHORTs by 104.00.
+            // The seeded day is closed (+reopened) with counted cash 180.00
+            // vs the ADR-0004 fold (float 100.00 + cash 270.00 = 370.00),
+            // so entering 180 shorts by 190.00.
             bool hasReport = vm.HasReport;
-            bool hasClose = session.Store.Context.Closes.Any(c => c.Trip == session.AliceTrip);
+            bool hasClose = session.Store.Context.DayCloses.Any(c => c.Day == session.Day);
 
             vm.ActualCashText = "180";
             _sta.PumpIdle();
             bool bannerShort = vm.IsShort
                 && vm.BannerText.Contains("SHORT", StringComparison.Ordinal)
-                && vm.BannerText.Contains("104", StringComparison.Ordinal);
+                && vm.BannerText.Contains("190", StringComparison.Ordinal);
 
             // Domain report: exactly the folds a reviewer reads.
-            ReconciliationReport report = session.Reports.Build(session.Alice, session.AliceTrip).Value;
-            bool cashExplained = report.Totals.ExpectedCash.Centavos == 28400
+            ReconciliationReport report = session.Reports.Build(session.Day).Value;
+            bool cashExplained = report.Totals.ExpectedCash.Centavos == 37000
                 && report.Totals.CountedCash.Centavos == 18000
-                && report.Totals.CashVariance.Centavos == 10400
+                && report.Totals.CashVariance.Centavos == 19000
                 && report.Totals.CashLabel == VarianceLabel.Shortage;
-            bool stockExplained = report.StockRows.Single(r => r.Sku == "Sardines").CountedUnits == 38;
+            bool stockExplained = report.StockRows.Single(r => r.Sku == "Sardines").CountedUnits == 96;
             bool everyLineSigned = report.StockRows.All(r =>
                 (r.CountedUnits is null) == (r.QuantityVariance is null)
                 && (r.CountedUnits is null) == (r.ValueVariance is null));
@@ -254,17 +256,17 @@ public sealed class Bg008Lanes
             // Screen report: the reviewer sees the same rows + notes.
             bool screenCash = hasReport
                 && vm.Report!.CashLabelText == "SHORTAGE"
-                && vm.Report.ExpectedCashText.Contains("284", StringComparison.Ordinal)
+                && vm.Report.ExpectedCashText.Contains("370", StringComparison.Ordinal)
                 && vm.Report.CountedCashText.Contains("180", StringComparison.Ordinal)
-                && vm.Report.CashVarianceText.Contains("104", StringComparison.Ordinal);
+                && vm.Report.CashVarianceText.Contains("190", StringComparison.Ordinal);
             ReportStockRowView? sardines = hasReport
                 ? vm.Report!.StockRows.SingleOrDefault(r => r.Sku == "Sardines")
                 : null;
             bool screenStock = sardines is not null
-                && sardines.ExpectedText == "36"
-                && sardines.CountedText == "38"
-                && sardines.QuantityVarianceText == "+2"
-                && sardines.ValueVarianceText.Contains("90.00", StringComparison.Ordinal);
+                && sardines.ExpectedText == "95"
+                && sardines.CountedText == "96"
+                && sardines.QuantityVarianceText == "+1"
+                && sardines.ValueVarianceText.Contains("45.00", StringComparison.Ordinal);
 
             // Exports surface the same explained differences.
             vm.ExportReconciliationCsvCommand.Execute(null);
@@ -273,22 +275,22 @@ public sealed class Bg008Lanes
             bool filesExist = File.Exists(Path.Combine(session.Paths.DataDir, "reconciliation.csv"))
                 && File.Exists(Path.Combine(session.Paths.DataDir, "transactions.csv"));
             string reconCsv = filesExist ? File.ReadAllText(Path.Combine(session.Paths.DataDir, "reconciliation.csv")) : "";
-            bool reconExplains = reconCsv.Contains("Cash,Physical Cash,284.00,180.00,104.00,,SHORTAGE,", StringComparison.Ordinal)
-                && reconCsv.Contains("Stock,Sardines - Sardines,36,38,2,90.00,,", StringComparison.Ordinal);
+            bool reconExplains = reconCsv.Contains("Cash,Physical Cash,270.00,180.00,90.00,,SHORTAGE,", StringComparison.Ordinal)
+                && reconCsv.Contains("Stock,Sardines - Sardines,95,96,1,45.00,,", StringComparison.Ordinal);
 
             _sta.PumpIdle();
-            session.ShotOfCurrent("bg-008-two-peddlers.png");
-            Bg008LaneEvidence.SaveReviewPng("bg-008-two-peddlers.png", 1366, 768, session.Window);
+            session.ShotOfCurrent("bg-008-day.png");
+            Bg008LaneEvidence.SaveReviewPng("bg-008-day.png", 1366, 768, session.Window);
 
             bool pass = hasReport && hasClose && bannerShort && cashExplained && stockExplained
                 && everyLineSigned && screenCash && screenStock && filesExist && reconExplains;
             await Bg008LaneEvidence.WriteVerdictAsync(
-                "bg-008-l10", "L10 two-peddler reconcile explains every difference",
+                "bg-008-l10", "L10 day reconcile explains every difference",
                 pass ? Bg008LaneEvidence.VerdictPass : Bg008LaneEvidence.VerdictFail,
                 $"hasReport={hasReport} hasClose={hasClose} bannerShort={bannerShort} " +
                 $"cash={cashExplained} stock={stockExplained} everyLineSigned={everyLineSigned} " +
                 $"screenCash={screenCash} screenStock={screenStock} files={filesExist} recon={reconExplains}",
-                "bg-008-two-peddlers.png");
+                "bg-008-day.png");
         });
     }
 
@@ -327,12 +329,7 @@ public sealed class Bg008Lanes
             Paths = services.GetRequiredService<IDataPathProvider>();
 
             Store.Bind();
-            DailyClose close = Store.Context.Closes
-                .OrderBy(c => c.WhenUtc).ThenBy(c => c.Id.Value)
-                .First();
-            Trip trip = Store.Context.Trips.Single(t => t.Id == close.Trip);
-            Alice = trip.Peddler;
-            AliceTrip = trip.Id;
+            Day = SingleDayScenario.Day;
         }
 
         public string Root { get; }
@@ -343,8 +340,7 @@ public sealed class Bg008Lanes
         public SqliteLedgerStore Store { get; }
         public IReconciliationReportService Reports { get; }
         public IDataPathProvider Paths { get; }
-        public PeddlerId Alice { get; }
-        public TripId AliceTrip { get; }
+        public DayKey Day { get; }
 
         public FakeReceiptPrinter Printer => (FakeReceiptPrinter)Services.GetRequiredService<IReceiptPrinter>();
 
@@ -358,23 +354,17 @@ public sealed class Bg008Lanes
             await services.GetRequiredService<DbInitializer>().EnsureCreatedOrMigrateAsync();
 
             var store = services.GetRequiredService<SqliteLedgerStore>();
-            _ = TwoPeddlersScenario.Run(store);
+            _ = SingleDayScenario.Run(store);
 
-            // A peddler-linked account so the reconciliation screen's export +
-            // close print resolve Alice's trip/close, matching the ledger fold.
-            store.Bind();
-            DailyClose close = store.Context.Closes
-                .OrderBy(c => c.WhenUtc).ThenBy(c => c.Id.Value)
-                .First();
-            Trip trip = store.Context.Trips.Single(t => t.Id == close.Trip);
+            // A supervisor account signs in so the reconciliation screen's
+            // export + close print resolve the seeded day, matching the fold.
             await services.GetRequiredService<IUserAccountStore>().AddAsync(new User
             {
                 Id = new UserId(Guid.NewGuid()),
                 Username = AliceUsername,
                 PasswordHash = services.GetRequiredService<IPasswordHasher>().Hash(AlicePassword),
-                Role = Role.Peddler,
-                PeddlerLink = trip.Peddler,
-                CreatedBy = trip.CreatedBy,
+                Role = Role.Supervisor,
+                CreatedBy = UserId.Anonymous,
                 CreatedUtc = DateTimeOffset.UtcNow,
             });
 

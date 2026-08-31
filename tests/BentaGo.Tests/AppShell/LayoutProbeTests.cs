@@ -6,14 +6,15 @@ using System.Windows.Media;
 using BentaGo.App;
 using BentaGo.App.Dialogs.Confirm;
 using BentaGo.App.Dialogs.Payment;
+using BentaGo.App.Features.Home;
 using BentaGo.App.Features.Login;
-using BentaGo.App.Features.PeddlerHome;
 using BentaGo.App.Features.Reconciliation;
 using BentaGo.App.Features.Sales;
 using BentaGo.App.Features.Stock;
 using BentaGo.App.Mvvm;
 using BentaGo.Core.Domain;
 using BentaGo.Infrastructure.Hosting;
+using BentaGo.Infrastructure.Persistence;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
@@ -113,6 +114,9 @@ public sealed class LayoutProbeTests
                     development: true,
                     dataRootOverride: temp,
                     extra: ObservableObjectFactory.RegisterAppServices);
+                // The app data source reads the live SQLite fold; production
+                // migrates before the shell exists (App.OnStartup).
+                services.GetRequiredService<DbInitializer>().EnsureCreatedOrMigrateAsync().GetAwaiter().GetResult();
 
                 double dialogWidth = (double)System.Windows.Application.Current.Resources[DesignTokens.DialogHostMaxWidth];
                 double dialogHeight = (double)System.Windows.Application.Current.Resources[DesignTokens.DialogHostMaxHeight];
@@ -120,7 +124,7 @@ public sealed class LayoutProbeTests
                 var cases = new (string Name, FrameworkElement View, double Width, double Height)[]
                 {
                     ("login", NewView<LoginView, LoginViewModel>(services), ProbeWidth, ProbeHeight),
-                    ("home", NewView<PeddlerHomeView, PeddlerHomeViewModel>(services), ProbeWidth, ProbeHeight),
+                    ("home", NewView<HomeView, HomeViewModel>(services), ProbeWidth, ProbeHeight),
                     ("sales", NewView<SalesView, SalesViewModel>(services), ProbeWidth, ProbeHeight),
                     ("stock", NewView<StockView, StockViewModel>(services), ProbeWidth, ProbeHeight),
                     ("reconciliation", NewView<ReconciliationView, ReconciliationViewModel>(services), ProbeWidth, ProbeHeight),

@@ -30,19 +30,19 @@ public sealed class IdempotencyTests : PersistenceTestBase
     {
         string root = NewRoot();
         ServiceProvider host = await SeedHostAsync(root);
-        var (trip, product, route, storeLoc, user, _) = Known();
+        var (product, user) = Known();
 
         var store = new SqliteLedgerStore(
             host.GetRequiredService<BentaGo.Infrastructure.Configuration.IDataPathProvider>(),
             host.GetRequiredService<DebugOptions>());
-        SeedDay(store, trip, product, route, storeLoc, user, Known().Peddler);
+        SeedDay(store, product, user);
 
         var checkout = host.GetRequiredService<ICheckoutService>();
         var key = new CheckoutKey(Guid.NewGuid());
-        Result<CheckoutOutcome> first = checkout.Checkout(key, OneUnitSale(trip, product, "R-U9-1", user, qty: 1));
+        Result<CheckoutOutcome> first = checkout.Checkout(key, OneUnitSale(SeedDayKey, product, "R-U9-1", user, qty: 1));
         Assert.True(first.IsSuccess, first.Errors.FirstOrDefault()?.Code);
 
-        Result<CheckoutOutcome> second = checkout.Checkout(key, OneUnitSale(trip, product, "R-U9-1-IGNORED", user, qty: 9));
+        Result<CheckoutOutcome> second = checkout.Checkout(key, OneUnitSale(SeedDayKey, product, "R-U9-1-IGNORED", user, qty: 9));
         Assert.True(second.IsSuccess);
         Assert.True(second.Value.Replayed);
         Assert.Equal(first.Value.Reference, second.Value.Reference);
@@ -55,15 +55,15 @@ public sealed class IdempotencyTests : PersistenceTestBase
     {
         string root = NewRoot();
         ServiceProvider host = await SeedHostAsync(root);
-        var (trip, product, route, storeLoc, user, _) = Known();
+        var (product, user) = Known();
 
         var paths = host.GetRequiredService<BentaGo.Infrastructure.Configuration.IDataPathProvider>();
         var store1 = new SqliteLedgerStore(paths, host.GetRequiredService<DebugOptions>());
-        SeedDay(store1, trip, product, route, storeLoc, user, Known().Peddler);
+        SeedDay(store1, product, user);
 
         var checkout1 = host.GetRequiredService<ICheckoutService>();
         var key = new CheckoutKey(Guid.NewGuid());
-        Result<CheckoutOutcome> first = checkout1.Checkout(key, OneUnitSale(trip, product, "R-U9R-1", user, qty: 1));
+        Result<CheckoutOutcome> first = checkout1.Checkout(key, OneUnitSale(SeedDayKey, product, "R-U9R-1", user, qty: 1));
         Assert.True(first.IsSuccess, first.Errors.FirstOrDefault()?.Code);
 
         store1.Close();
@@ -71,7 +71,7 @@ public sealed class IdempotencyTests : PersistenceTestBase
         // "Restart": a fresh store over the same file answers the same key.
         var store2 = new SqliteLedgerStore(paths, host.GetRequiredService<DebugOptions>());
         var checkout2 = host.GetRequiredService<ICheckoutService>();
-        Result<CheckoutOutcome> second = checkout2.Checkout(key, OneUnitSale(trip, product, "R-U9R-IGNORED", user, qty: 1));
+        Result<CheckoutOutcome> second = checkout2.Checkout(key, OneUnitSale(SeedDayKey, product, "R-U9R-IGNORED", user, qty: 1));
         Assert.True(second.IsSuccess);
         Assert.True(second.Value.Replayed);
         Assert.Equal(first.Value.Reference, second.Value.Reference);
@@ -83,11 +83,11 @@ public sealed class IdempotencyTests : PersistenceTestBase
     {
         string root = NewRoot();
         ServiceProvider host = await SeedHostAsync(root);
-        var (trip, product, route, storeLoc, user, _) = Known();
+        var (product, user) = Known();
 
         var paths = host.GetRequiredService<BentaGo.Infrastructure.Configuration.IDataPathProvider>();
         var seedStore = new SqliteLedgerStore(paths, host.GetRequiredService<DebugOptions>());
-        SeedDay(seedStore, trip, product, route, storeLoc, user, Known().Peddler);
+        SeedDay(seedStore, product, user);
         seedStore.Close();
 
         // Two independent store instances + two service instances, same key.
@@ -101,12 +101,12 @@ public sealed class IdempotencyTests : PersistenceTestBase
         Task<Result<CheckoutOutcome>> runA = Task.Run(() =>
         {
             gate.Wait();
-            return serviceA.Checkout(key, OneUnitSale(trip, product, "R-U9C-1", user, qty: 1));
+            return serviceA.Checkout(key, OneUnitSale(SeedDayKey, product, "R-U9C-1", user, qty: 1));
         });
         Task<Result<CheckoutOutcome>> runB = Task.Run(() =>
         {
             gate.Wait();
-            return serviceB.Checkout(key, OneUnitSale(trip, product, "R-U9C-2", user, qty: 1));
+            return serviceB.Checkout(key, OneUnitSale(SeedDayKey, product, "R-U9C-2", user, qty: 1));
         });
 
         gate.Set();

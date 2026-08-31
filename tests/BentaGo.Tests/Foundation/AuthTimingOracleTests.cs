@@ -105,14 +105,14 @@ public sealed class AuthTimingOracleTests : IDisposable
         host.GetRequiredService<IActorContext>().Set(admin!.Id);
 
         var created = await users.CreateUserAsync(new CreateUserCommand(
-            new UserId(Guid.NewGuid()), "peddie", "pw", Role.Peddler, PeddlerLink: null, admin.Id, T0));
+            new UserId(Guid.NewGuid()), "supvie", "pw", Role.Supervisor, admin.Id, T0));
         Assert.True(created.IsSuccess);
         var deact = await users.SetUserActiveAsync(new SetUserActiveCommand(
             created.Value.Id, Active: false, admin.Id, T0));
         Assert.True(deact.IsSuccess);
 
         hasher.VerifyCalls.Clear();
-        AuthResult result = await auth.AuthenticateAsync("peddie", "pw");
+        AuthResult result = await auth.AuthenticateAsync("supvie", "pw");
 
         Assert.False(result.Success);
         Assert.Equal(AuthFailureReason.InvalidCredentials, result.FailureReason);

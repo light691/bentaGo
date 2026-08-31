@@ -13,7 +13,7 @@ using Xunit;
 namespace BentaGo.Tests.Persistence;
 
 /// <summary>
-/// U4 — RebuildTests (docs/05 lane 6): after a persisted two-peddler day,
+/// U4 — RebuildTests (docs/05 lane 6): after a persisted trading day,
 /// RebuildAsync replays the stream through the real fold; the rebuilt state,
 /// every balance surface, and the render equal the pre-rebuild values exactly
 /// and LedgerHead lands on the stream max.
@@ -29,9 +29,9 @@ public sealed class RebuildTests : PersistenceTestBase
         string dbPath = DbPath(root);
 
         var store = host.GetRequiredService<SqliteLedgerStore>();
-        TwoPeddlersScenario.Run(store);
+        SingleDayScenario.Run(store);
 
-        string before = TwoPeddlersScenario.Render(store).Text;
+        string before = SingleDayScenario.Render(store).Text;
         long movements = store.Movements.Count;
         long last = store.State.LastSequence;
         var funds = Enum.GetValues<Fund>().ToDictionary(f => f, f => store.State.FundsOnHand(f));
@@ -40,14 +40,8 @@ public sealed class RebuildTests : PersistenceTestBase
         {
             switch (m)
             {
-                case OpeningStock s:
-                    cells.Add((s.ProductId, s.LocationId));
-                    break;
-                case TransferOut t:
-                    cells.Add((t.ProductId, t.LocationId));
-                    break;
-                case TransferIn t:
-                    cells.Add((t.ProductId, t.LocationId));
+                case GoodsReceived g:
+                    cells.Add((g.ProductId, g.LocationId));
                     break;
                 case SaleIssue s:
                     cells.Add((s.ProductId, s.LocationId));
@@ -77,7 +71,7 @@ public sealed class RebuildTests : PersistenceTestBase
         }
 
         var stockBefore = cells.Distinct().ToDictionary(c => c, c => store.State.StockOnHand(c.Item1, c.Item2));
-        var tripsBefore = store.Context.Trips.ToDictionary(t => t.Id, t => store.State.Trip(t.Id));
+        DayLifecycleState dayBefore = store.State.Day(SingleDayScenario.Day);
 
         RebuildReceipt receipt = await store.RebuildAsync();
 
@@ -86,7 +80,7 @@ public sealed class RebuildTests : PersistenceTestBase
         Assert.Equal(last, await SqliteTest.HeadSequenceAsync(dbPath));
         Assert.Equal(last, store.State.LastSequence);
 
-        Assert.Equal(before, TwoPeddlersScenario.Render(store).Text);
+        Assert.Equal(before, SingleDayScenario.Render(store).Text);
         foreach (Fund fund in Enum.GetValues<Fund>())
         {
             Assert.Equal(funds[fund], store.State.FundsOnHand(fund));
@@ -97,10 +91,7 @@ public sealed class RebuildTests : PersistenceTestBase
             Assert.Equal(stockBefore[(product, location)], store.State.StockOnHand(product, location));
         }
 
-        foreach ((TripId trip, TripState state) in tripsBefore)
-        {
-            Assert.Equal(state, store.State.Trip(trip));
-        }
+        Assert.Equal(dayBefore, store.State.Day(SingleDayScenario.Day));
 
         Assert.Equal("ok", await SqliteTest.QuickCheckAsync(dbPath));
 

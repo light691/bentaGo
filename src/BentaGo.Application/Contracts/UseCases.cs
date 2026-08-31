@@ -17,8 +17,6 @@ namespace BentaGo.Application.Contracts;
 /// placeholder sequence (-1) to each batch; the store persists the value as
 /// given (AuditEvents has no unique key), so any number of -1 rows is legal.
 /// </summary>
-public sealed record LoadOutcome(StockLoad Document, AppendReceipt Receipt);
-
 public sealed record CheckoutOutcome(CheckoutReference Reference, bool Replayed, AppendReceipt? Receipt);
 
 public sealed record VoidOutcome(SaleVoid Document, AppendReceipt Receipt);
@@ -29,64 +27,7 @@ public sealed record AdjustmentOutcome(Adjustment Document, AppendReceipt Receip
 
 public sealed record CountOutcome(PhysicalCount Document, AppendReceipt Receipt);
 
-public sealed record CloseOutcome(DailyClose Document, AppendReceipt Receipt);
-
-public sealed record CancelOutcome(CancelRef Document, AppendReceipt Receipt);
-
-/// <summary>Peddler-scoped on-hand row: one product's current units, derived
-/// from ledger movements (never a stored stock_qty — BG-005c decision).</summary>
-public sealed record OnHandRow(ProductId Product, string? Sku, Quantity Units);
-
-public interface IOpenTripService
-{
-    /// <summary>Registers a trip (its own one-row transaction; trips are
-    /// movement-less). Enforces one active trip per peddler
-    /// (TRIP_ALREADY_ACTIVE).</summary>
-    Result<Trip> OpenTrip(NewTripCommand cmd);
-}
-
-public interface ILoadService
-{
-    /// <summary>Load, lines, TransferOut + TransferIn movements, projections,
-    /// audit — one transaction. <paramref name="peddler"/> is the acting
-    /// peddler the load is scoped to: the load's trip must belong to it
-    /// (cross-peddler access → TRIP_PEDDLER_MISMATCH).</summary>
-    Result<LoadOutcome> Load(LoadCommand cmd, PeddlerId peddler);
-}
-
-/// <summary>
-/// Trip cancellation (BG-005c): a trip with no sales is cancelled with an
-/// authorized reason; any issued loads are reverted in the same transaction
-/// (one unit of work). Scope: the canceller must be the trip's peddler.
-/// </summary>
-public interface ICancelTripService
-{
-    Result<CancelOutcome> Cancel(CancelTripCommand cmd, PeddlerId peddler);
-}
-
-/// <summary>
-/// Peddler-scoped trip reads (BG-005c): the caller names the peddler; every
-/// read is scoped to that peddler's own trips/locations, and a trip-scoped
-/// read rejects a peddler who does not own the trip (TRIP_PEDDLER_MISMATCH).
-/// On-hand quantities are derived from the movement fold — there is no stored
-/// stock_qty to consult.
-/// </summary>
-public interface ITripReadService
-{
-    /// <summary>The peddler's own trips, oldest first.</summary>
-    Result<IReadOnlyList<Trip>> ListTrips(PeddlerId peddler);
-
-    /// <summary>One trip only if it belongs to the peddler (cross-peddler rejected).</summary>
-    Result<Trip> GetTrip(PeddlerId peddler, TripId tripId);
-
-    /// <summary>The peddler's current on-hand units of one product across
-    /// their trip locations (0 when the peddler never touched the product).</summary>
-    Result<Quantity> OnHand(PeddlerId peddler, ProductId product);
-
-    /// <summary>Every product the peddler's trips have loaded or sold, with
-    /// current on-hand units per product across their trip locations.</summary>
-    Result<IReadOnlyList<OnHandRow>> OnHandAll(PeddlerId peddler);
-}
+public sealed record CloseOutcome(DayClose Document, AppendReceipt Receipt);
 
 public interface ICheckoutService
 {
@@ -126,15 +67,16 @@ public interface ICountService
 
 public interface ICloseService
 {
-    /// <summary>Close document (expected cash from State.TripCash inside the
-    /// transaction) + TripClose movement + audit — one transaction.</summary>
-    Result<CloseOutcome> Close(CloseCommand cmd);
+    /// <summary>Close document (expected cash derived inside the transaction)
+    /// + audit — one transaction. Day closes are movement-less documents.</summary>
+    Result<CloseOutcome> Close(DayCloseCommand cmd);
 }
 
 public interface IReopenService
 {
-    /// <summary>ReopenRef is document-less; the TripReopen movement + audit — one transaction.</summary>
-    Result<AppendReceipt> Reopen(ReopenCommand cmd);
+    /// <summary>The DayReopen document + audit — one transaction. A reopen
+    /// never erases the prior close (docs/decisions/0004 §6).</summary>
+    Result<AppendReceipt> Reopen(DayReopenCommand cmd);
 }
 
 /// <summary>

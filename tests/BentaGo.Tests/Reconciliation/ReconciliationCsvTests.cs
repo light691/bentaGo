@@ -27,7 +27,7 @@ public sealed class ReconciliationCsvTests
     [Fact]
     public void Transaction_QuotesSpecialChars_InLineSummary()
     {
-        (Sale sale, TripId trip, PeddlerId peddler, LocationId location, UserId user) = BuildSale(
+        (Sale sale, _) = BuildSale(
             "SKU, \"A\"", "Prod, \"1\"", new DateTimeOffset(2026, 1, 15, 8, 0, 0, TimeSpan.Zero));
 
         string csv = ReconciliationCsv.Transaction(new[] { sale }, _ => SaleStatus.Committed);
@@ -42,7 +42,7 @@ public sealed class ReconciliationCsvTests
     public void Transaction_DateUsesManilaDayBoundary()
     {
         // 2026-01-15 16:30 UTC == 2026-01-16 00:30 Asia/Manila: the day rolls over.
-        (Sale sale, _, _, _, _) = BuildSale(
+        (Sale sale, _) = BuildSale(
             "SKU", "Prod", new DateTimeOffset(2026, 1, 15, 16, 30, 0, TimeSpan.Zero));
 
         string csv = ReconciliationCsv.Transaction(new[] { sale }, _ => SaleStatus.Committed);
@@ -55,9 +55,9 @@ public sealed class ReconciliationCsvTests
     [Fact]
     public void Transaction_OrdersNewestFirst_AndShowsMethods()
     {
-        (Sale older, _, _, _, _) = BuildSale(
+        (Sale older, _) = BuildSale(
             "SKU", "Prod", new DateTimeOffset(2026, 1, 15, 4, 0, 0, TimeSpan.Zero), "R-0001");
-        (Sale newer, _, _, _, _) = BuildSale(
+        (Sale newer, _) = BuildSale(
             "SKU", "Prod", new DateTimeOffset(2026, 1, 15, 10, 0, 0, TimeSpan.Zero), "R-0002");
 
         string csv = ReconciliationCsv.Transaction(new[] { older, newer }, _ => SaleStatus.Committed);
@@ -71,9 +71,8 @@ public sealed class ReconciliationCsvTests
     public void Reconciliation_EscapesNotesAndProductName()
     {
         var report = new ReconciliationReport(
-            new TripId(Guid.NewGuid()),
-            new PeddlerId(Guid.NewGuid()),
-            new LocationId(Guid.NewGuid()),
+            new DayKey("2026-01-15"),
+            StoreLocations.Warehouse,
             "close, note \"x\"",
             new[]
             {
@@ -101,12 +100,11 @@ public sealed class ReconciliationCsvTests
         Assert.Contains("SHORTAGE", csv);
     }
 
-    private static (Sale Sale, TripId Trip, PeddlerId Peddler, LocationId Location, UserId User) BuildSale(
+    private static (Sale Sale, DayKey Day) BuildSale(
         string sku, string name, DateTimeOffset createdUtc, string receipt = "R-0001")
     {
-        var trip = new TripId(Guid.NewGuid());
-        var peddler = new PeddlerId(Guid.NewGuid());
-        var location = new LocationId(Guid.NewGuid());
+        var day = DayKey.FromUtc(createdUtc);
+        var location = StoreLocations.Warehouse;
         var user = new UserId(Guid.NewGuid());
         var product = new ProductId(Guid.NewGuid());
         var lineId = new SaleLineId(Guid.NewGuid());
@@ -114,8 +112,7 @@ public sealed class ReconciliationCsvTests
 
         Sale sale = Sale.Create(
             new SaleId(Guid.NewGuid()),
-            trip,
-            peddler,
+            day,
             location,
             receipt,
             createdUtc,
@@ -128,6 +125,6 @@ public sealed class ReconciliationCsvTests
             {
                 new PaymentLine(paymentId, PaymentMethod.Cash, "", Money.FromPesos(2m), Money.FromPesos(2m), Money.Zero),
             });
-        return (sale, trip, peddler, location, user);
+        return (sale, day);
     }
 }

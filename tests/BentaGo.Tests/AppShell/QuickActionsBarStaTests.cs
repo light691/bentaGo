@@ -3,11 +3,12 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using BentaGo.App;
-using BentaGo.App.Features.PeddlerHome;
+using BentaGo.App.Features.Home;
 using BentaGo.App.Features.Sales;
 using BentaGo.App.Mvvm;
 using BentaGo.App.Ui;
 using BentaGo.Infrastructure.Hosting;
+using BentaGo.Infrastructure.Persistence;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
@@ -38,8 +39,11 @@ public sealed class QuickActionsBarStaTests
                     development: true,
                     dataRootOverride: temp,
                     extra: ObservableObjectFactory.RegisterAppServices);
+                // The app data source reads the live SQLite fold; production
+                // migrates before the shell exists (App.OnStartup).
+                services.GetRequiredService<DbInitializer>().EnsureCreatedOrMigrateAsync().GetAwaiter().GetResult();
 
-                VerifyScreen(services, new PeddlerHomeView(), services.GetRequiredService<PeddlerHomeViewModel>(), "Home");
+                VerifyScreen(services, new HomeView(), services.GetRequiredService<HomeViewModel>(), "Home");
                 VerifyScreen(services, new SalesView(), services.GetRequiredService<SalesViewModel>(), "Sales");
             }
             finally

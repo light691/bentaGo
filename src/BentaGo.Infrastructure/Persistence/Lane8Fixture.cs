@@ -14,22 +14,16 @@ namespace BentaGo.Infrastructure.Persistence;
 
 /// <summary>
 /// Deterministic fixture for lane 8 (power loss): a database with exactly ONE
-/// sellable unit at the route, owned by fixed ids derived from a fixed seed.
-/// The crash-worker sells that unit inside a transaction delayed before
-/// COMMIT; the parent kills it mid-transaction, so recovery must yield the
-/// full transaction or none of it.
+/// sellable unit at the single warehouse, owned by fixed ids derived from a
+/// fixed seed. The crash-worker sells that unit inside a transaction delayed
+/// before COMMIT; the parent kills it mid-transaction, so recovery must yield
+/// the full transaction or none of it.
 /// </summary>
 public static class Lane8Fixture
 {
     private static readonly ScenarioIdSource Ids = new("lane8-v1");
 
-    public static TripId Trip { get; } = new(Ids.Next("trip"));
-
-    public static PeddlerId Peddler { get; } = new(Ids.Next("peddler"));
-
-    public static LocationId Store { get; } = new(Ids.Next("store"));
-
-    public static LocationId Route { get; } = new(Ids.Next("route"));
+    public static LocationId Warehouse => StoreLocations.Warehouse;
 
     public static ProductId Sardines { get; } = new(Ids.Next("sardines"));
 
@@ -37,10 +31,23 @@ public static class Lane8Fixture
 
     public static DateTimeOffset When { get; } = new(2026, 1, 15, 8, 0, 0, TimeSpan.Zero);
 
+    public static DayKey Day => DayKey.FromUtc(When);
+
     /// <summary>
-    /// Seeds a fresh data root with one trip and ONE unit of stock at the
-    /// route (via the store, so the fold/guards agree with the file). Returns
-    /// the database path.
+    /// Registers the trading day for the fixture clock (movement-less day
+    /// document) and rebinds, so builders see the day as open. Idempotent:
+    /// BindDays derives the same state from repeated documents.
+    /// </summary>
+    public static void EnsureDayOpen(ILedgerStore store)
+    {
+        store.RegisterDayOpen(new DayOpen(new DayId(Ids.Next("day")), Day, 0, User, When));
+        store.Bind();
+    }
+
+    /// <summary>
+    /// Seeds a fresh data root with ONE unit of stock at the warehouse (via
+    /// the store, so the fold/guards agree with the file). Returns the
+    /// database path.
     /// </summary>
     public static string Seed(string dataRoot)
     {
@@ -56,32 +63,16 @@ public static class Lane8Fixture
         }
 
         var store = new SqliteLedgerStore(paths, new DebugOptions());
-        store.RegisterTrip(new Trip(Trip, Peddler, Route, When, User));
-        var openLoad = new LoadId(Ids.Next("open"));
-        store.RegisterLoad(new StockLoad(openLoad, "L8-OPEN", Trip, Array.Empty<StockLoadLine>(), User, When));
+        EnsureDayOpen(store);
+        var goodsId = new GoodsId(Ids.Next("goods"));
         store.Bind();
         Result<AppendReceipt> open = store.Append(new[]
         {
-            Moves.OpeningStock(0, When, User, new LoadRef(openLoad), Sardines, Store, Quantity.Of(1)),
+            Moves.GoodsReceived(0, When, User, new GoodsRef(goodsId), Sardines, Warehouse, Quantity.Of(1)),
         });
         if (open.IsFailure)
         {
             throw new InvalidOperationException($"lane8 fixture seed failed: {open.Errors[0].Code}");
-        }
-
-        // A load-out of the single unit opens the trip (first activity) and
-        // lands the sellable last unit at the route.
-        var loadId = new LoadId(Ids.Next("load"));
-        store.RegisterLoad(new StockLoad(loadId, "L8-LOAD", Trip, Array.Empty<StockLoadLine>(), User, When));
-        store.Bind();
-        Result<AppendReceipt> load = store.Append(new Movement[]
-        {
-            Moves.TransferOut(0, When, User, new LoadRef(loadId), Sardines, Store, Quantity.Of(1)),
-            Moves.TransferIn(0, When, User, new LoadRef(loadId), Sardines, Route, Quantity.Of(1)),
-        });
-        if (load.IsFailure)
-        {
-            throw new InvalidOperationException($"lane8 fixture load failed: {load.Errors[0].Code}");
         }
 
         store.Close();
@@ -93,11 +84,12 @@ public static class Lane8Fixture
     /// </summary>
     public static (Sale Document, IReadOnlyList<Movement> Movements) BuildSale(ILedgerStore store)
     {
+        EnsureDayOpen(store);
         var saleId = new SaleId(Ids.Next("sale"));
         var lineId = new SaleLineId(Ids.Next("line"));
         var paymentId = new PaymentLineId(Ids.Next("pay"));
         Result<SaleDraft> draft = SaleBuilder.Build(store.Context, new NewSaleCommand(
-            saleId, Trip, "R-L8", User, When,
+            saleId, Day, "R-L8", User, When,
             new[]
             {
                 new NewSaleLine(lineId, Sardines, "SARD", "Sardines", Money.FromPesos(45m), Quantity.Of(1), Money.Zero),

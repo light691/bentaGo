@@ -52,10 +52,7 @@ public sealed class AuthAuditIdentityTests
     public void BatchAppendedAudits_KeepStagedSequences_RecordAuditCounterIsIndependent()
     {
         var store = new InMemoryLedgerStore();
-        var loadId = new LoadId(Guid.NewGuid());
         var product = new ProductId(Guid.NewGuid());
-        var location = new LocationId(Guid.NewGuid());
-        store.RegisterLoad(new StockLoad(loadId, "P-OPEN", default, Array.Empty<StockLoadLine>(), Actor, When));
         store.Bind();
 
         // A real commit with a batch audit: the in-memory store stages the
@@ -63,7 +60,7 @@ public sealed class AuthAuditIdentityTests
         var append = store.Append(new BentaGo.Application.Contracts.AppendBatch(
             new BentaGo.Core.Domain.Ledger.Movement[]
             {
-                Moves.OpeningStock(0, When, Actor, new LoadRef(loadId), product, location, Quantity.Of(10)),
+                Moves.GoodsReceived(0, When, Actor, new GoodsRef(new GoodsId(Guid.NewGuid())), product, StoreLocations.Warehouse, Quantity.Of(10)),
             },
             Audits: new[] { NewAudit("batch-audit") }));
         Assert.True(append.IsSuccess, append.Errors.FirstOrDefault()?.Code ?? "append failed");

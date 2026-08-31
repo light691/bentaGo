@@ -8,7 +8,6 @@ using BentaGo.Core.Common;
 using BentaGo.Core.Domain;
 using BentaGo.Core.Domain.Display;
 using BentaGo.Core.Domain.Documents;
-using BentaGo.Core.Domain.Identity;
 using BentaGo.Core.Domain.Ledger;
 using BentaGo.Core.Domain.Payments;
 using Microsoft.Extensions.DependencyInjection;
@@ -16,25 +15,20 @@ using Microsoft.Extensions.DependencyInjection;
 namespace BentaGo.App.Features.Transactions;
 
 /// <summary>
-/// BG-006b: today's transactions for the signed-in peddler (read-only
+/// BG-006b: today's transactions for the signed-in store session (read-only
 /// history over ISaleQueryService). Rows are pure projections of
 /// SaleHistoryRow — the service owns the fold, the screen only formats.
 /// </summary>
 public sealed class TransactionsViewModel : ViewModelBase, IRetainableScreen
 {
-    private readonly IActorContext _actors;
-    private readonly IUserAccountStore _users;
     private readonly ISaleQueryService _sales;
     private readonly IFocusService _focus;
-    private PeddlerId? _peddler;
     private string _filterText = "";
     private string? _stateMessage;
     private IReadOnlyList<TransactionRow> _rows = Array.Empty<TransactionRow>();
 
     public TransactionsViewModel(IServiceProvider services)
     {
-        _actors = services.GetRequiredService<IActorContext>();
-        _users = services.GetRequiredService<IUserAccountStore>();
         _sales = services.GetRequiredService<ISaleQueryService>();
         _focus = services.GetRequiredService<IFocusService>();
         RefreshCommand = new RelayCommand(async _ => await RefreshAsync());
@@ -53,17 +47,9 @@ public sealed class TransactionsViewModel : ViewModelBase, IRetainableScreen
 
     private async Task RefreshAsync()
     {
-        _peddler = await ResolvePeddlerAsync();
-        if (_peddler is null)
-        {
-            StateMessage = "No peddler link on this account - ask an admin.";
-            Rows = Array.Empty<TransactionRow>();
-            return;
-        }
-
         StateMessage = null;
         Result<IReadOnlyList<SaleHistoryRow>> result =
-            _sales.Query(_peddler.Value, new SaleHistoryFilter(ManilaToday(), null, null, null, null, null));
+            _sales.Query(new SaleHistoryFilter(ManilaToday(), null, null, null, null, null));
         if (result.IsFailure)
         {
             StateMessage = "Could not load transactions right now.";
@@ -82,18 +68,6 @@ public sealed class TransactionsViewModel : ViewModelBase, IRetainableScreen
             .ToArray();
         OnPropertyChanged(nameof(HasRows));
         OnPropertyChanged(nameof(RowCountText));
-    }
-
-    private async Task<PeddlerId?> ResolvePeddlerAsync()
-    {
-        UserId? id = _actors.CurrentUserId;
-        if (id is null)
-        {
-            return null;
-        }
-
-        User? actor = await _users.FindByIdAsync(id.Value);
-        return actor?.PeddlerLink;
     }
 
     public IReadOnlyList<TransactionRow> Rows

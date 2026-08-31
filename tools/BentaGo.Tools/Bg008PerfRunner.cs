@@ -20,52 +20,55 @@ namespace BentaGo.Tools;
 
 /// <summary>
 /// The BG-008 perf probe (docs/05 lines 486-489): measure "calculate and render
-/// a close" against a seeded file with 10,000 committed sales and 50,000
+/// a close" against a seeded file with 10,000 committed sales and ~38,000
 /// movements. Baselines FIRST (BG-003 ledger-aggregation median = the replay
 /// fold; BG-006 history-load median = SaleQueryService.Query), then the two
 /// metrics as P95 after ONE warm-up. Rules: close calculation P95 ≤ 1000 ms
 /// and report render P95 ≤ 2000 ms.
 ///
 /// The seed reuses the PerfRunner approach (register documents + Bind + a
-/// single AppendBatch of movements). The REPORTED trip carries a realistic
-/// small catalog (10 products) while a separate bulk trip fills the remaining
-/// ~30,000 movements into the fold — a visible-peddler report never walks
-/// thousands of products. The coordinator re-runs this probe at the merged
-/// head, so the tsv head row carries the sha we measured plus BENTAGO_HEAD.
+/// single AppendBatch of movements). The reported day carries a realistic
+/// small catalog (10 products) while a separate bulk block folds the remaining
+/// movements into the ledger — the day report's product scan stays small
+/// because it walks only the day's committed sales.
 /// </summary>
 public static class Bg008PerfRunner
 {
     private const int SalesCount = 10_000;
-    private const int PerfProducts = 10;        // the REPORTED trip's catalog (realistic peddler day)
-    private const int BulkProducts = 3_000;     // × 10 movements = 30,000 on the other trip (folds into the 50k)
-    private const int MovementsPerProduct = 10;
+    private const int PerfProducts = 10;        // the REPORTED day's catalog (realistic store day)
+    private const int BulkProducts = 3_000;     // × 6 movements of non-sale ledger traffic
     private const int WarmUp = 3;
     private const int Samples = 30;
 
     private static readonly ScenarioIdSource Ids = new("perf-bg008-v1");
 
-    private static readonly TripId Trip = new(Ids.Next("trip"));
-    private static readonly TripId TripB = new(Ids.Next("trip-b"));
-    private static readonly LocationId Store = new(Ids.Next("store"));
-    private static readonly LocationId Route = new(Ids.Next("route"));
-    private static readonly LocationId Route2 = new(Ids.Next("route-b"));
-    private static readonly PeddlerId Peddler = new(Ids.Next("peddler"));
-    private static readonly PeddlerId PeddlerB = new(Ids.Next("peddler-b"));
     private static readonly UserId User = new(Ids.Next("user"));
 
     private static readonly DateTimeOffset When = new(2026, 1, 15, 8, 0, 0, TimeSpan.Zero);
+
+    private static readonly DayKey Day = DayKey.FromUtc(When);
 
     /// <summary>Product id derivable per index WITHOUT the shared counter.</summary>
     private static ProductId PerfProduct(int index) =>
         new(new ScenarioIdSource($"perf-bg008-product-{index}").Next("p"));
 
+    /// <summary>
+    /// Registers the trading day (movement-less day document) and rebinds, so
+    /// builders and the close/reopen use cases see the day lifecycle. Idempotent.
+    /// </summary>
+    private static void EnsureDayOpen(ILedgerStore store)
+    {
+        store.RegisterDayOpen(new DayOpen(new DayId(Ids.Next("day")), Day, 0, User, When));
+        store.Bind();
+    }
+
     public static async Task<int> RunAsync(string root, string outPath, string head)
     {
-        Console.WriteLine("PERF: BG-008 close + report probe (10,000 sales / 50,000 movements)");
+        Console.WriteLine("PERF: BG-008 close + report probe (10,000 sales / bulk fold traffic)");
 
         var lines = new List<string>
         {
-            "# BG-008 perf probe — close calculation + report render, 10,000 sales / 50,000 movements, P95 after 3 warm-ups",
+            $"# BG-008 perf probe — close calculation + report render, {SalesCount} sales, P95 after {WarmUp} warm-ups",
             $"head\t{head}",
         };
 
@@ -80,18 +83,17 @@ public static class Bg008PerfRunner
         lines.Add($"seed\t{sales} sales / {movements} movements\t{seedWatch.ElapsedMilliseconds} ms");
 
         var store = host.GetRequiredService<SqliteLedgerStore>();
-        store.Bind();
-        PeddlerId peddler = store.Context.Trips.Single(t => t.Id == Trip).Peddler;
+        EnsureDayOpen(store);
 
         // ---- Baselines FIRST (BG-003 ledger aggregation, BG-006 history load) ----
         double aggregationMedian = Median(Timed(() =>
-            _ = LedgerState.Fold(store.Movements, store.Context.Trips, store.Context.Sales,
-                store.Context.Returns, store.Context.Loads, store.Context.Voids), Samples));
+            _ = LedgerState.Fold(store.Movements, store.Context.Sales,
+                store.Context.Returns, store.Context.Voids), Samples));
         Console.WriteLine($"BASELINE_BG003_LEDGER_AGGREGATION_MEDIAN_MS: {aggregationMedian:F2}");
         lines.Add($"baseline\tbg-003 ledger aggregation median\t{aggregationMedian:F2} ms");
 
         double historyMedian = Median(Timed(() =>
-            _ = new SaleQueryService(store).Query(peddler).Value, Samples));
+            _ = new SaleQueryService(store).Query().Value, Samples));
         Console.WriteLine($"BASELINE_BG006_HISTORY_LOAD_MEDIAN_MS: {historyMedian:F2}");
         lines.Add($"baseline\tbg-006 history-load median\t{historyMedian:F2} ms");
 
@@ -106,7 +108,7 @@ public static class Bg008PerfRunner
         {
             Close(closeService, w);
             Reopen(reopenService, w + 1);
-            _ = reportService.Build(peddler, Trip).Value;
+            _ = reportService.Build(Day).Value;
         }
 
         var closeSamples = new List<double>(Samples);
@@ -119,7 +121,7 @@ public static class Bg008PerfRunner
             closeSamples.Add(cw.Elapsed.TotalMilliseconds);
 
             var rw = Stopwatch.StartNew();
-            Result<ReconciliationReport> report = reportService.Build(peddler, Trip);
+            Result<ReconciliationReport> report = reportService.Build(Day);
             rw.Stop();
             if (report.IsFailure)
             {
@@ -160,69 +162,53 @@ public static class Bg008PerfRunner
         var store = new SqliteLedgerStore(paths, new DebugOptions());
 
         DateTimeOffset t0 = When;
-        store.RegisterTrip(new Trip(Trip, Peddler, Route, t0, User));
-        store.RegisterTrip(new Trip(TripB, PeddlerB, Route2, t0, User));
+        EnsureDayOpen(store);
 
-        // ---- Bulk stock on TripB (30,000 movements): folds into the 50k but
-        // is NOT part of the reported trip, so the report's product scan stays
-        // small (a visible-peddler report never walks thousands of products). ----
-        var bulkMovements = new List<Movement>(BulkProducts * MovementsPerProduct);
+        // ---- Bulk ledger traffic (non-sale): folds into the balances but is
+        // NOT part of the reported day's sales, so the report's product scan
+        // stays small (a day report never walks thousands of products). ----
+        var bulkMovements = new List<Movement>(BulkProducts * 6);
         for (int i = 0; i < BulkProducts; i++)
         {
             ProductId product = PerfProduct(100_000 + i);
-            string number = $"PFB-{i:D6}";
-            var openingId = new LoadId(Ids.Next($"bopen-{i}"));
-            var loadId = new LoadId(Ids.Next($"bload-{i}"));
+            var goodsId = new GoodsId(Ids.Next($"bgoods-{i}"));
             var countId = new CountId(Ids.Next($"bcount-{i}"));
             var adj1 = new AdjustmentId(Ids.Next($"badj-a-{i}"));
             var adj2 = new AdjustmentId(Ids.Next($"badj-b-{i}"));
             var adj3 = new AdjustmentId(Ids.Next($"badj-c-{i}"));
             var adj4 = new AdjustmentId(Ids.Next($"badj-d-{i}"));
 
-            store.RegisterLoad(new StockLoad(openingId, $"B-OPEN-{number}", TripB, Array.Empty<StockLoadLine>(), User, t0));
-            store.RegisterLoad(new StockLoad(loadId, $"B-LOAD-{number}", TripB,
-                new[] { new StockLoadLine(product, "SKU", "Product", Quantity.Of(50), Money.FromPesos(30m)) }, User, t0));
-            store.RegisterCount(new PhysicalCount(countId, Route2,
+            store.RegisterCount(new PhysicalCount(countId, StoreLocations.Warehouse,
                 new[] { new CountLine(product, Quantity.Of(47), null) }, User, t0));
-            store.RegisterAdjustment(new Adjustment(adj1, TripB, product, Route2, AdjustmentKind.Decrease, "perf decrease", User, t0, User));
-            store.RegisterAdjustment(new Adjustment(adj2, TripB, product, Route2, AdjustmentKind.Damage, "perf damage", User, t0, User));
-            store.RegisterAdjustment(new Adjustment(adj3, TripB, product, Route2, AdjustmentKind.Increase, "perf increase", User, t0, User));
-            store.RegisterAdjustment(new Adjustment(adj4, TripB, product, Route2, AdjustmentKind.Loss, "perf loss", User, t0, User));
+            store.RegisterAdjustment(new Adjustment(adj1, Day, product, StoreLocations.Warehouse, AdjustmentKind.Decrease, "perf decrease", User, t0, User));
+            store.RegisterAdjustment(new Adjustment(adj2, Day, product, StoreLocations.Warehouse, AdjustmentKind.Damage, "perf damage", User, t0, User));
+            store.RegisterAdjustment(new Adjustment(adj3, Day, product, StoreLocations.Warehouse, AdjustmentKind.Increase, "perf increase", User, t0, User));
+            store.RegisterAdjustment(new Adjustment(adj4, Day, product, StoreLocations.Warehouse, AdjustmentKind.Loss, "perf loss", User, t0, User));
 
-            bulkMovements.Add(Moves.OpeningStock(0, t0, User, new LoadRef(openingId), product, Store, Quantity.Of(100)));
-            bulkMovements.Add(Moves.TransferOut(0, t0, User, new LoadRef(loadId), product, Store, Quantity.Of(50)));
-            bulkMovements.Add(Moves.TransferIn(0, t0, User, new LoadRef(loadId), product, Route2, Quantity.Of(50)));
-            bulkMovements.Add(Moves.CountObserved(0, t0, User, new CountRef(countId), product, Route2, Quantity.Of(47)));
-            bulkMovements.Add(Moves.AdjustmentDecrease(0, t0, User, new AdjustmentRef(adj1), product, Route2, Quantity.Of(1), "perf decrease"));
-            bulkMovements.Add(Moves.Damage(0, t0, User, new AdjustmentRef(adj2), product, Route2, Quantity.Of(1), "perf damage"));
-            bulkMovements.Add(Moves.AdjustmentIncrease(0, t0, User, new AdjustmentRef(adj3), product, Route2, Quantity.Of(1), "perf increase"));
-            bulkMovements.Add(Moves.Loss(0, t0, User, new AdjustmentRef(adj4), product, Route2, Quantity.Of(1), "perf loss"));
-            bulkMovements.Add(Moves.TransferOut(0, t0, User, new TransferRef(new TransferId(Ids.Next($"btid-{i}"))), product, Route2, Quantity.Of(1)));
-            bulkMovements.Add(Moves.TransferIn(0, t0, User, new TransferRef(new TransferId(Ids.Next($"btid-b-{i}"))), product, Route, Quantity.Of(1)));
+            bulkMovements.Add(Moves.GoodsReceived(0, t0, User, new GoodsRef(goodsId), product, StoreLocations.Warehouse, Quantity.Of(100)));
+            bulkMovements.Add(Moves.CountObserved(0, t0, User, new CountRef(countId), product, StoreLocations.Warehouse, Quantity.Of(47)));
+            bulkMovements.Add(Moves.AdjustmentDecrease(0, t0, User, new AdjustmentRef(adj1), product, StoreLocations.Warehouse, Quantity.Of(1), "perf decrease"));
+            bulkMovements.Add(Moves.Damage(0, t0, User, new AdjustmentRef(adj2), product, StoreLocations.Warehouse, Quantity.Of(1), "perf damage"));
+            bulkMovements.Add(Moves.AdjustmentIncrease(0, t0, User, new AdjustmentRef(adj3), product, StoreLocations.Warehouse, Quantity.Of(1), "perf increase"));
+            bulkMovements.Add(Moves.Loss(0, t0, User, new AdjustmentRef(adj4), product, StoreLocations.Warehouse, Quantity.Of(1), "perf loss"));
         }
 
         store.Bind();
         AppendOrThrow(store, bulkMovements, "bulk seed failed");
 
-        // ---- Perf trip stock: a small catalog loaded onto the route. ----
-        var perfLoadMovements = new List<Movement>(PerfProducts * 3);
+        // ---- Reported-day stock: a small catalog received into the warehouse. ----
+        var perfStockMovements = new List<Movement>(PerfProducts);
         for (int i = 0; i < PerfProducts; i++)
         {
             ProductId product = PerfProduct(i);
-            var openingId = new LoadId(Ids.Next($"popen-{i}"));
-            var loadId = new LoadId(Ids.Next($"pload-{i}"));
-            store.RegisterLoad(new StockLoad(openingId, $"P-OPEN-{i}", Trip, Array.Empty<StockLoadLine>(), User, t0));
-            store.RegisterLoad(new StockLoad(loadId, $"P-LOAD-{i}", Trip,
-                new[] { new StockLoadLine(product, "SKU", "Product", Quantity.Of(2000), Money.FromPesos(30m)) }, User, t0));
-            perfLoadMovements.Add(Moves.OpeningStock(0, t0, User, new LoadRef(openingId), product, Store, Quantity.Of(2000)));
-            perfLoadMovements.Add(Moves.TransferOut(0, t0, User, new LoadRef(loadId), product, Store, Quantity.Of(2000)));
-            perfLoadMovements.Add(Moves.TransferIn(0, t0, User, new LoadRef(loadId), product, Route, Quantity.Of(2000)));
+            var goodsId = new GoodsId(Ids.Next($"pgoods-{i}"));
+            perfStockMovements.Add(Moves.GoodsReceived(0, t0, User, new GoodsRef(goodsId), product, StoreLocations.Warehouse, Quantity.Of(2000)));
         }
 
         store.Bind();
-        AppendOrThrow(store, perfLoadMovements, "perf stock seed failed");
+        AppendOrThrow(store, perfStockMovements, "perf stock seed failed");
 
-        // ---- Sales (20,000 movements: SaleIssue + Receipt per sale) on the perf trip ----
+        // ---- Sales (20,000 movements: SaleIssue + Receipt per sale) on the reported day ----
         var saleMovements = new List<Movement>(SalesCount * 2);
         for (int i = 0; i < SalesCount; i++)
         {
@@ -231,7 +217,7 @@ public static class Bg008PerfRunner
             var paymentId = new PaymentLineId(Guid.NewGuid());
             var saleId = new SaleId(Guid.NewGuid());
             var cmd = new NewSaleCommand(
-                saleId, Trip, $"R-PF-{i:D6}", User, When.AddHours(2),
+                saleId, Day, $"R-PF-{i:D6}", User, When.AddHours(2),
                 new[]
                 {
                     new NewSaleLine(lineId, product, "SKU", "Product", Money.FromPesos(45m), Quantity.Of(1), Money.Zero),
@@ -257,8 +243,8 @@ public static class Bg008PerfRunner
         store.Bind();
         AppendOrThrow(store, saleMovements, "sale append failed");
 
-        int totalMovements = bulkMovements.Count + perfLoadMovements.Count + saleMovements.Count;
-        Console.WriteLine($"SEED: {SalesCount} sales on {Trip.Value:N}; {totalMovements} movements (bulk {bulkMovements.Count} + perf stock {perfLoadMovements.Count} + sales {saleMovements.Count})");
+        int totalMovements = bulkMovements.Count + perfStockMovements.Count + saleMovements.Count;
+        Console.WriteLine($"SEED: {SalesCount} sales on day {Day}; {totalMovements} movements (bulk {bulkMovements.Count} + perf stock {perfStockMovements.Count} + sales {saleMovements.Count})");
         store.Close();
         return (SalesCount, totalMovements);
     }
@@ -274,8 +260,8 @@ public static class Bg008PerfRunner
 
     private static void Close(ICloseService service, int index)
     {
-        Result<CloseOutcome> result = service.Close(new CloseCommand(
-            new CloseId(Guid.NewGuid()), Trip, Money.FromPesos(100_000m), "perf counted", User, When.AddHours(3 + index)));
+        Result<CloseOutcome> result = service.Close(new DayCloseCommand(
+            new CloseId(Guid.NewGuid()), Day, Money.FromPesos(100_000m).Centavos, "perf counted", User, When.AddHours(3 + index)));
         if (result.IsFailure)
         {
             throw new InvalidOperationException($"close failed: {result.Errors[0].Code}: {result.Errors[0].Message}");
@@ -284,7 +270,8 @@ public static class Bg008PerfRunner
 
     private static void Reopen(IReopenService service, int index)
     {
-        Result<AppendReceipt> result = service.Reopen(new ReopenCommand(Trip, "perf reopen", User, When.AddHours(3 + index)));
+        Result<AppendReceipt> result = service.Reopen(new DayReopenCommand(
+            new DayId(Guid.NewGuid()), Day, "perf reopen", User, User, When.AddHours(3 + index)));
         if (result.IsFailure)
         {
             throw new InvalidOperationException($"reopen failed: {result.Errors[0].Code}: {result.Errors[0].Message}");

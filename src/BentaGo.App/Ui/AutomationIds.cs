@@ -22,7 +22,7 @@ public static class AutomationIds
     public const string LoginPassword = "Login.PasswordBox";
     public const string LoginSubmit = "Login.Submit";
 
-    // Peddler home
+    // Home
     public const string HomeNewSaleButton = "Home.NewSaleButton";
     public const string HomeStockButton = "Home.StockButton";
     public const string HomeEndTripButton = "Home.EndTripButton";
@@ -90,7 +90,6 @@ public static class AutomationIds
     public const string AdminImportPreview = "Admin.Import.Preview";
     public const string AdminImportConfirm = "Admin.Import.Confirm";
     public const string AdminOverviewRefresh = "Admin.Overview.Refresh";
-    public const string AdminOverviewPeddlerTabs = "Admin.Overview.PeddlerTabs";
 
     // BG-007: printer profile + test receipt + scanner diagnostics.
     public const string RailAdminDevices = "Rail.AdminDevices";

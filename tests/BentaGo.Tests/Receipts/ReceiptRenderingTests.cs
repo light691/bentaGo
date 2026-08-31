@@ -5,7 +5,6 @@ using BentaGo.Core.Domain.Documents;
 using BentaGo.Core.Domain.Identity;
 using BentaGo.Core.Domain.Payments;
 using BentaGo.Core.Domain.Receipts;
-using BentaGo.Core.Domain.Trips;
 using Xunit;
 
 namespace BentaGo.Tests.Receipts;
@@ -23,8 +22,7 @@ public class ReceiptRenderingTests
         var when = new DateTimeOffset(2026, 1, 15, 8, 0, 0, TimeSpan.Zero);
         var sale = Sale.Create(
             new SaleId(Guid.Parse("11111111-1111-1111-1111-111111111111")),
-            new TripId(Guid.Parse("22222222-2222-2222-2222-222222222222")),
-            new PeddlerId(Guid.Parse("33333333-3333-3333-3333-333333333333")),
+            new DayKey("2026-01-15"),
             new LocationId(Guid.Parse("99999999-9999-9999-9999-999999999999")),
             "R-20260115-007",
             when,
@@ -95,7 +93,7 @@ public class ReceiptRenderingTests
     {
         // 42-column layout: name(21) + qty right-aligned into 26 cols + money
         // right-aligned into 16 cols; TOTAL/CHANGE right-aligned to 42; the
-        // receipt footer keeps the number + trip/peddler ids.
+        // receipt footer keeps the number + the trading day key.
         var encoder = new EscPos80mmEncoder();
         byte[] bytes = encoder.Encode(ReceiptDocument.FromSale(SampleSale()));
         string[] lines = Encoding.UTF8.GetString(bytes)
@@ -114,8 +112,7 @@ public class ReceiptRenderingTests
         Assert.Equal(expectedTotal, lines[1]);
         Assert.Equal(expectedChange, lines[2]);
         Assert.Equal("R#R-20260115-007 2026-01-15 08:00", lines[3]);
-        Assert.StartsWith("TRIP", lines[4]);
-        Assert.StartsWith("PDL", lines[5]);
+        Assert.Equal("DAY 2026-01-15", lines[4]);
     }
 
     [Fact]

@@ -26,20 +26,20 @@ public sealed class StatusBarAndLayoutTests
     public StatusBarAndLayoutTests(AppShellStaFixture sta) => _sta = sta;
 
     [Fact]
-    public void StatusBarLeadSegmentUsesTheLiteralEmDash()
+    public void StatusBarLeadSegmentRendersLiteralText()
     {
         _sta.Run(() =>
         {
             using var session = ShellSession.Open(_sta);
             TextBlock? lead = session.Window.FindName("StatusLeadText") as TextBlock;
             Assert.NotNull(lead);
-            // Round-6: the reference status strip lead reads "Offline — local
-            // data" with a literal U+2014 em dash (XAML never decodes HTML
-            // entities, so &mdash; would render as text).
-            Assert.Equal("Offline — local data", lead.Text);
+            // BG-P1d: the reference lead reads "Local data" (the simulated-
+            // data segment and connectivity wording are gone with the pivot).
+            // Literal text only: XAML never decodes HTML entities, so
+            // &mdash;/&middot; would render as text.
+            Assert.Equal("Local data", lead.Text);
             Assert.DoesNotContain("&mdash;", lead.Text);
             Assert.DoesNotContain("&middot;", lead.Text);
-            Assert.Contains('\u2014', lead.Text);
         });
     }
 

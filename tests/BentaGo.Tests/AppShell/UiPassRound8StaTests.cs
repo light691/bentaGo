@@ -5,7 +5,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using BentaGo.App;
 using BentaGo.App.Dialogs.Payment;
-using BentaGo.App.Features.PeddlerHome;
+using BentaGo.App.Features.Home;
 using BentaGo.App.Features.Reconciliation;
 using BentaGo.App.Features.Sales;
 using BentaGo.App.Features.Stock;
@@ -14,6 +14,7 @@ using BentaGo.App.Navigation;
 using BentaGo.App.Ui;
 using BentaGo.Core.Domain;
 using BentaGo.Infrastructure.Hosting;
+using BentaGo.Infrastructure.Persistence;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
@@ -98,23 +99,20 @@ public sealed class UiPassRound8StaTests
         _sta.Run(() =>
         {
             using var scope = NewScope();
-            var viewModel = scope.Services.GetRequiredService<PeddlerHomeViewModel>();
-            var view = new PeddlerHomeView { DataContext = viewModel };
+            var viewModel = scope.Services.GetRequiredService<HomeViewModel>();
+            var view = new HomeView { DataContext = viewModel };
             using var probe = new ProbeHost(view, ProbeWidth, ProbeHeight);
             _sta.PumpIdle();
 
             var textBlocks = Descendants<TextBlock>(view).ToList();
-            // The session greeting already contains the peddler name; the old
-            // view appended Session.PeddlerName a second time.
-            Assert.Single(textBlocks, t => t.Text.StartsWith("Hello", StringComparison.Ordinal));
-            Assert.DoesNotContain(textBlocks, t => t.Text == viewModel.Session.PeddlerName);
-
-            var greeting = textBlocks.First(t => t.Text.StartsWith("Hello", StringComparison.Ordinal));
-            var online = textBlocks.First(t => t.Text == "Online");
-            double greetingCenter = Center(greeting, view).Y;
-            double onlineCenter = Center(online, view).Y;
-            Assert.True(Math.Abs(greetingCenter - onlineCenter) <= 3.0,
-                $"status line must share the greeting's visual line: greeting={greetingCenter}, online={onlineCenter}");
+            // The session identity renders once ("Welcome"); the header must
+            // not repeat the day label a second time (regression: it did),
+            // and the status line carries the day status + clock exactly once.
+            Assert.Single(textBlocks, t => t.Text.StartsWith("Welcome", StringComparison.Ordinal));
+            Assert.DoesNotContain(textBlocks, t => t.Text == viewModel.Session.DayText);
+            string statusLine = Assert.Single(
+                textBlocks, t => t.Text.Contains(viewModel.Session.DayStatus, StringComparison.Ordinal)).Text;
+            Assert.Contains(viewModel.Session.NowText, statusLine, StringComparison.Ordinal);
         });
     }
 
@@ -176,6 +174,9 @@ public sealed class UiPassRound8StaTests
             development: true,
             dataRootOverride: temp,
             extra: ObservableObjectFactory.RegisterAppServices);
+        // The app data source reads the live SQLite fold; production migrates
+        // before the shell exists (App.OnStartup), so do the same here.
+        services.GetRequiredService<DbInitializer>().EnsureCreatedOrMigrateAsync().GetAwaiter().GetResult();
         return new TestScope(temp, services);
     }
 

@@ -15,19 +15,20 @@ namespace BentaGo.Application.Services;
 /// into an open-attempt set, <see cref="Bind"/> snapshots committed + staged
 /// into the fold, and <see cref="Append(AppendBatch)"/> either commits the
 /// staged documents (success) or clears them (failure) — a failed attempt's
-/// documents never leak into a later bound snapshot (D4/R6). Trips are
-/// movement-less and commit immediately (D5 asymmetry).
+/// documents never leak into a later bound snapshot (D4/R6). Day documents
+/// are movement-less and commit immediately (D5 asymmetry).
 /// </summary>
 public sealed class InMemoryLedgerStore : ILedgerStore
 {
     private readonly List<Movement> _movements = new();
-    private readonly List<Trip> _trips = new();
+    private readonly List<DayOpen> _dayOpens = new();
+    private readonly List<DayClose> _dayCloses = new();
+    private readonly List<DayReopen> _dayReopens = new();
     private readonly List<Sale> _sales = new();
     private readonly List<Return> _returns = new();
-    private readonly List<StockLoad> _loads = new();
     private readonly List<SaleVoid> _voids = new();
     private readonly List<PhysicalCount> _counts = new();
-    private readonly List<DailyClose> _closes = new();
+    private readonly List<GoodsReceipt> _goodsReceipts = new();
     private readonly List<AuditEvent> _audits = new();
     private readonly Dictionary<string, string> _idempotency = new();
     private long _auditSequence;
@@ -35,11 +36,10 @@ public sealed class InMemoryLedgerStore : ILedgerStore
     // Open-attempt staging: documents registered since the last Bind/Append.
     private readonly List<Sale> _stagedSales = new();
     private readonly List<Return> _stagedReturns = new();
-    private readonly List<StockLoad> _stagedLoads = new();
     private readonly List<SaleVoid> _stagedVoids = new();
     private readonly List<Adjustment> _stagedAdjustments = new();
     private readonly List<PhysicalCount> _stagedCounts = new();
-    private readonly List<DailyClose> _stagedCloses = new();
+    private readonly List<GoodsReceipt> _stagedGoodsReceipts = new();
 
     public InMemoryLedgerStore()
     {
@@ -55,13 +55,15 @@ public sealed class InMemoryLedgerStore : ILedgerStore
 
     public IReadOnlyList<AuditEvent> Audits => _audits;
 
-    public void RegisterTrip(Trip trip) => _trips.Add(trip);
+    public void RegisterDayOpen(DayOpen day) => _dayOpens.Add(day);
+
+    public void RegisterDayClose(DayClose close) => _dayCloses.Add(close);
+
+    public void RegisterDayReopen(DayReopen reopen) => _dayReopens.Add(reopen);
 
     public void RegisterSale(Sale sale) => _stagedSales.Add(sale);
 
     public void RegisterReturn(Return @return) => _stagedReturns.Add(@return);
-
-    public void RegisterLoad(StockLoad load) => _stagedLoads.Add(load);
 
     public void RegisterVoid(SaleVoid @void) => _stagedVoids.Add(@void);
 
@@ -69,17 +71,17 @@ public sealed class InMemoryLedgerStore : ILedgerStore
 
     public void RegisterCount(PhysicalCount count) => _stagedCounts.Add(count);
 
-    public void RegisterClose(DailyClose @close) => _stagedCloses.Add(@close);
+    public void RegisterGoodsReceipt(GoodsReceipt receipt) => _stagedGoodsReceipts.Add(receipt);
 
     public void Bind()
     {
         IReadOnlyList<Sale> sales = Bound(_sales, _stagedSales);
         IReadOnlyList<Return> returns = Bound(_returns, _stagedReturns);
-        IReadOnlyList<StockLoad> loads = Bound(_loads, _stagedLoads);
         IReadOnlyList<SaleVoid> voids = Bound(_voids, _stagedVoids);
 
-        State.BindDocuments(_trips, sales, returns, loads, voids);
-        Context = new LedgerContext(State, _trips.ToList(), sales, returns, loads, voids, _counts.ToList(), _closes.ToList());
+        State.BindDocuments(sales, returns, voids);
+        State.BindDays(_dayOpens, _dayCloses, _dayReopens);
+        Context = new LedgerContext(State, sales, returns, voids, _counts.ToList(), _dayOpens.ToList(), _dayCloses.ToList(), _dayReopens.ToList(), _goodsReceipts.Concat(_stagedGoodsReceipts).ToList());
     }
 
     public Result<AppendOutcome> Append(AppendBatch batch)
@@ -91,7 +93,7 @@ public sealed class InMemoryLedgerStore : ILedgerStore
             return Result<AppendOutcome>.Ok(new AppendOutcome(null, Replayed: true, ReplayedPayload: storedPayload));
         }
 
-        if (batch.Movements.Count == 0)
+        if (batch.Movements.Count == 0 && batch.Audits is not { Count: > 0 })
         {
             return Result<AppendOutcome>.Fail(new DomainError("EMPTY_APPEND", "nothing to append"));
         }
@@ -190,18 +192,19 @@ public sealed class InMemoryLedgerStore : ILedgerStore
     public Task<RebuildReceipt> RebuildAsync(CancellationToken ct = default)
     {
         LedgerState rebuilt = LedgerState.Fold(
-            _movements, _trips, _sales, _returns, _loads, _voids);
+            _movements, _sales, _returns, _voids);
         State = rebuilt;
+        State.BindDays(_dayOpens, _dayCloses, _dayReopens);
         Context = NewContext();
         return Task.FromResult(new RebuildReceipt(
             rebuilt.LastSequence,
             _movements.Count,
-            _trips.Count + _sales.Count + _returns.Count + _loads.Count + _voids.Count));
+            _sales.Count + _returns.Count + _voids.Count));
     }
 
     private LedgerContext NewContext() =>
-        new(State, _trips.ToList(), _sales.ToList(), _returns.ToList(), _loads.ToList(), _voids.ToList(),
-            _counts.ToList(), _closes.ToList());
+        new(State, _sales.ToList(), _returns.ToList(), _voids.ToList(),
+            _counts.ToList(), _dayOpens.ToList(), _dayCloses.ToList(), _dayReopens.ToList(), _goodsReceipts.ToList());
 
     private static IReadOnlyList<T> Bound<T>(List<T> committed, List<T> staged) =>
         committed.Concat(staged).ToList();
@@ -210,10 +213,9 @@ public sealed class InMemoryLedgerStore : ILedgerStore
     {
         _sales.AddRange(_stagedSales);
         _returns.AddRange(_stagedReturns);
-        _loads.AddRange(_stagedLoads);
         _voids.AddRange(_stagedVoids);
         _counts.AddRange(_stagedCounts);
-        _closes.AddRange(_stagedCloses);
+        _goodsReceipts.AddRange(_stagedGoodsReceipts);
         ClearOpenAttempt();
     }
 
@@ -221,10 +223,9 @@ public sealed class InMemoryLedgerStore : ILedgerStore
     {
         _stagedSales.Clear();
         _stagedReturns.Clear();
-        _stagedLoads.Clear();
         _stagedVoids.Clear();
         _stagedAdjustments.Clear();
         _stagedCounts.Clear();
-        _stagedCloses.Clear();
+        _stagedGoodsReceipts.Clear();
     }
 }

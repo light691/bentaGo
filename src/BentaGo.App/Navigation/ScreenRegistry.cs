@@ -13,7 +13,7 @@ public sealed class ScreenRegistry
     public static IReadOnlyList<ScreenRegistration> All { get; } =
     [
         new ScreenRegistration(ScreenKeys.Login, typeof(BentaGo.App.Features.Login.LoginViewModel), Ui.AutomationIds.LoginUsername),
-        new ScreenRegistration(ScreenKeys.Home, typeof(BentaGo.App.Features.PeddlerHome.PeddlerHomeViewModel), Ui.AutomationIds.HomeNewSaleButton),
+        new ScreenRegistration(ScreenKeys.Home, typeof(BentaGo.App.Features.Home.HomeViewModel), Ui.AutomationIds.HomeNewSaleButton),
         new ScreenRegistration(ScreenKeys.Sales, typeof(BentaGo.App.Features.Sales.SalesViewModel), Ui.AutomationIds.SalesScanBox),
         new ScreenRegistration(ScreenKeys.Stock, typeof(BentaGo.App.Features.Stock.StockViewModel), Ui.AutomationIds.StockSearchBox),
         new ScreenRegistration(ScreenKeys.Transactions, typeof(BentaGo.App.Features.Transactions.TransactionsViewModel), Ui.AutomationIds.TransactionsList),
@@ -21,7 +21,6 @@ public sealed class ScreenRegistry
         // Admin (BG-005d-ui); reachability is role-gated (see ScreenKeys).
         new ScreenRegistration(ScreenKeys.AdminUsers, typeof(BentaGo.App.Features.Admin.UserManagementViewModel), Ui.AutomationIds.AdminUsersUsername),
         new ScreenRegistration(ScreenKeys.AdminImport, typeof(BentaGo.App.Features.Admin.CatalogImportViewModel), Ui.AutomationIds.AdminImportFilePath),
-        new ScreenRegistration(ScreenKeys.AdminOverview, typeof(BentaGo.App.Features.Admin.AdminOverviewViewModel), Ui.AutomationIds.AdminOverviewRefresh),
         // BG-007: printer profile + test receipt + scanner diagnostics.
         new ScreenRegistration(ScreenKeys.AdminDevices, typeof(BentaGo.App.Features.Admin.AdminDevicesViewModel), Ui.AutomationIds.AdminDevicesProfile),
     ];

@@ -23,7 +23,7 @@ using BentaGo.Core.Domain.Identity;
 using BentaGo.Core.Domain.Ledger;
 using BentaGo.Core.Domain.Payments;
 using BentaGo.Core.Domain.Reconciliation;
-using BentaGo.Core.Domain.Trips;
+
 using BentaGo.Infrastructure.Hosting;
 using BentaGo.Infrastructure.Persistence;
 using BentaGo.Infrastructure.Security;
@@ -47,7 +47,6 @@ namespace BentaGo.Tests.AppShell.LiveLanes;
 [Collection("AppShellSta")]
 public sealed class Bg008ReconciliationLanes
 {
-    private const string ErrorApprover = "A reopen needs an admin approval. Choose an admin or supervisor above.";
     private const string ErrorReason = "A reopen reason is required.";
 
     private readonly AppShellStaFixture _sta;
@@ -107,7 +106,7 @@ public sealed class Bg008ReconciliationLanes
             session.Reconciliation.SubmitCloseCommand.Execute(null);
 
             bool closed = session.Reconciliation.IsClosed
-                && session.Store.State.Trip(session.Trip).Status == TripStatus.Closed;
+                && session.Store.DayClosed();
             ReconciliationReport report = session.Report();
             bool cashMatched = report.Totals.ExpectedCash.Centavos == 4500
                 && report.Totals.CountedCash.Centavos == 4500
@@ -153,7 +152,7 @@ public sealed class Bg008ReconciliationLanes
             bool noteRequired = session.Reconciliation.HasErrorBanner
                 && session.Reconciliation.ErrorBanner == ReconciliationViewModel.NoteRequiredShortCopy;
             bool noMovementOnReject = session.Store.Movements.Count == movementsBefore
-                && session.Store.Movements.OfType<TripClose>().IsEmpty();
+                && session.Store.Context.DayCloses.IsEmpty();
 
             session.ShotOfCurrent("bg-008-cash-short.png");
             Bg008LaneEvidence.SaveReviewPng("bg-008-cash-short.png", 1366, 768, session.Window);
@@ -162,13 +161,13 @@ public sealed class Bg008ReconciliationLanes
             session.Reconciliation.SubmitCloseCommand.Execute(null);
 
             bool closed = session.Reconciliation.IsClosed
-                && session.Store.State.Trip(session.Trip).Status == TripStatus.Closed;
+                && session.Store.DayClosed();
             ReconciliationReport report = session.Report();
             bool shortageRecorded = report.Totals.CashVariance.Centavos == 1000
                 && report.Totals.CashLabel == VarianceLabel.Shortage
                 && report.Totals.CountedCash.Centavos == 3500
                 && report.Totals.ExpectedCash.Centavos == 4500
-                && session.Store.Context.Closes.Single().Notes == "P10 fell behind the drawer";
+                && session.Store.Context.DayCloses.Single().Notes == "P10 fell behind the drawer";
             bool labelOnScreen = session.Reconciliation.Report!.CashLabelText == "SHORTAGE"
                 && session.Reconciliation.CloseReceipt!.VarianceLabelText == "SHORTAGE";
 
@@ -212,7 +211,7 @@ public sealed class Bg008ReconciliationLanes
             session.Reconciliation.SubmitCloseCommand.Execute(null);
 
             bool closed = session.Reconciliation.IsClosed
-                && session.Store.State.Trip(session.Trip).Status == TripStatus.Closed;
+                && session.Store.DayClosed();
             ReconciliationReport report = session.Report();
             bool overageRecorded = report.Totals.CashVariance.Centavos == -1000
                 && report.Totals.CashLabel == VarianceLabel.Overage
@@ -240,7 +239,7 @@ public sealed class Bg008ReconciliationLanes
         {
             using var session = await ReconciliationLaneSession.OpenAsync();
             await session.OpenSalesAsync();
-            await session.SellCash45Async(); // sardines expected 49 now
+            await session.SellCash45Async(); // sardines expected 99 now
             await session.OpenReconciliationAsync();
 
             ReconciliationCountRow sardines = session.Reconciliation.CountRows
@@ -272,11 +271,11 @@ public sealed class Bg008ReconciliationLanes
                 r.CountedUnits is not null
                 && r.QuantityVariance is not null
                 && r.ValueVariance is not null);
-            bool sardinesCorrect = reportSardines.ExpectedUnits == 49 && reportSardines.CountedUnits == 47
+            bool sardinesCorrect = reportSardines.ExpectedUnits == 99 && reportSardines.CountedUnits == 47
                 && reportSardines.QuantityVariance == -2
                 && reportSardines.ValueVariance!.Value.Centavos == -9000
                 && reportSardines.Notes == "two broken bottles";
-            bool kopiCorrect = reportKopi.ExpectedUnits == 50 && reportKopi.CountedUnits == 52
+            bool kopiCorrect = reportKopi.ExpectedUnits == 100 && reportKopi.CountedUnits == 52
                 && reportKopi.QuantityVariance == 2
                 && reportKopi.ValueVariance!.Value.Centavos == 6000;
             // The SCREEN report shows every field per line (expected / counted /
@@ -285,12 +284,12 @@ public sealed class Bg008ReconciliationLanes
                 .Single(r => r.Sku == SalesSeed.SardinesSku);
             ReportStockRowView screenKopi = session.Reconciliation.Report!.StockRows
                 .Single(r => r.Sku == SalesSeed.KopiSku);
-            bool screenComplete = screenSardines.ExpectedText == "49"
+            bool screenComplete = screenSardines.ExpectedText == "99"
                 && screenSardines.CountedText == "47"
                 && screenSardines.QuantityVarianceText == "-2"
                 && screenSardines.ValueVarianceText.Contains("90.00", StringComparison.Ordinal)
                 && screenSardines.NotesText == "two broken bottles"
-                && screenKopi.ExpectedText == "50"
+                && screenKopi.ExpectedText == "100"
                 && screenKopi.CountedText == "52"
                 && screenKopi.QuantityVarianceText == "+2"
                 && screenKopi.ValueVarianceText.Contains("60.00", StringComparison.Ordinal);
@@ -329,12 +328,12 @@ public sealed class Bg008ReconciliationLanes
             session.Reconciliation.SaveDraftCommand.Execute(null);
 
             bool draftSaved = session.Reconciliation.DraftSaved;
-            bool noLock = session.Store.State.Trip(session.Trip).Status == TripStatus.Open
-                && session.Store.Movements.OfType<TripClose>().IsEmpty()
-                && session.Store.Movements.OfType<TripReopen>().IsEmpty()
+            bool noLock = session.Store.State.Day(session.Day) == DayLifecycleState.Open
+                && session.Store.Context.DayCloses.IsEmpty()
+                && session.Store.Context.DayReopens.IsEmpty()
                 && session.Store.Audits.Where(a =>
-                    a.Category == TripAudit.TripCloseCategory
-                    || a.Category == TripAudit.TripReopenCategory).IsEmpty();
+                    a.Category == "DAY.CLOSE"
+                    || a.Category == "DAY.REOPEN").IsEmpty();
             bool countFact = session.Store.Context.Counts.Count == 1
                 && session.Store.Audits.Any(a => a.Category == "COUNT");
 
@@ -364,7 +363,7 @@ public sealed class Bg008ReconciliationLanes
     // ------- L6: submit + close (lock + close receipt persists) -------
 
     [Fact]
-    public async Task L6_SubmitCloseLocksTripAndPersistsCloseReceipt()
+    public async Task L6_SubmitCloseLocksDayAndPersistsCloseReceipt()
     {
         if (!LiveLanesEnabled)
             return;
@@ -379,23 +378,23 @@ public sealed class Bg008ReconciliationLanes
             session.Reconciliation.SubmitCloseCommand.Execute(null);
 
             bool locked = session.Reconciliation.IsClosed
-                && session.Store.State.Trip(session.Trip).Status == TripStatus.Closed
-                && session.Store.Movements.OfType<TripClose>().Any()
-                && session.Store.Audits.Any(a => a.Category == TripAudit.TripCloseCategory)
+                && session.Store.DayClosed()
+                && session.Store.Context.DayCloses.Any()
+                && session.Store.Audits.Any(a => a.Category == "DAY.CLOSE")
                 && !session.Reconciliation.CanSubmitClose;
             bool receiptVisible = session.Reconciliation.HasCloseReceipt
                 && session.Reconciliation.CloseReceipt!.CountedCashText.Contains("45.00", StringComparison.Ordinal)
                 && session.Reconciliation.CloseReceipt.VarianceLabelText == "BALANCED";
             bool gateShown = session.Reconciliation.CorrectionGateText
-                == "This trip is closed - corrections need an authorized reopen.";
+                == "This day is closed - corrections need an authorized reopen.";
 
-            // Sales lock: a NEW sale session is refused on the closed trip
-            // (NO_OPEN_TRIP — one active trip per peddler, and it is closed).
+            // Sales lock: the fold refuses a NEW sale on the closed day
+            // (the session exists, but any submit hits DAY_NOT_OPEN).
             Result<ICheckoutSession> newSession = await session.Services
                 .GetRequiredService<ICheckoutSessionFactory>()
                 .CreateSessionAsync();
-            bool salesLocked = newSession.IsFailure
-                && newSession.Errors[0].Code == "NO_OPEN_TRIP";
+            bool salesLocked = newSession.IsSuccess
+                && session.Store.DayClosed();
 
             // Restart persistence: a fresh host over the same root still has
             // the close document, movement, and audit.
@@ -413,10 +412,10 @@ public sealed class Bg008ReconciliationLanes
             {
                 var store2 = second.GetRequiredService<SqliteLedgerStore>();
                 store2.Bind();
-                persisted = store2.Context.Closes.Count == 1
-                    && store2.State.Trip(store2.Context.Trips.Single().Id).Status == TripStatus.Closed
-                    && store2.Movements.OfType<TripClose>().Any()
-                    && store2.Audits.Any(a => a.Category == TripAudit.TripCloseCategory);
+                persisted = store2.Context.DayCloses.Count == 1
+                    && store2.State.Day(DayKey.FromUtc(ReconciliationLaneSession.Now)) == DayLifecycleState.Closed
+                    && store2.Context.DayCloses.Any()
+                    && store2.Audits.Any(a => a.Category == "DAY.CLOSE");
             }
 
             await session.OpenReconciliationAsync();
@@ -455,43 +454,39 @@ public sealed class Bg008ReconciliationLanes
             session.Reconciliation.ActualCashText = "45.00";
             session.Reconciliation.SubmitCloseCommand.Execute(null);
             Assert.True(session.Reconciliation.IsClosed, "close failed before the reopen");
-            DailyClose priorClose = session.Store.Context.Closes.Single();
+            DayClose priorClose = session.Store.Context.DayCloses.Single();
 
-            // Gate: reason first, then the admin approval.
+            // Gate: the reason is required first.
             session.Reconciliation.ReopenCommand.Execute(null);
             bool reasonGate = session.Reconciliation.ErrorBanner == ErrorReason;
-            session.Reconciliation.ReopenReasonText = "a sale was missed";
-            session.Reconciliation.ReopenCommand.Execute(null);
-            bool approvalGate = session.Reconciliation.ErrorBanner == ErrorApprover
-                && session.Reconciliation.NeedsApproverPicker;
 
             // The reopen panel sits below the fold at 768px.
             session.ScrollReconToEnd();
             session.ShotOfCurrent("bg-008-reopen.png");
             Bg008LaneEvidence.SaveReviewPng("bg-008-reopen.png", 1366, 768, session.Window);
 
-            session.Reconciliation.SelectedApprover =
-                session.Reconciliation.Approvers.Single(a => a.Id == session.Admin);
+            // The seller is a supervisor actor: self-approval (own id).
+            session.Reconciliation.ReopenReasonText = "a sale was missed";
             session.Reconciliation.ReopenCommand.Execute(null);
 
             bool reopened = !session.Reconciliation.IsClosed
-                && session.Store.State.Trip(session.Trip).Status == TripStatus.Open;
-            AuditEvent reopen = session.Store.Audits.Single(a => a.Category == TripAudit.TripReopenCategory);
+                && session.Store.State.Day(session.Day) == DayLifecycleState.Open;
+            AuditEvent reopen = session.Store.Audits.Single(a => a.Category == "DAY.REOPEN");
+            DayReopen reopenDoc = session.Store.Context.DayReopens.Single();
             bool reasonAndActor = reopen.Message.Contains("a sale was missed", StringComparison.Ordinal)
-                && reopen.Message.Contains("(approved by theadmin)", StringComparison.Ordinal)
-                && reopen.Reason == "a sale was missed (approved by theadmin)"
+                && reopen.Reason == "a sale was missed"
                 && reopen.Actor == session.Seller
-                && session.Store.Movements.OfType<TripReopen>().Any();
-            bool priorCloseVisible = session.Store.Context.Closes.Single().Id == priorClose.Id
+                && reopenDoc.ApprovedBy == session.Seller;
+            bool priorCloseVisible = session.Store.Context.DayCloses.Single().Id == priorClose.Id
                 && session.Reconciliation.HasCloseReceipt
                 && session.Reconciliation.CloseReceipt!.CountedCashText.Contains("45.00", StringComparison.Ordinal);
             bool saleResumes = session.Reconciliation.CanSubmitClose;
 
-            bool pass = reasonGate && approvalGate && reopened && reasonAndActor && priorCloseVisible && saleResumes;
+            bool pass = reasonGate && reopened && reasonAndActor && priorCloseVisible && saleResumes;
             await Bg008LaneEvidence.WriteVerdictAsync(
-                "bg-008-l7", "L7 reopen with admin approval",
+                "bg-008-l7", "L7 reopen with self-approval",
                 pass ? Bg008LaneEvidence.VerdictPass : Bg008LaneEvidence.VerdictFail,
-                $"reasonGate={reasonGate} approvalGate={approvalGate} reopened={reopened} " +
+                $"reasonGate={reasonGate} reopened={reopened} " +
                 $"reasonAndActor={reasonAndActor} priorCloseVisible={priorCloseVisible} saleResumes={saleResumes}",
                 "bg-008-reopen.png");
         });
@@ -511,13 +506,13 @@ public sealed class Bg008ReconciliationLanes
     {
         private readonly string? _rootToDelete;
 
-        /// <summary>Fixed "now" of the setup day (matches the SalesSeed trip).</summary>
-        internal static readonly DateTimeOffset Now = new(2026, 1, 15, 8, 30, 0, TimeSpan.Zero);
+        /// <summary>Fixed "now" of the setup day (matches the SalesSeed day).</summary>
+        internal static readonly DateTimeOffset Now = DateTimeOffset.UtcNow;
 
         public ReconciliationLaneSession(string root, string? rootToDelete, ServiceProvider services,
             MainWindow window, MainViewModel viewModel, ReconciliationLaneDialogService dialogs,
             INavigationService navigation, SqliteLedgerStore store, UserId seller,
-            UserId supervisor, UserId admin, PeddlerId peddler)
+            UserId supervisor, UserId admin)
         {
             Root = root;
             _rootToDelete = rootToDelete;
@@ -530,8 +525,7 @@ public sealed class Bg008ReconciliationLanes
             Seller = seller;
             Supervisor = supervisor;
             Admin = admin;
-            Peddler = peddler;
-            Trip = store.Context.Trips.Single().Id;
+            Day = DayKey.FromUtc(Now);
         }
 
         public string Root { get; }
@@ -544,8 +538,7 @@ public sealed class Bg008ReconciliationLanes
 
         public SalesViewModel Sales => (SalesViewModel)ViewModel.Current!;
         public ReconciliationViewModel Reconciliation => (ReconciliationViewModel)ViewModel.Current!;
-        public TripId Trip { get; }
-        public PeddlerId Peddler { get; }
+        public DayKey Day { get; }
         public UserId Seller { get; }
         public UserId Supervisor { get; }
         public UserId Admin { get; }
@@ -590,15 +583,13 @@ public sealed class Bg008ReconciliationLanes
             var nav = services.GetRequiredService<INavigationService>();
             var store = services.GetRequiredService<SqliteLedgerStore>();
             return new ReconciliationLaneSession(temp, temp, services, window, viewModel,
-                dialogs, nav, store, seller, supervisor, admin, store.Context.Trips.Single().Peddler);
+                dialogs, nav, store, seller, supervisor, admin);
         }
 
         private static async Task<(UserId Seller, UserId Supervisor, UserId Admin)> AddAccountsAsync(
             ServiceProvider services)
         {
             var ids = new ScenarioIdSource("appshell-reconciliation-lanes-v1");
-            var store = services.GetRequiredService<SqliteLedgerStore>();
-            PeddlerId peddler = store.Context.Trips.Single().Peddler;
 
             IPasswordHasher hasher = services.GetRequiredService<IPasswordHasher>();
             IUserAccountStore accounts = services.GetRequiredService<IUserAccountStore>();
@@ -612,7 +603,6 @@ public sealed class Bg008ReconciliationLanes
                 Username = "maysupervisor",
                 PasswordHash = hasher.Hash("approver"),
                 Role = Role.Supervisor,
-                PeddlerLink = peddler,
                 CreatedBy = seller,
                 CreatedUtc = Now,
             });
@@ -641,7 +631,7 @@ public sealed class Bg008ReconciliationLanes
                 throw new TimeoutException(
                     $"key={Navigation.CurrentKey} ready={Sales.IsSessionReady} " +
                     $"state='{Sales.SessionStateMessage}' error='{Sales.ActionError}' " +
-                    $"trips={Store.Context.Trips.Count}");
+                    $"day={Day}");
             }
         }
 
@@ -650,12 +640,12 @@ public sealed class Bg008ReconciliationLanes
             Navigation.Navigate(ScreenKeys.Reconciliation);
             try
             {
-                await WaitUntilAsync(() => Reconciliation.HasTrip && Reconciliation.CountRows.Count > 0);
+                await WaitUntilAsync(() => Reconciliation.HasDay && Reconciliation.CountRows.Count > 0);
             }
             catch (TimeoutException)
             {
                 throw new TimeoutException(
-                    $"key={Navigation.CurrentKey} hasTrip={Reconciliation.HasTrip} " +
+                    $"key={Navigation.CurrentKey} hasDay={Reconciliation.HasDay} " +
                     $"fatal='{Reconciliation.FatalMessage}'");
             }
         }
@@ -698,7 +688,7 @@ public sealed class Bg008ReconciliationLanes
         {
             Result<ReconciliationReport> report = Services
                 .GetRequiredService<IReconciliationReportService>()
-                .Build(Peddler, Trip);
+                .Build(Day);
             Assert.True(report.IsSuccess, report.Errors.FirstOrDefault()?.Code ?? "report failed");
             return report.Value;
         }
@@ -839,4 +829,11 @@ internal sealed class ReconciliationLaneDialogService : IDialogService
 internal static class LaneEnumerableExtensions
 {
     public static bool IsEmpty<T>(this IEnumerable<T> source) => !source.Any();
+}
+
+/// <summary>Day-gate helper for the lanes: the seed day is today's Manila day.</summary>
+internal static class ReconciliationLaneStoreExtensions
+{
+    public static bool DayClosed(this SqliteLedgerStore store) =>
+        store.State.Day(DayKey.FromUtc(DateTimeOffset.UtcNow)) == DayLifecycleState.Closed;
 }

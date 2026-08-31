@@ -12,6 +12,7 @@ using BentaGo.Application.Contracts;
 using BentaGo.Application.Services;
 using BentaGo.Core.Common;
 using BentaGo.Core.Domain;
+using BentaGo.Core.Domain.Catalog;
 using BentaGo.Core.Domain.Commands;
 using BentaGo.Core.Domain.Display;
 using BentaGo.Core.Domain.Documents;
@@ -27,16 +28,16 @@ public sealed record CorrectionsDialogResult(string Kind, string SummaryText);
 
 /// <summary>
 /// BG-007 corrections panel (F8, docs/05 BG-007 lanes 6-10): void a sale from
-/// today's trip, return a line partially (peddler stock or main store), record
-/// damage/loss, or adjust stock up/down. Every write goes through the 007b
-/// use-case services (<see cref="IVoidService"/>, <see cref="IReturnService"/>,
+/// today's trading day, return a line (store stock or another location),
+/// record damage/loss, or adjust stock up/down. Every write goes through the
+/// 007b use-case services (<see cref="IVoidService"/>, <see cref="IReturnService"/>,
 /// <see cref="IAdjustmentService"/>) — the builders own every rule, including
 /// the approval gate (VOID_APPROVAL_REQUIRED / ADJUSTMENT_APPROVAL_REQUIRED),
-/// the closed-trip gate (TRIP_CLOSED_CORRECTION), and stock sufficiency.
+/// the closed-day gate (DAY_CLOSED_CORRECTION), and stock sufficiency.
 ///
-/// Approval policy (the app half of BG-007): a peddler actor MUST choose an
-/// approver from the active Admin/Supervisor accounts; a Supervisor/Admin
-/// actor self-approves (ApprovedBy = own id). ApprovedBy is therefore always
+/// Approval policy (the app half of BG-007): a Supervisor/Admin actor
+/// self-approves (ApprovedBy = own id); other actors MUST choose an approver
+/// from the active Admin/Supervisor accounts. ApprovedBy is therefore always
 /// non-null on the commands this panel builds. A rejected builder result is
 /// surfaced as corrective copy through the FriendlyError helper pattern and
 /// leaves the ledger untouched (the use case commits nothing on failure).
@@ -56,7 +57,7 @@ public sealed class CorrectionsDialogViewModel : DialogViewModelBase<Corrections
     private readonly IUserAccountStore _users;
     private readonly AdminReadService _reads;
     private readonly ISaleQueryService _saleQueries;
-    private readonly ITripReadService _tripReads;
+    private readonly IProductStore _catalog;
     private readonly IVoidService _voids;
     private readonly IReturnService _returns;
     private readonly IAdjustmentService _adjustments;
@@ -83,8 +84,7 @@ public sealed class CorrectionsDialogViewModel : DialogViewModelBase<Corrections
     private string? _refundText;
 
     private UserId _actorId;
-    private PeddlerId _peddler;
-    private Trip _trip = null!;
+    private DayKey _day;
 
     public CorrectionsDialogViewModel(IServiceProvider services)
     {
@@ -93,7 +93,7 @@ public sealed class CorrectionsDialogViewModel : DialogViewModelBase<Corrections
         _users = services.GetRequiredService<IUserAccountStore>();
         _reads = services.GetRequiredService<AdminReadService>();
         _saleQueries = services.GetRequiredService<ISaleQueryService>();
-        _tripReads = services.GetRequiredService<ITripReadService>();
+        _catalog = services.GetRequiredService<IProductStore>();
         _voids = services.GetRequiredService<IVoidService>();
         _returns = services.GetRequiredService<IReturnService>();
         _adjustments = services.GetRequiredService<IAdjustmentService>();
@@ -114,9 +114,9 @@ public sealed class CorrectionsDialogViewModel : DialogViewModelBase<Corrections
         FocusReasonCommand = new RelayCommand(_ => _focus.Request(AutomationIds.CorrectionsReasonBox));
     }
 
-    /// <summary>Resolves the session actor, the open trip, today's trip sales,
-    /// the approver list, and the destination candidates. A failure leaves
-    /// <see cref="FatalMessage"/> set and the panel offers no actions.</summary>
+    /// <summary>Resolves the session actor, today's trading day, the day's
+    /// sales, the approver list, and the destination candidates. A failure
+    /// leaves <see cref="FatalMessage"/> set and the panel offers no actions.</summary>
     public async Task LoadAsync()
     {
         FatalMessage = null;
@@ -137,48 +137,8 @@ public sealed class CorrectionsDialogViewModel : DialogViewModelBase<Corrections
         OnPropertyChanged(nameof(SelfApprovalText));
         OnPropertyChanged(nameof(NeedsApproverPicker));
 
-        if (user.PeddlerLink is not { } peddler)
-        {
-            FatalMessage = SalesViewModel.FriendlyError("NO_PEDDLER_LINK");
-            return;
-        }
-
-        _peddler = peddler;
+        _day = DayKey.FromUtc(_clock());
         _store.Bind();
-
-        // Trip context: the open trip when one exists, otherwise the
-        // peddler's most recent one — a CLOSED trip must still reach the
-        // panel so the submit can surface the builder's TRIP_CLOSED_CORRECTION
-        // (docs/05 lane 10: the correction is attempted, then rejected, and
-        // the audit sequence is preserved). NO_OPEN_TRIP only when the
-        // peddler has no trips at all.
-        Trip? trip = null;
-        foreach (Trip candidate in _store.Context.Trips)
-        {
-            if (candidate.Peddler != _peddler)
-            {
-                continue;
-            }
-
-            if (_store.State.Trip(candidate.Id).Status == TripStatus.Open)
-            {
-                trip = candidate;
-                break;
-            }
-
-            if (trip is null || candidate.CreatedUtc > trip.CreatedUtc)
-            {
-                trip = candidate;
-            }
-        }
-
-        if (trip is null)
-        {
-            FatalMessage = SalesViewModel.FriendlyError("NO_OPEN_TRIP");
-            return;
-        }
-
-        _trip = trip;
 
         // Approver candidates: active Admin/Supervisor accounts (the
         // UserManagementViewModel read path — the account store exposes no
@@ -189,9 +149,8 @@ public sealed class CorrectionsDialogViewModel : DialogViewModelBase<Corrections
             .Select(u => new ApproverOption(u.Id, $"{u.Username} ({u.Role})"))
             .ToArray();
 
-        DateOnly today = DateOnly.FromDateTime(ManilaDisplay.UtcAsManila(_clock()).DateTime);
         Result<IReadOnlyList<SaleHistoryRow>> rows = _saleQueries.Query(
-            _peddler, new SaleHistoryFilter(today, _trip.Id, Method: null, Status: null, Receipt: null, Reference: null));
+            new SaleHistoryFilter(null, _day, Method: null, Status: null, Receipt: null, Reference: null));
         if (rows.IsFailure)
         {
             FatalMessage = SalesViewModel.FriendlyError(rows.Errors[0].Code);
@@ -205,7 +164,7 @@ public sealed class CorrectionsDialogViewModel : DialogViewModelBase<Corrections
             .ToArray();
 
         _destinations = BuildDestinations().ToArray();
-        _products = BuildProductOptions();
+        _products = await BuildProductOptionsAsync();
         SelectMode(SelectedModeId);
     }
 
@@ -232,7 +191,7 @@ public sealed class CorrectionsDialogViewModel : DialogViewModelBase<Corrections
     public IReadOnlyList<KindOption> Kinds => _kinds;
 
     /// <summary>True when the panel cannot offer corrections at all (signed
-    /// out, no peddler link, no open trip); the copy is in FatalMessage.</summary>
+    /// out, no open trading day); the copy is in FatalMessage.</summary>
     public bool HasFatalState => !string.IsNullOrEmpty(FatalMessage);
 
     public string? FatalMessage
@@ -338,12 +297,12 @@ public sealed class CorrectionsDialogViewModel : DialogViewModelBase<Corrections
     }
 
     /// <summary>Supervisor/Admin actors self-approve (ApprovedBy = own id);
-    /// a peddler actor must choose from the approver list.</summary>
+    /// a cashier actor must choose from the approver list.</summary>
     public bool IsSelfApproval { get; private set; }
 
     public string? SelfApprovalText { get; private set; }
 
-    /// <summary>The approver picker is offered to peddler actors on the
+    /// <summary>The approver picker is offered to cashier actors on the
     /// approval-carrying forms (void, damage/loss, adjustment) only.</summary>
     public bool NeedsApproverPicker => !IsSelfApproval && !IsReturnMode;
 
@@ -434,43 +393,23 @@ public sealed class CorrectionsDialogViewModel : DialogViewModelBase<Corrections
 
     private IEnumerable<DestinationOption> BuildDestinations()
     {
-        yield return new DestinationOption(null, "Peddler stock (this trip)");
-
-        // The main store is the source the trip's loads left FROM: the
-        // TransferOut movement carrying each load's ref (the CancelBuilder
-        // SourceOf derivation).
-        foreach (StockLoad load in _store.Context.Loads)
-        {
-            if (load.Trip != _trip.Id)
-            {
-                continue;
-            }
-
-            foreach (Movement movement in _store.Movements)
-            {
-                if (movement is TransferOut transferOut
-                    && transferOut.Document is LoadRef loadRef
-                    && loadRef.Id == load.Id)
-                {
-                    yield return new DestinationOption(
-                        transferOut.LocationId, $"Main store ({ShortLocation(transferOut.LocationId)})");
-                    yield break;
-                }
-            }
-        }
+        // Single-store pivot: returned units land back at the selling
+        // location (the warehouse) — null means the sale's own location.
+        yield return new DestinationOption(null, "Store stock");
     }
 
-    private AdjustmentProductOption[] BuildProductOptions()
+    private async Task<AdjustmentProductOption[]> BuildProductOptionsAsync()
     {
-        Result<IReadOnlyList<OnHandRow>> onHand = _tripReads.OnHandAll(_peddler);
-        if (onHand.IsFailure)
+        IReadOnlyList<Product> catalog = await _catalog.GetAllAsync();
+        if (catalog.Count == 0)
         {
             return [];
         }
 
-        return onHand.Value
-            .Select(r => new AdjustmentProductOption(
-                r.Product, r.Sku ?? "-", $"{r.Sku ?? "-"}  ·  on hand {r.Units.Units}"))
+        _store.Bind();
+        return catalog
+            .Select(p => new AdjustmentProductOption(
+                p.Id, p.Sku, $"{p.Sku}  ·  on hand {_store.State.StockOnHand(p.Id, StoreLocations.Warehouse).Units}"))
             .ToArray();
     }
 
@@ -487,7 +426,7 @@ public sealed class CorrectionsDialogViewModel : DialogViewModelBase<Corrections
             return;
         }
 
-        Result<SaleDetail> detail = _saleQueries.GetById(_peddler, _selectedSale.Id);
+        Result<SaleDetail> detail = _saleQueries.GetById(_selectedSale.Id);
         if (detail.IsFailure)
         {
             return;
@@ -534,7 +473,7 @@ public sealed class CorrectionsDialogViewModel : DialogViewModelBase<Corrections
             return PaymentMethod.Cash;
         }
 
-        Result<SaleDetail> detail = _saleQueries.GetById(_peddler, _selectedSale.Id);
+        Result<SaleDetail> detail = _saleQueries.GetById(_selectedSale.Id);
         foreach (SavedPaymentLine payment in detail.IsSuccess ? detail.Value.Payments : [])
         {
             if (payment.Method != PaymentMethod.Credit)
@@ -578,7 +517,7 @@ public sealed class CorrectionsDialogViewModel : DialogViewModelBase<Corrections
     {
         if (SelectedSale is null)
         {
-            return "Select the sale to void from today's trip.";
+            return "Select the sale to void from today's sales.";
         }
 
         if (!IsSelfApproval && SelectedApprover is null)
@@ -593,7 +532,7 @@ public sealed class CorrectionsDialogViewModel : DialogViewModelBase<Corrections
     {
         if (SelectedSale is null)
         {
-            return "Select the sale to return against from today's trip.";
+            return "Select the sale to return against from today's sales.";
         }
 
         if (SelectedLine is null)
@@ -716,7 +655,7 @@ public sealed class CorrectionsDialogViewModel : DialogViewModelBase<Corrections
             return;
         }
 
-        string where = destination is { } dest ? $"main store {ShortLocation(dest)}" : "peddler stock";
+        string where = destination is { } dest ? $"store {ShortLocation(dest)}" : "store stock";
         Close(new CorrectionsDialogResult(
             ModeReturn,
             $"Returned {qty} × {line.Sku} to {where}. Reason: {Reason.Trim()}."));
@@ -726,9 +665,9 @@ public sealed class CorrectionsDialogViewModel : DialogViewModelBase<Corrections
     {
         Result<AdjustmentOutcome> outcome = _adjustments.Adjust(new AdjustmentCommand(
             new AdjustmentId(Guid.NewGuid()),
-            _trip.Id,
+            _day,
             SelectedProduct!.Product,
-            _trip.Location,
+            StoreLocations.Warehouse,
             SelectedKind!.Kind,
             Quantity.Of(TryReadQuantity()!.Value),
             Reason.Trim(),
@@ -747,7 +686,7 @@ public sealed class CorrectionsDialogViewModel : DialogViewModelBase<Corrections
     }
 
     /// <summary>The approval resolution the builders demand: a self-approving
-    /// Supervisor/Admin fills its own id; a peddler's choice is validated at
+    /// Supervisor/Admin fills its own id; a cashier's choice is validated at
     /// submit time, so this never returns null past Validate().</summary>
     private UserId ResolveApprover() =>
         IsSelfApproval ? _actorId : SelectedApprover!.Id;
@@ -819,5 +758,5 @@ public sealed record AdjustmentProductOption(ProductId Product, string Sku, stri
 /// <summary>One active Admin/Supervisor account able to approve.</summary>
 public sealed record ApproverOption(UserId Id, string Label);
 
-/// <summary>Where returned units land: null = the sale's (peddler) location.</summary>
+/// <summary>Where returned units land: null = the sale's location.</summary>
 public sealed record DestinationOption(LocationId? Location, string Label);

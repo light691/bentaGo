@@ -250,7 +250,7 @@ public sealed class SalesViewModel : ValidatableViewModelBase, IRetainableScreen
         ? "-₱0.00"
         : $"-{MoneyDisplay.Peso(DiscountTotal)}";
 
-    /// <summary>False until a session is open (AUTH_ACTOR_*/NO_PEDDLER_LINK/NO_OPEN_TRIP).</summary>
+    /// <summary>False until a session is open (AUTH_ACTOR_*/DAY_NOT_OPEN).</summary>
     public bool IsSessionReady
     {
         get => _isSessionReady;
@@ -776,9 +776,9 @@ public sealed class SalesViewModel : ValidatableViewModelBase, IRetainableScreen
             "AUTH_ACTOR_NOT_SIGNED_IN" => "You are not signed in.",
             "AUTH_ACTOR_DEACTIVATED" => "This account is deactivated. Ask an admin.",
             "AUTH_ACTOR_UNKNOWN" => "Sign in again and retry.",
-            "NO_PEDDLER_LINK" => "This account is not linked to a peddler. Ask an admin.",
-            "NO_OPEN_TRIP" => "There is no open trip - open one from Stock.",
-            "TRIP_PEDDLER_MISMATCH" => "That record belongs to another peddler.",
+            // Reconciliation's no-day fatal: the fold has no open trading day
+            // (the builder code DAY_NOT_OPEN maps further down).
+            "NO_OPEN_TRIP" => "There is no open trading day - open one from Stock.",
             "STOCK_INSUFFICIENT" => "Not enough stock on hand for that quantity.",
             "BANK_REFERENCE_REQUIRED" => "A bank transfer needs a reference number.",
             "PAYMENT_TOTAL" => "Payments do not equal the sale total.",
@@ -792,7 +792,11 @@ public sealed class SalesViewModel : ValidatableViewModelBase, IRetainableScreen
             // BG-007 corrections (the 007b builders' rejection codes).
             "VOID_APPROVAL_REQUIRED" => "A void needs an approver. Choose a supervisor or admin.",
             "ADJUSTMENT_APPROVAL_REQUIRED" => "An adjustment needs an approver. Choose a supervisor or admin.",
-            "TRIP_CLOSED_CORRECTION" => "This trip is closed - corrections need an authorized reopen.",
+            "TRIP_CLOSED_CORRECTION" => "This day is closed - corrections need an authorized reopen.",
+            "DAY_CLOSED_CORRECTION" => "This day is closed - corrections need an authorized reopen.",
+            "DAY_NOT_OPEN" => "That trading day is not open - reopen it first.",
+            "DAY_NOT_NEW" => "That trading day is already open.",
+            "DAY_NOT_CLOSED" => "Only a closed day can be reopened.",
             "TRIP_CANCELLED" => "This trip is cancelled.",
             "TRIP_UNKNOWN" => "This trip no longer exists.",
             "SALE_ALREADY_VOIDED" => "That sale is already voided.",

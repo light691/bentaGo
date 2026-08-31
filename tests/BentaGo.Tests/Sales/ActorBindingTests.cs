@@ -12,13 +12,12 @@ namespace BentaGo.Tests.Sales;
 
 public class ActorBindingTests : SalesTestBase
 {
-    private static User User(UserId id, PeddlerId? link = null, bool deactivated = false) => new()
+    private static User User(UserId id, bool deactivated = false) => new()
     {
         Id = id,
         Username = "u",
         PasswordHash = "h",
-        Role = Role.Peddler,
-        PeddlerLink = link,
+        Role = Role.Supervisor,
         DeactivatedUtc = deactivated ? SeedWhen : null,
         CreatedBy = id,
         CreatedUtc = SeedWhen,
@@ -82,14 +81,13 @@ public class ActorBindingTests : SalesTestBase
         var actors = provider.GetRequiredService<IActorContext>();
         var users = provider.GetRequiredService<IUserAccountStore>();
         var id = new UserId(Guid.NewGuid());
-        var link = new PeddlerId(Guid.NewGuid());
-        await users.AddAsync(User(id, link));
+        await users.AddAsync(User(id));
         actors.Set(id);
         provider.Dispose();
 
         Result<User> r = await ActorGuard.ResolveAsync(actors, users);
         Assert.True(r.IsSuccess);
-        Assert.Equal(link, r.Value.PeddlerLink);
+        Assert.Equal(id, r.Value.Id);
     }
 
     [Fact]

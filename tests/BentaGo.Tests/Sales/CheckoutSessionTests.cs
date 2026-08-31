@@ -21,7 +21,7 @@ public class CheckoutSessionTests : SalesTestBase
     [Fact]
     public async Task Cash_Exact_Change_Commits_One_Sale_And_Decrements_Stock()
     {
-        var (host, trip, _, user, productId, product) = await SeededAsync();
+        var (host, _, user, productId, product) = await SeededAsync();
         host.Actors.Set(user);
         CheckoutSession real = NewSessionFactory(host);
 
@@ -45,14 +45,14 @@ public class CheckoutSessionTests : SalesTestBase
         Assert.Single(saved.Payments);
 
         host.Store.Bind();
-        Assert.Equal(Quantity.Of(48), host.Store.State.StockOnHand(productId,
-            host.Store.Context.FindTrip(trip)!.Location));
+        Assert.Equal(Quantity.Of(98), host.Store.State.StockOnHand(productId,
+            StoreLocations.Warehouse));
     }
 
     [Fact]
     public async Task Duplicate_Submit_Same_Key_Replays_One_Sale()
     {
-        var (host, trip, _, user, _, product) = await SeededAsync();
+        var (host, _, user, _, product) = await SeededAsync();
         host.Actors.Set(user);
         CheckoutSession session = NewSessionFactory(host);
         Assert.True(session.AddProduct(product, Quantity.Of(1)).IsSuccess);
@@ -73,31 +73,31 @@ public class CheckoutSessionTests : SalesTestBase
     [Fact]
     public async Task Oversell_Refuses_Before_Persistence_And_Cart_Recovers()
     {
-        var (host, trip, _, user, _, product) = await SeededAsync();
+        var (host, _, user, _, product) = await SeededAsync();
         host.Actors.Set(user);
         CheckoutSession session = NewSessionFactory(host);
 
-        Result<bool> first = session.AddProduct(product, Quantity.Of(50));
+        Result<bool> first = session.AddProduct(product, Quantity.Of(100));
         Assert.True(first.IsSuccess);
         Result<bool> second = session.AddProduct(product, Quantity.Of(1));
         Assert.True(second.IsFailure);
         Assert.Equal("STOCK_INSUFFICIENT", second.Errors[0].Code);
         Assert.Single(session.Lines);
 
-        // Cart recoverable: keep 50, submit, exactly one sale.
-        Assert.True(session.SetPayment(new[] { new PaymentLineDraft(PaymentMethod.Cash, Money.FromPesos(2250m), null) }, Money.Zero).IsSuccess);
+        // Cart recoverable: keep 100, submit, exactly one sale.
+        Assert.True(session.SetPayment(new[] { new PaymentLineDraft(PaymentMethod.Cash, Money.FromPesos(4500m), null) }, Money.Zero).IsSuccess);
         Result<SavedSaleState> submitted = await session.SubmitAsync();
         Assert.True(submitted.IsSuccess);
         host.Store.Bind();
         Assert.Single(host.Store.Context.Sales);
         Assert.Equal(Quantity.Of(0), host.Store.State.StockOnHand(product.Id,
-            host.Store.Context.FindTrip(trip)!.Location));
+            StoreLocations.Warehouse));
     }
 
     [Fact]
     public async Task Bank_Transfer_Requires_Reference()
     {
-        var (host, _, _, user, _, product) = await SeededAsync();
+        var (host, _, user, _, product) = await SeededAsync();
         host.Actors.Set(user);
         CheckoutSession session = NewSessionFactory(host);
         Assert.True(session.AddProduct(product, Quantity.Of(1)).IsSuccess);
@@ -117,7 +117,7 @@ public class CheckoutSessionTests : SalesTestBase
     [Fact]
     public async Task Split_Payment_Exact_Totals_And_Funds()
     {
-        var (host, _, _, user, _, product) = await SeededAsync();
+        var (host, _, user, _, product) = await SeededAsync();
         host.Actors.Set(user);
         CheckoutSession session = NewSessionFactory(host);
         Assert.True(session.AddProduct(product, Quantity.Of(3)).IsSuccess); // 135.00
@@ -140,7 +140,7 @@ public class CheckoutSessionTests : SalesTestBase
     [Fact]
     public async Task Pwd_Discount_Applies_Floor_Math()
     {
-        var (host, _, _, user, productId, _) = await SeededAsync();
+        var (host, _, user, productId, _) = await SeededAsync();
         host.Actors.Set(user);
         Product pwd = TestProduct(productId, pwd: true);
         await host.Products.UpsertBySkuAsync(pwd);
@@ -161,7 +161,7 @@ public class CheckoutSessionTests : SalesTestBase
     [Fact]
     public async Task Unflagged_Discount_Is_Rejected()
     {
-        var (host, _, _, user, _, product) = await SeededAsync();
+        var (host, _, user, _, product) = await SeededAsync();
         host.Actors.Set(user);
         CheckoutSession session = NewSessionFactory(host);
         Assert.True(session.AddProduct(product, Quantity.Of(1)).IsSuccess);
@@ -175,7 +175,7 @@ public class CheckoutSessionTests : SalesTestBase
     [Fact]
     public async Task Successful_Submit_Reserves_Receipt_On_First_Attempt()
     {
-        var (host, _, _, user, _, product) = await SeededAsync();
+        var (host, _, user, _, product) = await SeededAsync();
         host.Actors.Set(user);
         CheckoutSession session = NewSessionFactory(host);
         Assert.Equal("", session.ReceiptNumber); // reserved only at first submit
