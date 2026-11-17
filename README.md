@@ -22,14 +22,6 @@ Three roles exist: Cashier, Supervisor, and Admin. Every sensitive action record
 
 Payment methods are Cash, GCash, Maya, Bank Transfer, Credit and Utang, and Split. GCash, Maya, and Bank Transfer are recorded as payment methods. The app never connects to a payment provider.
 
-## Screenshots
-
-Captured from the running WPF app during automated verification (September 2026). Some labels still read "Field Sales" and "End Trip" from before the store-POS pivot.
-
-| Day close: cash counted against expected, balanced | Reconciliation report and audited reopen |
-|---|---|
-| ![Close / Reconcile screen showing payment summary, expected cash, counted cash and a BALANCED result](docs/screenshots/day-close-balanced.png) | ![Reconciliation report listing sales, voids, returns, adjustments and cash variance, with an admin-approved reopen](docs/screenshots/reconciliation-report.png) |
-
 ## Program status
 
 The work is tracked in units. `Done` means the store-POS MVP passes the pilot and every PR is merged.
